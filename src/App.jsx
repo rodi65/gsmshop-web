@@ -20,9 +20,37 @@ const sellerCariName = (name) => {
 };
 
 const saleTypes = ["Telefon Satışı", "Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı", "Aksesuar Satışı"];
-const mainSaleGroups = ["Telefon", "Aksesuar", "Teknik", "Diğerleri"];
-const otherSaleTypes = ["Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı"];
+const mainSaleGroups = ["Telefon", "Teknik", "Saat", "Tablet", "PC", "Elektronik"];
+const otherSaleTypes = ["Saat Satışı", "PC Satışı", "Elektronik Satışı"];
 const expenseCategories = ["Yemek", "Kargo", "Borç", "İade", "Ivır Zıvır"];
+const quickAccessoryGroups = {
+  "Kılıf": ["A Kılıf", "B Kılıf", "Silikon Kılıf"],
+  "Ekran Koruyucu": ["A Cam", "B Cam", "C Cam"],
+  "USB": ["A TYPC", "A Diğerleri", "Replika"],
+  "Şarj": ["A Şarj", "B Şarj", "Replika"],
+  "Kulaklık": ["Kulaklık"],
+};
+
+const saleGroupRank = (type) => {
+  if (type === "Telefon Satışı") return 1;
+  if (type === "Aksesuar Satışı") return 2;
+  if (type === "Teknik Servis") return 4;
+  return 3;
+};
+
+const saleGroupName = (type) => {
+  if (type === "Telefon Satışı") return "Telefon";
+  if (type === "Aksesuar Satışı") return "Aksesuar";
+  if (type === "Teknik Servis") return "Teknik Servis";
+  return "Diğerleri";
+};
+
+const sortSalesForList = (items) =>
+  [...items].sort((a, b) => {
+    const rankDiff = saleGroupRank(a.type) - saleGroupRank(b.type);
+    if (rankDiff !== 0) return rankDiff;
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
 const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik"];
 const banks = ["Ziraatbank", "İşbank", "Garantibank", "Halkbank", "Qnbbank", "Vakıfbank", "Yapıkredi"];
 const memoryOptions = ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB"];
@@ -221,6 +249,8 @@ export default function App() {
   const [active, setActive] = useState("kasa");
   const [kasaTab, setKasaTab] = useState("yeniSatis");
   const [saleGroup, setSaleGroup] = useState("Telefon");
+  const [quickAccessoryGroup, setQuickAccessoryGroup] = useState("Kılıf");
+  const [quickAccessorySubType, setQuickAccessorySubType] = useState("A Kılıf");
   const [visibleKasaStats, setVisibleKasaStats] = useState({});
   const [profitUnlocked, setProfitUnlocked] = useState(false);
   const [profitDateFrom, setProfitDateFrom] = useState("");
@@ -355,6 +385,9 @@ export default function App() {
     has(sale.cariPerson, query) ||
     has(sale.productBarcode, query)
   );
+
+  const sortedSales = sortSalesForList(sales);
+  const sortedFilteredSales = sortSalesForList(filteredSales);
 
   function addSupplier() {
     const name = newSupplierName.trim().toUpperCase();
@@ -613,17 +646,6 @@ export default function App() {
           </button>
 
           <button
-            className={active === "cihaz" && stockForm.deviceType === "Tablet" ? "nav-btn active" : "nav-btn"}
-            onClick={() => {
-              setStockForm({ ...stockForm, module: "Cihaz", deviceType: "Tablet" });
-              setActive("cihaz");
-            }}
-          >
-            <Package size={22} />
-            <span>Tablet</span>
-          </button>
-
-          <button
             className={showOtherMainMenu ? "nav-btn active" : "nav-btn"}
             onClick={() => setShowOtherMainMenu(!showOtherMainMenu)}
           >
@@ -678,15 +700,17 @@ export default function App() {
                           key={group}
                           className={saleGroup === group ? "big-sale-btn active" : "big-sale-btn"}
                           onClick={() => {
-                            if (group === "Teknik") {
-                              setSaleGroup(group);
-                              alert("Teknik satış modülü şimdilik aktif değil.");
-                              return;
-                            }
                             setSaleGroup(group);
                             setSaleForm({
                               ...saleForm,
-                              type: group === "Telefon" ? "Telefon Satışı" : group === "Aksesuar" ? "Aksesuar Satışı" : otherSaleTypes[0],
+                              type:
+                                group === "Telefon" ? "Telefon Satışı" :
+                                group === "Teknik" ? "Teknik Servis" :
+                                group === "Saat" ? "Saat Satışı" :
+                                group === "Tablet" ? "Tablet Satışı" :
+                                group === "PC" ? "PC Satışı" :
+                                group === "Elektronik" ? "Elektronik Satışı" :
+                                "Telefon Satışı",
                               productId: "",
                               search: "",
                               total: "",
@@ -700,15 +724,7 @@ export default function App() {
                       ))}
                     </div>
 
-                    {saleGroup === "Diğerleri" && (
-                      <div className="button-grid">
-                        {otherSaleTypes.map((type) => (
-                          <button key={type} className={saleForm.type === type ? "choice active" : "choice"} onClick={() => setSaleForm({ ...saleForm, type, productId: "", search: "", total: "", cash: "", card: "" })}>
-                            {type.replace(" Satışı", "")}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+
 
                     {!isAccessorySale && (
                       <input placeholder="Müşteri adı soyadı / telefon" value={saleForm.customer} onChange={(e) => setSaleForm({ ...saleForm, customer: e.target.value, cariPerson: saleForm.cariPerson || e.target.value })} />
@@ -762,6 +778,71 @@ export default function App() {
                     <button className="primary" onClick={saveSale}><Plus size={16} /> Satışı Kaydet</button>
                   </div>
 
+                  <div className="card">
+                    <h2>Aksesuar Hızlı Seçim</h2>
+                    <p>Kasa satış ekranında aksesuar grubunu hızlı seç.</p>
+
+                    <div className="quick-accessory-grid">
+                      {Object.keys(quickAccessoryGroups).map((group) => (
+                        <button
+                          key={group}
+                          className={quickAccessoryGroup === group ? "big-sale-btn active" : "big-sale-btn"}
+                          onClick={() => {
+                            setQuickAccessoryGroup(group);
+                            setQuickAccessorySubType(quickAccessoryGroups[group][0]);
+                            setSaleGroup("Aksesuar");
+                            setSaleForm({
+                              ...saleForm,
+                              type: "Aksesuar Satışı",
+                              search: `${group} ${quickAccessoryGroups[group][0]}`,
+                              productId: "",
+                              total: "",
+                              cash: "",
+                              card: "",
+                            });
+                          }}
+                        >
+                          {group}
+                        </button>
+                      ))}
+                    </div>
+
+                    {(quickAccessoryGroup === "Kılıf" || quickAccessoryGroup === "Ekran Koruyucu") && (
+                      <>
+                        <h3>{quickAccessoryGroup} Alt Seçenekleri</h3>
+                        <div className="button-grid">
+                          {quickAccessoryGroups[quickAccessoryGroup].map((subType) => (
+                            <button
+                              key={subType}
+                              className={quickAccessorySubType === subType ? "choice active" : "choice"}
+                              onClick={() => {
+                                setQuickAccessorySubType(subType);
+                                setSaleGroup("Aksesuar");
+                                setSaleForm({
+                                  ...saleForm,
+                                  type: "Aksesuar Satışı",
+                                  search: `${quickAccessoryGroup} ${subType}`,
+                                  productId: "",
+                                  total: "",
+                                  cash: "",
+                                  card: "",
+                                });
+                              }}
+                            >
+                              {subType}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    <div className="close-summary accessory-pick-summary">
+                      <small>SEÇİLEN AKSESUAR</small>
+                      <div><span>Grup</span><b>{quickAccessoryGroup}</b></div>
+                      <div><span>Alt</span><b>{quickAccessorySubType}</b></div>
+                    </div>
+                  </div>
+
 
                 </div>
               </>
@@ -770,8 +851,9 @@ export default function App() {
             {kasaTab === "satisListesi" && (
               <section className="card">
                 <h2>Satış Listesi</h2>
-                <Table headers={["No", "Saat", "Ürün", "Müşteri", "Nakit", "Kart", "Kalan", "Kâr", "İşlem", "Sil"]} rows={sales.map((sale, index) => [
+                <Table headers={["No", "Grup", "Saat", "Ürün", "Müşteri", "Nakit", "Kart", "Kalan", "Kâr", "İşlem", "Sil"]} rows={sortedSales.map((sale, index) => [
                   index + 1,
+                  saleGroupName(sale.type),
                   new Date(sale.date).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
                   sale.productName,
                   sale.customer || "-",
@@ -1081,7 +1163,8 @@ export default function App() {
                 <h3>Stok Sonuçları</h3>
                 <StockTable stock={filteredStock} setEditingStock={setEditingStock} deleteStock={deleteStock} />
                 <h3>Satış Sonuçları</h3>
-                <Table headers={["Ürün", "Müşteri / Cari Kişi", "Satış", "Nakit", "Kart", "Kalan", "Düzelt", "Sil"]} rows={filteredSales.map((sale) => [
+                <Table headers={["Grup", "Ürün", "Müşteri / Cari Kişi", "Satış", "Nakit", "Kart", "Kalan", "Düzelt", "Sil"]} rows={sortedFilteredSales.map((sale) => [
+                  saleGroupName(sale.type),
                   sale.productName,
                   sale.cariPerson || sale.customer || "-",
                   sale.total,

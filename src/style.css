@@ -33,7 +33,7 @@ small { color: #64748b; }
 .hero p { margin: 4px 0 0; color: #64748b; }
 .status-pill { background: #020617; color: white; border-radius: 999px; padding: 12px 18px; font-weight: 900; }
 
-.nav-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.nav-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
 .nav-btn {
   min-height: 78px; border-radius: 20px; background: white; color: #0f172a;
   border: 1px solid #e2e8f0; display: flex; flex-direction: column;
@@ -328,4 +328,23 @@ small { color: #64748b; }
 
 @media (max-width: 800px) {
   .big-sale-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.quick-accessory-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.quick-accessory-grid .big-sale-btn {
+  min-height: 82px;
+}
+
+.accessory-pick-summary {
+  margin-top: 14px;
+}
+
+@media (max-width: 800px) {
+  .quick-accessory-grid { grid-template-columns: repeat(2, 1fr); }
 }
