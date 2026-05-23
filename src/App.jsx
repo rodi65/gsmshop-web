@@ -27,6 +27,7 @@ const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik"];
 const banks = ["Ziraat", "İş Bankası", "Garanti", "Akbank", "Yapı Kredi", "Halkbank", "VakıfBank", "QNB", "Enpara", "Diğer"];
 const categories = ["Kılıf", "Şarj", "Koruyucu", "Kulaklık", "Blutut Kulaklık"];
 const brands = ["Apple", "Samsung", "Huawei", "Xiaomi", "Oppo", "Vivo", "Honor", "Realme", "Tecno", "Poco", "OnePlus", "TCL", "Infinix", "Alcatel", "Motorola"];
+const memoryOptions = ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB"];
 
 const modelsByBrand = {
   Apple: ["iPhone 17 Pro Max", "iPhone 17 Pro", "iPhone Air", "iPhone 17", "iPhone 16 Pro Max", "iPhone 16 Pro", "iPhone 16", "iPhone 15 Pro Max", "iPhone 15 Pro", "iPhone 15", "Apple Watch Ultra 3", "Apple Watch Series 11", "Apple Watch SE 3"],
@@ -261,11 +262,15 @@ export default function App() {
     profit: sales.reduce((sum, sale) => sum + Number(sale.profit || 0), 0),
   };
 
+  const supplierOptions = useMemo(() => {
+    return Array.from(new Set(stock.map((product) => product.supplier).filter(Boolean))).sort();
+  }, [stock]);
+
   const filteredStock = stock.filter((product) =>
     !query ||
     has(productTitle(product), query) ||
     has(product.barcode, query) ||
-    has(product.supplier, query) ||
+    has(product.supplier || product.sellerPerson || "-", query) ||
     has(product.brand, query) ||
     has(product.model, query) ||
     has(product.name, query) ||
@@ -317,7 +322,7 @@ export default function App() {
       barcode: cleanBarcode(stockForm.barcode),
       buy: Number(stockForm.buy),
       sell: Number(stockForm.sell),
-      qty: Number(stockForm.qty),
+      qty: module === "Cihaz" ? 1 : Number(stockForm.qty),
       supplierPaid: Number(stockForm.supplierPaid || 0),
       acquisitionType: stockForm.acquisitionType || "Müşteri",
       sellerPerson: stockForm.sellerPerson || "",
@@ -328,16 +333,27 @@ export default function App() {
     };
   }
 
-  function validateStock() {
-    if (!stockForm.supplier.trim()) return "Tedarikçi / satıcı firma yaz";
-    if (!stockForm.buy || !stockForm.sell || !stockForm.qty) return "Alış, satış ve stok adedi yaz";
+  function validateStock(module = stockForm.module) {
+    const isDevice = module === "Cihaz";
+    const isCustomerPurchase = isDevice && (stockForm.acquisitionType || "Müşteri") === "Müşteri";
+
+    if (!isCustomerPurchase && !stockForm.supplier.trim()) return "Tedarikçi / satıcı firma seç";
+    if (isCustomerPurchase && !stockForm.sellerPerson.trim()) return "Satanın adı soyadı yaz";
+    if (isCustomerPurchase && !stockForm.sellerPhone.trim()) return "Satanın telefonu yaz";
+
+    if (isDevice) {
+      if (!stockForm.buy || !stockForm.sell) return "Alış ve satış fiyatı yaz";
+    } else {
+      if (!stockForm.buy || !stockForm.sell || !stockForm.qty) return "Alış, satış ve stok adedi yaz";
+    }
+
     if (!stockForm.barcode) return "Barkod / IMEI yaz";
     if (stock.some((product) => product.barcode === stockForm.barcode)) return "Bu Barkod / IMEI zaten kayıtlı";
     return "";
   }
 
   function saveStock(module = stockForm.module) {
-    const error = validateStock();
+    const error = validateStock(module);
     if (error) return alert(error);
 
     setStock([buildStockItem(module), ...stock]);
@@ -528,7 +544,7 @@ export default function App() {
           <section className="card">
             <h2>Cihaz Kaydı</h2>
             <p>Cihaz girişleri buradan yapılır. Eklenen cihazlar Stok bölümüne otomatik eklenir.</p>
-            <DeviceStockForm stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} />
+            <DeviceStockForm stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} supplierOptions={supplierOptions} />
           </section>
         )}
 
@@ -563,7 +579,7 @@ export default function App() {
                 </div>
 
                 {stockForm.module === "Cihaz" ? (
-                  <DeviceStockForm stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} />
+                  <DeviceStockForm stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} supplierOptions={supplierOptions} />
                 ) : (
                   <AccessoryStockForm stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} />
                 )}
@@ -629,7 +645,7 @@ export default function App() {
   );
 }
 
-function DeviceStockForm({ stockForm, setStockForm, saveStock }) {
+function DeviceStockForm({ stockForm, setStockForm, saveStock, supplierOptions = [] }) {
   return (
     <>
       <div className="form-grid">
@@ -651,24 +667,32 @@ function DeviceStockForm({ stockForm, setStockForm, saveStock }) {
           {(modelsByBrand[stockForm.brand] || []).map((model) => <option key={model}>{model}</option>)}
         </select>
 
-        <input placeholder="Hafıza" value={stockForm.memory} onChange={(event) => setStockForm({ ...stockForm, module: "Cihaz", memory: event.target.value })} />
+        <select value={stockForm.memory} onChange={(event) => setStockForm({ ...stockForm, module: "Cihaz", memory: event.target.value })}>
+          {memoryOptions.map((memory) => <option key={memory}>{memory}</option>)}
+        </select>
         <input placeholder="Barkod / IMEI" inputMode="numeric" maxLength={15} value={stockForm.barcode} onChange={(event) => setStockForm({ ...stockForm, module: "Cihaz", barcode: cleanBarcode(event.target.value) })} />
-        <input placeholder="Tedarikçi / Satıcı firma" value={stockForm.supplier} onChange={(event) => setStockForm({ ...stockForm, module: "Cihaz", supplier: event.target.value })} />
-
-        <select value={stockForm.acquisitionType || "Müşteri"} onChange={(event) => setStockForm({ ...stockForm, module: "Cihaz", acquisitionType: event.target.value })}>
+        <select value={stockForm.acquisitionType || "Müşteri"} onChange={(event) => setStockForm({ ...stockForm, module: "Cihaz", acquisitionType: event.target.value, supplier: event.target.value === "Müşteri" ? "" : stockForm.supplier })}>
           <option>Müşteri</option>
           <option>Tedarikçi Firma</option>
         </select>
 
+        {(stockForm.acquisitionType || "Müşteri") === "Tedarikçi Firma" && (
+          <>
+            <input list="supplier-options" placeholder="Tedarikçi Firma seç veya yaz" value={stockForm.supplier} onChange={(event) => setStockForm({ ...stockForm, module: "Cihaz", supplier: event.target.value })} />
+            <datalist id="supplier-options">
+              {supplierOptions.map((supplier) => <option key={supplier} value={supplier} />)}
+            </datalist>
+          </>
+        )}
+
         <input type="number" placeholder="Alış" value={stockForm.buy} onChange={(event) => setStockForm({ ...stockForm, module: "Cihaz", buy: event.target.value })} />
         <input type="number" placeholder="Satış" value={stockForm.sell} onChange={(event) => setStockForm({ ...stockForm, module: "Cihaz", sell: event.target.value })} />
         <input type="number" placeholder="Ödenen" value={stockForm.supplierPaid} onChange={(event) => setStockForm({ ...stockForm, module: "Cihaz", supplierPaid: event.target.value })} />
-        <input type="number" placeholder="Stok adedi" value={stockForm.qty} onChange={(event) => setStockForm({ ...stockForm, module: "Cihaz", qty: event.target.value })} />
       </div>
 
       {(stockForm.acquisitionType || "Müşteri") === "Müşteri" && (
         <div className="conditional-panel">
-          <h3>Müşteriden Alım Bilgileri</h3>
+          <h3>Müşteriden Alım Bilgileri</h3><p className="mini-note">Alım tipi Müşteri seçildiğinde tedarikçi firma bilgisi istenmez.</p>
           <div className="form-grid">
             <input placeholder="Satanın Adı Soyadı" value={stockForm.sellerPerson} onChange={(event) => setStockForm({ ...stockForm, module: "Cihaz", sellerPerson: event.target.value })} />
             <input placeholder="Satanın Telefonu" value={stockForm.sellerPhone} onChange={(event) => setStockForm({ ...stockForm, module: "Cihaz", sellerPhone: event.target.value })} />
@@ -718,7 +742,7 @@ function StockTable({ stock, setEditingStock }) {
         product.qty,
         money(product.buy),
         money(product.sell),
-        product.supplier,
+        product.supplier || product.sellerPerson || "-",
         <button className="edit-btn" onClick={() => setEditingStock({ ...product })}><Pencil size={14} /> Düzenle</button>,
       ])}
     />

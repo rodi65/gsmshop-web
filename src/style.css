@@ -299,3 +299,9 @@ small { color: #64748b; }
   .two { grid-template-columns: 1fr; }
   .button-grid { grid-template-columns: 1fr 1fr; }
 }
+
+.mini-note {
+  margin: -4px 0 10px;
+  color: #64748b;
+  font-size: 13px;
+}
