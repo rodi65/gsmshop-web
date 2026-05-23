@@ -171,7 +171,7 @@ export default function App() {
         <header className="hero">
           <div>
             <h1>GSMSHOP</h1>
-            <p>Alacaklarım = eksik ödeyen müşteriler. Borçlarım = mal aldığım tedarikçiler.</p>
+            <p>Web kasa, stok, alacak ve borç takip sistemi.</p>
           </div>
           <div className="status-pill">WEB TEST</div>
         </header>
@@ -181,8 +181,6 @@ export default function App() {
             ["kasa", "Kasa", Wallet],
             ["cihaz", "Cihaz/Stok", Smartphone],
             ["aksesuar", "Aksesuar", Headphones],
-            ["alacak", "ALACAKLARIM", Wallet],
-            ["borc", "Borçlarım", Wallet],
             ["sorgu", "Sorgulama", Search],
             ["vole", "Vole", TrendingUp],
             ["tamir", "Tamir", Wrench],
@@ -195,6 +193,11 @@ export default function App() {
 
         {active === "kasa" && (
           <section className="section">
+            <div className="kasa-subtabs">
+              <button className="choice active" type="button">Yeni Satış</button>
+              <button className="choice" type="button" onClick={() => setActive("alacak")}>ALACAKLARIM</button>
+              <button className="choice" type="button" onClick={() => setActive("borc")}>Borçlarım</button>
+            </div>
             <div className="stats five">
               <Stat title="Toplam Satış" value={money(report.total)} />
               <Stat title="Nakit" value={money(report.cash)} />
@@ -250,7 +253,7 @@ export default function App() {
               </div>
 
               <div className="card">
-                <h2>Satış Listesi <small>Yanlış satışta düzenle</small></h2>
+                <h2>Satış Listesi</h2>
                 <Table headers={["No", "Saat", "Ürün", "Müşteri", "Nakit", "Kart", "Kalan", "Kâr", "İşlem"]} rows={sales.map((s, i) => [
                   i + 1,
                   new Date(s.date).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
@@ -369,7 +372,7 @@ function StockSection({ title, only, stock, stockForm, setStockForm, saveStock, 
         <button className="primary" onClick={saveStock}><Plus size={16}/> Stok Kaydet</button>
       </div>
       <div className="card">
-        <h2>{title} Listesi <small>Yanlış stok kaydında düzenle</small></h2>
+        <h2>{title} Listesi</h2>
         <StockTable stock={visible} setEditingStock={setEditingStock} />
       </div>
     </section>
