@@ -20,6 +20,9 @@ const sellerCariName = (name) => {
 };
 
 const saleTypes = ["Telefon Satışı", "Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı", "Aksesuar Satışı"];
+const mainSaleGroups = ["Telefon", "Aksesuar", "Teknik", "Diğerleri"];
+const otherSaleTypes = ["Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı"];
+const expenseCategories = ["Yemek", "Kargo", "Borç", "İade", "Ivır Zıvır"];
 const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik"];
 const banks = ["Ziraatbank", "İşbank", "Garantibank", "Halkbank", "Qnbbank", "Vakıfbank", "Yapıkredi"];
 const memoryOptions = ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB"];
@@ -216,7 +219,8 @@ function Table({ headers, rows }) {
 
 export default function App() {
   const [active, setActive] = useState("kasa");
-  const [kasaTab, setKasaTab] = useState("satis");
+  const [kasaTab, setKasaTab] = useState("yeniSatis");
+  const [saleGroup, setSaleGroup] = useState("Telefon");
   const [visibleKasaStats, setVisibleKasaStats] = useState({});
   const [profitUnlocked, setProfitUnlocked] = useState(false);
   const [profitDateFrom, setProfitDateFrom] = useState("");
@@ -239,6 +243,8 @@ export default function App() {
     { id: 1, type: "Bankaya Giden", amount: "40.000 TL", note: "POSTAN Gelen - Garantibank", bank: "Garantibank", date: new Date().toISOString() },
   ]);
   const [saleForm, setSaleForm] = useState({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
+  const [expenses, setExpenses] = useState([]);
+  const [expenseForm, setExpenseForm] = useState({ category: "Yemek", amount: "", note: "" });
   const [stockForm, setStockForm] = useState(emptyStockForm);
   const [editingSale, setEditingSale] = useState(null);
   const [editingStock, setEditingStock] = useState(null);
@@ -288,12 +294,17 @@ export default function App() {
     profit: sales.reduce((sum, sale) => sum + Number(sale.profit || 0), 0),
   };
 
+  const expenseReport = {
+    total: expenses.reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
+  };
+
   const bankReport = {
     totalToBank: bankMovements.filter((item) => item.type === "Bankaya Giden").reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
     withdrawnFromBank: bankMovements.filter((item) => item.type === "Bankadan Çekilen").reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
   };
   bankReport.remainingInBank = Math.max(bankReport.totalToBank - bankReport.withdrawnFromBank, 0);
   const cashWithBankIncoming = report.cash + bankReport.withdrawnFromBank;
+  const cashAfterExpenses = Math.max(cashWithBankIncoming - expenseReport.total, 0);
 
   const todayKey = new Date().toISOString().slice(0, 10);
   const monthKey = new Date().toISOString().slice(0, 7);
@@ -372,6 +383,30 @@ export default function App() {
   function deleteSupplierDebt(supplierName) {
     if (!askDeletePassword()) return alert("Şifre yanlış. Silme işlemi iptal edildi.");
     setStock(stock.filter((product) => product.supplier !== supplierName));
+  }
+
+  function saveExpense() {
+    const amount = parseMoneyInput(expenseForm.amount);
+    if (!amount) return alert("Gider tutarını yaz");
+    if (expenseForm.category === "Borç" && !expenseForm.note.trim()) return alert("Borç giderinde Not zorunludur");
+
+    setExpenses([
+      {
+        id: Date.now(),
+        category: expenseForm.category,
+        amount: money(amount),
+        note: expenseForm.note.trim(),
+        date: new Date().toISOString(),
+      },
+      ...expenses,
+    ]);
+
+    setExpenseForm({ category: "Yemek", amount: "", note: "" });
+  }
+
+  function deleteExpense(id) {
+    if (!askDeletePassword()) return alert("Şifre yanlış. Silme işlemi iptal edildi.");
+    setExpenses(expenses.filter((item) => item.id !== id));
   }
 
   function saveBankCashIncoming() {
@@ -611,11 +646,13 @@ export default function App() {
         {active === "kasa" && (
           <section className="section">
             <div className="kasa-subtabs">
-              <button className={kasaTab === "satis" ? "choice active" : "choice"} onClick={() => setKasaTab("satis")}>Yeni Satış</button>
+              <button className={kasaTab === "yeniSatis" ? "choice active" : "choice"} onClick={() => setKasaTab("yeniSatis")}>Yeni Satış</button>
+              <button className={kasaTab === "satisListesi" ? "choice active" : "choice"} onClick={() => setKasaTab("satisListesi")}>Satış Listesi</button>
+              <button className={kasaTab === "giderler" ? "choice active" : "choice"} onClick={() => setKasaTab("giderler")}>Giderler</button>
               <button className={kasaTab === "bankadanNakit" ? "choice active" : "choice"} onClick={() => setKasaTab("bankadanNakit")}>Bankadan Nakit Gelen</button>
             </div>
 
-            {kasaTab === "satis" && (
+            {kasaTab === "yeniSatis" && (
               <>
                 <div className="stats four">
                   <button className="stat-button" onClick={() => revealKasaStat("total")}>
@@ -635,13 +672,43 @@ export default function App() {
                 <div className="grid sale-layout">
                   <div className="card">
                     <h2>Yeni Satış</h2>
-                    <div className="button-grid">
-                      {saleTypes.map((type) => (
-                        <button key={type} className={saleForm.type === type ? "choice active" : "choice"} onClick={() => setSaleForm({ ...saleForm, type, productId: "", search: "", total: "", cash: "", card: "" })}>
-                          {type.replace(" Satışı", "")}
+                    <div className="big-sale-grid">
+                      {mainSaleGroups.map((group) => (
+                        <button
+                          key={group}
+                          className={saleGroup === group ? "big-sale-btn active" : "big-sale-btn"}
+                          onClick={() => {
+                            if (group === "Teknik") {
+                              setSaleGroup(group);
+                              alert("Teknik satış modülü şimdilik aktif değil.");
+                              return;
+                            }
+                            setSaleGroup(group);
+                            setSaleForm({
+                              ...saleForm,
+                              type: group === "Telefon" ? "Telefon Satışı" : group === "Aksesuar" ? "Aksesuar Satışı" : otherSaleTypes[0],
+                              productId: "",
+                              search: "",
+                              total: "",
+                              cash: "",
+                              card: "",
+                            });
+                          }}
+                        >
+                          {group}
                         </button>
                       ))}
                     </div>
+
+                    {saleGroup === "Diğerleri" && (
+                      <div className="button-grid">
+                        {otherSaleTypes.map((type) => (
+                          <button key={type} className={saleForm.type === type ? "choice active" : "choice"} onClick={() => setSaleForm({ ...saleForm, type, productId: "", search: "", total: "", cash: "", card: "" })}>
+                            {type.replace(" Satışı", "")}
+                          </button>
+                        ))}
+                      </div>
+                    )}
 
                     {!isAccessorySale && (
                       <input placeholder="Müşteri adı soyadı / telefon" value={saleForm.customer} onChange={(e) => setSaleForm({ ...saleForm, customer: e.target.value, cariPerson: saleForm.cariPerson || e.target.value })} />
@@ -688,28 +755,74 @@ export default function App() {
                       <div><span>Nakit</span><b>{money(saleCash)}</b></div>
                       <div><span>Kart</span><b>{money(saleCard)}</b></div>
                       <div><span>Kalan</span><b>{money(saleRemaining)}</b></div>
+                      <div><span>Gider</span><b>{money(expenseReport.total)}</b></div>
+                      <div><span>Net Nakit</span><b>{money(cashAfterExpenses)}</b></div>
                     </div>
 
                     <button className="primary" onClick={saveSale}><Plus size={16} /> Satışı Kaydet</button>
                   </div>
 
-                  <div className="card">
-                    <h2>Satış Listesi</h2>
-                    <Table headers={["No", "Saat", "Ürün", "Müşteri", "Nakit", "Kart", "Kalan", "Kâr", "İşlem", "Sil"]} rows={sales.map((sale, index) => [
-                      index + 1,
-                      new Date(sale.date).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
-                      sale.productName,
-                      sale.customer || "-",
-                      sale.cash,
-                      sale.card,
-                      money(sale.remaining),
-                      money(sale.profit),
-                      <button className="edit-btn" onClick={() => setEditingSale({ ...sale })}><Pencil size={14} /> Düzenle</button>,
-                      <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
-                    ])} />
-                  </div>
+
                 </div>
               </>
+            )}
+
+            {kasaTab === "satisListesi" && (
+              <section className="card">
+                <h2>Satış Listesi</h2>
+                <Table headers={["No", "Saat", "Ürün", "Müşteri", "Nakit", "Kart", "Kalan", "Kâr", "İşlem", "Sil"]} rows={sales.map((sale, index) => [
+                  index + 1,
+                  new Date(sale.date).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+                  sale.productName,
+                  sale.customer || "-",
+                  sale.cash,
+                  sale.card,
+                  money(sale.remaining),
+                  money(sale.profit),
+                  <button className="edit-btn" onClick={() => setEditingSale({ ...sale })}><Pencil size={14} /> Düzenle</button>,
+                  <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
+                ])} />
+              </section>
+            )}
+
+            {kasaTab === "giderler" && (
+              <section className="card">
+                <h2>Giderler</h2>
+                <p>Yemek, Kargo, Borç, İade ve Ivır Zıvır giderlerini buradan işle. Sadece Borç seçeneğinde Not zorunludur.</p>
+
+                <div className="button-grid">
+                  {expenseCategories.map((category) => (
+                    <button
+                      key={category}
+                      className={expenseForm.category === category ? "choice active" : "choice"}
+                      onClick={() => setExpenseForm({ ...expenseForm, category })}
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="form-grid">
+                  <input type="text" inputMode="numeric" placeholder="Gider tutarı" value={expenseForm.amount} onFocus={() => setExpenseForm({ ...expenseForm, amount: stripMoneyForEdit(expenseForm.amount) })} onChange={(e) => setExpenseForm({ ...expenseForm, amount: cleanMoneyTyping(e.target.value) })} onBlur={() => setExpenseForm({ ...expenseForm, amount: formatMoneyInput(expenseForm.amount) })} />
+                  <input placeholder={expenseForm.category === "Borç" ? "Not zorunlu" : "Not"} value={expenseForm.note} onChange={(e) => setExpenseForm({ ...expenseForm, note: e.target.value })} />
+                </div>
+
+                <button className="primary" onClick={saveExpense}>Gider Kaydet</button>
+
+                <div className="stats three">
+                  <Stat title="Toplam Gider" value={money(expenseReport.total)} />
+                  <Stat title="Nakit Kasa" value={money(cashWithBankIncoming)} />
+                  <Stat title="Gider Sonrası Nakit" value={money(cashAfterExpenses)} />
+                </div>
+
+                <Table headers={["Tarih", "Gider", "Tutar", "Not", "Sil"]} rows={expenses.map((item) => [
+                  new Date(item.date).toLocaleString("tr-TR"),
+                  item.category,
+                  item.amount,
+                  item.note || "-",
+                  <button className="delete-btn" onClick={() => deleteExpense(item.id)}>Sil</button>,
+                ])} />
+              </section>
             )}
 
             {kasaTab === "bankadanNakit" && (
