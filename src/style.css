@@ -283,3 +283,11 @@ small { color: #64748b; }
 .stat-button:hover .stat-card {
   border-color: #020617;
 }
+
+.new-category-box {
+  border: 1px dashed #cbd5e1;
+  border-radius: 18px;
+  background: #f8fafc;
+  padding: 12px;
+  margin: 12px 0;
+}

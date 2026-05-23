@@ -218,7 +218,7 @@ export default function App() {
   const [active, setActive] = useState("kasa");
   const [kasaTab, setKasaTab] = useState("satis");
   const [visibleKasaStats, setVisibleKasaStats] = useState({});
-  const [karaUnlocked, setKaraUnlocked] = useState(false);
+  const [profitUnlocked, setProfitUnlocked] = useState(false);
   const [profitDateFrom, setProfitDateFrom] = useState("");
   const [profitDateTo, setProfitDateTo] = useState("");
   const [karaTab, setKaraTab] = useState("alacak");
@@ -227,6 +227,7 @@ export default function App() {
   const [stockTab, setStockTab] = useState("liste");
   const [stockView, setStockView] = useState("cihaz");
   const [otherGroupName, setOtherGroupName] = useState("");
+  const [customAccessoryCategories, setCustomAccessoryCategories] = useState([]);
   const [stock, setStock] = useState(initialStock);
   const [sales, setSales] = useState(initialSales);
   const [suppliers, setSuppliers] = useState(["MOBİLTEK İLETİŞİM", "GALAKSİ TEKNOLOJİ", "BASEUS TÜRKİYE"]);
@@ -508,14 +509,18 @@ export default function App() {
   }
 
   function openKaraDefter() {
-    if (karaUnlocked) {
-      setActive("vole");
+    setActive("vole");
+  }
+
+  function openProfitTab() {
+    if (profitUnlocked) {
+      setKaraTab("kar");
       return;
     }
-    const password = window.prompt("Kara Defter için şifre gir");
+    const password = window.prompt("Kâr menüsü için şifre gir");
     if (password === "1") {
-      setKaraUnlocked(true);
-      setActive("vole");
+      setProfitUnlocked(true);
+      setKaraTab("kar");
     } else {
       alert("Şifre yanlış.");
     }
@@ -696,6 +701,8 @@ export default function App() {
               saveStock={saveStock}
               supplierOptions={supplierOptions}
               setSupplierModalOpen={setSupplierModalOpen}
+              customAccessoryCategories={customAccessoryCategories}
+              setCustomAccessoryCategories={setCustomAccessoryCategories}
             />
           </section>
         )}
@@ -774,7 +781,7 @@ export default function App() {
                   <DeviceStockForm stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} supplierOptions={supplierOptions} setSupplierModalOpen={setSupplierModalOpen} />
                 )}
                 {stockForm.module === "Aksesuar" && (
-                  <AccessoryStockForm stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} supplierOptions={supplierOptions} setSupplierModalOpen={setSupplierModalOpen} />
+                  <AccessoryStockForm stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} supplierOptions={supplierOptions} setSupplierModalOpen={setSupplierModalOpen} customAccessoryCategories={customAccessoryCategories} setCustomAccessoryCategories={setCustomAccessoryCategories} />
                 )}
                 {stockForm.module === "Diğer" && (
                   <OtherStockForm stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} otherGroupName={otherGroupName} setOtherGroupName={setOtherGroupName} supplierOptions={supplierOptions} setSupplierModalOpen={setSupplierModalOpen} />
@@ -792,7 +799,7 @@ export default function App() {
               <button className={karaTab === "alacak" ? "choice active" : "choice"} onClick={() => setKaraTab("alacak")}>Alacaklarım</button>
               <button className={karaTab === "borc" ? "choice active" : "choice"} onClick={() => setKaraTab("borc")}>Tedarikçi/Firma</button>
               <button className={karaTab === "banka" ? "choice active" : "choice"} onClick={() => setKaraTab("banka")}>Bankadan Alacağım</button>
-              <button className={karaTab === "kar" ? "choice active" : "choice"} onClick={() => setKaraTab("kar")}>Kâr</button>
+              <button className={karaTab === "kar" ? "choice active" : "choice"} onClick={openProfitTab}>Kâr</button>
               <button className={karaTab === "sorgu" ? "choice active" : "choice"} onClick={() => setKaraTab("sorgu")}>Sorgula</button>
             </div>
 
@@ -1035,44 +1042,66 @@ function DeviceStockForm({ stockForm, setStockForm, saveStock, supplierOptions, 
   );
 }
 
-function AccessoryStockForm({ stockForm, setStockForm, saveStock, supplierOptions, setSupplierModalOpen }) {
-  const subTypes = accessoryGroups[stockForm.category] || [];
+function AccessoryStockForm({
+  stockForm,
+  setStockForm,
+  saveStock,
+  supplierOptions,
+  setSupplierModalOpen,
+  customAccessoryCategories = [],
+  setCustomAccessoryCategories = () => {},
+}) {
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const allAccessoryCategories = [...categories, ...customAccessoryCategories];
+  const subTypes = accessoryGroups[stockForm.category] || [stockForm.category];
 
-  function archiveCategory(category) {
-    if (fixedAccessoryCategories.includes(category)) {
-      alert(`${category} ana grubu değiştirilemez. Sadece arşive alınabilir.`);
-    }
-    setStockForm({ ...stockForm, module: "Aksesuar", category, archivedCategory: true });
+  function addCustomCategory() {
+    const name = newCategoryName.trim().toUpperCase();
+    if (!name) return alert("Yeni kategori adı yaz");
+    if (customAccessoryCategories.length >= 6) return alert("En fazla 6 yeni kategori eklenebilir");
+    if (allAccessoryCategories.includes(name)) return alert("Bu kategori zaten var");
+
+    setCustomAccessoryCategories([...customAccessoryCategories, name]);
+    setStockForm({ ...stockForm, module: "Aksesuar", category: name, accessorySubType: name, archivedCategory: false });
+    setNewCategoryName("");
   }
+
+  const computedProductName = [stockForm.category, stockForm.accessorySubType].filter(Boolean).join("-");
 
   return (
     <>
       <div className="accessory-category-panel">
-        {categories.map((category) => (
+        {allAccessoryCategories.map((category) => (
           <div key={category} className="accessory-category-block">
             <button
               className={stockForm.category === category ? "choice active" : "choice"}
-              onClick={() => setStockForm({ ...stockForm, module: "Aksesuar", category, accessorySubType: (accessoryGroups[category] || [""])[0], archivedCategory: false })}
+              onClick={() => setStockForm({ ...stockForm, module: "Aksesuar", category, accessorySubType: (accessoryGroups[category] || [category])[0], name: [category, (accessoryGroups[category] || [category])[0]].filter(Boolean).join("-"), archivedCategory: false })}
             >
               {category}
             </button>
-            {fixedAccessoryCategories.includes(category) && (
-              <button className="archive-btn" onClick={() => archiveCategory(category)}>Arşive Al</button>
-            )}
           </div>
         ))}
       </div>
 
-      {stockForm.category === "DİĞERLERİ" && (
+      <div className="new-category-box">
         <div className="form-grid">
-          <input placeholder="Diğer kategori ekle" value={stockForm.accessorySubType === "Diğer" ? "" : stockForm.accessorySubType} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", accessorySubType: e.target.value })} />
+          <input placeholder="Diğerlerinden yeni kategori ekle" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} />
+          <button className="primary" onClick={addCustomCategory} type="button">Yeni Kategori Ekle</button>
+          <div className="remaining-input">
+            <span>Yeni Kategori Hakkı</span>
+            <b>{customAccessoryCategories.length} / 6</b>
+          </div>
         </div>
-      )}
+      </div>
 
       {stockForm.category !== "DİĞERLERİ" && (
         <div className="button-grid">
           {subTypes.map((subType) => (
-            <button key={subType} className={stockForm.accessorySubType === subType ? "choice active" : "choice"} onClick={() => setStockForm({ ...stockForm, module: "Aksesuar", accessorySubType: subType })}>
+            <button
+              key={subType}
+              className={stockForm.accessorySubType === subType ? "choice active" : "choice"}
+              onClick={() => setStockForm({ ...stockForm, module: "Aksesuar", accessorySubType: subType, name: [stockForm.category, subType].filter(Boolean).join("-") })}
+            >
               {subType}
             </button>
           ))}
@@ -1093,6 +1122,13 @@ function AccessoryStockForm({ stockForm, setStockForm, saveStock, supplierOption
         </select>
 
         <input placeholder="Barkod numarası" inputMode="numeric" maxLength={15} value={stockForm.barcode} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", barcode: cleanBarcode(e.target.value) })} />
+
+        <input
+          placeholder="Ürünün adı"
+          value={stockForm.name || computedProductName}
+          onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", name: e.target.value })}
+        />
+
         <input type="text" inputMode="numeric" placeholder="Kaça aldın" value={stockForm.buy} onFocus={() => setStockForm({ ...stockForm, buy: stripMoneyForEdit(stockForm.buy) })} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", buy: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, buy: formatMoneyInput(stockForm.buy) })} />
         <input type="text" inputMode="numeric" placeholder="Kaça satacaksın" value={stockForm.sell} onFocus={() => setStockForm({ ...stockForm, sell: stripMoneyForEdit(stockForm.sell) })} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", sell: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, sell: formatMoneyInput(stockForm.sell) })} />
         <input type="number" placeholder="Kaç Adet aldın" value={stockForm.qty} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", qty: e.target.value })} />
@@ -1101,13 +1137,14 @@ function AccessoryStockForm({ stockForm, setStockForm, saveStock, supplierOption
           <b>{money(parseMoneyInput(stockForm.buy) * Number(stockForm.qty || 0))}</b>
         </div>
         <input type="text" inputMode="numeric" placeholder="Ödenen" value={stockForm.supplierPaid} onFocus={() => setStockForm({ ...stockForm, supplierPaid: stripMoneyForEdit(stockForm.supplierPaid) })} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", supplierPaid: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, supplierPaid: formatMoneyInput(stockForm.supplierPaid) })} />
-        <input placeholder="Ürün adı / açıklama" value={stockForm.name} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", name: e.target.value })} />
+        <input placeholder="Ürün Bilgisi" value={stockForm.compatibleModel} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", compatibleModel: e.target.value })} />
       </div>
 
       <button className="primary" onClick={() => saveStock("Aksesuar")}><Plus size={16} /> Aksesuarı Stoka Kaydet</button>
     </>
   );
 }
+
 
 function OtherStockForm({ stockForm, setStockForm, saveStock, otherGroupName, setOtherGroupName, supplierOptions, setSupplierModalOpen }) {
   return (
