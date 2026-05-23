@@ -268,7 +268,6 @@ export default function App() {
   const [supplierModalOpen, setSupplierModalOpen] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState("");
   const [bankCashForm, setBankCashForm] = useState({ amount: "", bank: "", note: "" });
-  const [showOtherMainMenu, setShowOtherMainMenu] = useState(false);
   const [bankMovements, setBankMovements] = useState([
     { id: 1, type: "Bankaya Giden", amount: "40.000 TL", note: "POSTAN Gelen - Garantibank", bank: "Garantibank", date: new Date().toISOString() },
   ]);
@@ -644,6 +643,14 @@ export default function App() {
           </button>
 
           <button
+            className={active === "stok" ? "nav-btn active" : "nav-btn"}
+            onClick={() => setActive("stok")}
+          >
+            <Package size={22} />
+            <span>Stok</span>
+          </button>
+
+          <button
             className="nav-btn disabled"
             disabled
           >
@@ -653,27 +660,13 @@ export default function App() {
           </button>
 
           <button
-            className={showOtherMainMenu ? "nav-btn active" : "nav-btn"}
-            onClick={() => setShowOtherMainMenu(!showOtherMainMenu)}
+            className={active === "vole" ? "nav-btn active" : "nav-btn"}
+            onClick={openKaraDefter}
           >
             <TrendingUp size={22} />
-            <span>Diğerleri</span>
+            <span>Kara Defter</span>
           </button>
         </nav>
-
-        {showOtherMainMenu && (
-          <div className="other-menu-panel">
-            <button className={active === "stok" ? "choice active" : "choice"} onClick={() => { setActive("stok"); setShowOtherMainMenu(false); }}>
-              <Package size={16} /> Stok
-            </button>
-            <button className={active === "vole" ? "choice active" : "choice"} onClick={() => { openKaraDefter(); setShowOtherMainMenu(false); }}>
-              <TrendingUp size={16} /> Kara Defter
-            </button>
-            <button className={active === "kasa" && kasaTab === "bankadanNakit" ? "choice active" : "choice"} onClick={() => { setActive("kasa"); setKasaTab("bankadanNakit"); setShowOtherMainMenu(false); }}>
-              <Wallet size={16} /> Bankadan Nakit Gelen
-            </button>
-          </div>
-        )}
 
         {active === "kasa" && (
           <section className="section">
