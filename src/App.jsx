@@ -289,6 +289,26 @@ export default function App() {
     setSupplierModalOpen(false);
   }
 
+  function askDeletePassword() {
+    const password = window.prompt("Silmek için şifre gir");
+    return password === "1";
+  }
+
+  function deleteSale(id) {
+    if (!askDeletePassword()) return alert("Şifre yanlış. Silme işlemi iptal edildi.");
+    setSales(sales.filter((sale) => sale.id !== id));
+  }
+
+  function deleteStock(id) {
+    if (!askDeletePassword()) return alert("Şifre yanlış. Silme işlemi iptal edildi.");
+    setStock(stock.filter((product) => product.id !== id));
+  }
+
+  function deleteSupplierDebt(supplierName) {
+    if (!askDeletePassword()) return alert("Şifre yanlış. Silme işlemi iptal edildi.");
+    setStock(stock.filter((product) => product.supplier !== supplierName));
+  }
+
   function validateStock(module) {
     const isDevice = module === "Cihaz";
     const isCustomerPurchase = isDevice && (stockForm.acquisitionType || "Müşteri") === "Müşteri";
@@ -494,7 +514,7 @@ export default function App() {
 
                   <div className="card">
                     <h2>Satış Listesi</h2>
-                    <Table headers={["No", "Saat", "Ürün", "Müşteri", "Nakit", "Kart", "Kalan", "Kâr", "İşlem"]} rows={sales.map((sale, index) => [
+                    <Table headers={["No", "Saat", "Ürün", "Müşteri", "Nakit", "Kart", "Kalan", "Kâr", "İşlem", "Sil"]} rows={sales.map((sale, index) => [
                       index + 1,
                       new Date(sale.date).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
                       sale.productName,
@@ -504,6 +524,7 @@ export default function App() {
                       money(sale.remaining),
                       money(sale.profit),
                       <button className="edit-btn" onClick={() => setEditingSale({ ...sale })}><Pencil size={14} /> Düzenle</button>,
+                      <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
                     ])} />
                   </div>
                 </div>
@@ -513,12 +534,13 @@ export default function App() {
             {kasaTab === "alacak" && (
               <section className="card">
                 <h2>Alacaklarım</h2>
-                <Table headers={["İşlem", "Adı Soyad", "Alınan Mal", "Kalan", "Düzelt"]} rows={alacaklarim.map((sale, index) => [
+                <Table headers={["İşlem", "Adı Soyad", "Alınan Mal", "Kalan", "Düzelt", "Sil"]} rows={alacaklarim.map((sale, index) => [
                   index + 1,
                   sale.cariPerson || sale.customer,
                   sale.productName,
                   money(sale.remaining),
                   <button className="edit-btn" onClick={() => setEditingSale({ ...sale })}><Pencil size={14} /> Düzenle</button>,
+                  <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
                 ])} />
               </section>
             )}
@@ -526,12 +548,13 @@ export default function App() {
             {kasaTab === "borc" && (
               <section className="card">
                 <h2>Borçlarım</h2>
-                <Table headers={["Firma", "Son Alınan Mal", "Alış Toplam", "Ödenen", "Kalan"]} rows={borclarim.map((row) => [
+                <Table headers={["Firma", "Son Alınan Mal", "Alış Toplam", "Ödenen", "Kalan", "Sil"]} rows={borclarim.map((row) => [
                   row.supplier,
                   row.lastProduct,
                   money(row.totalBuy),
                   money(row.paid),
                   money(row.remaining),
+                  <button className="delete-btn" onClick={() => deleteSupplierDebt(row.supplier)}>Sil</button>,
                 ])} />
               </section>
             )}
@@ -568,7 +591,7 @@ export default function App() {
             {stockTab === "liste" && (
               <section className="card">
                 <h2>Stok</h2>
-                <StockTable stock={stock} setEditingStock={setEditingStock} />
+                <StockTable stock={stock} setEditingStock={setEditingStock} deleteStock={deleteStock} />
               </section>
             )}
 
@@ -602,9 +625,9 @@ export default function App() {
               <span>Tedarikçi Firma</span>
             </div>
             <h3>Stok Sonuçları</h3>
-            <StockTable stock={filteredStock} setEditingStock={setEditingStock} />
+            <StockTable stock={filteredStock} setEditingStock={setEditingStock} deleteStock={deleteStock} />
             <h3>Satış Sonuçları</h3>
-            <Table headers={["Ürün", "Müşteri / Cari Kişi", "Satış", "Nakit", "Kart", "Kalan", "Düzelt"]} rows={filteredSales.map((sale) => [
+            <Table headers={["Ürün", "Müşteri / Cari Kişi", "Satış", "Nakit", "Kart", "Kalan", "Düzelt", "Sil"]} rows={filteredSales.map((sale) => [
               sale.productName,
               sale.cariPerson || sale.customer || "-",
               sale.total,
@@ -612,6 +635,7 @@ export default function App() {
               sale.card,
               money(sale.remaining),
               <button className="edit-btn" onClick={() => setEditingSale({ ...sale })}>Düzenle</button>,
+              <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
             ])} />
           </section>
         )}
@@ -766,10 +790,10 @@ function AccessoryStockForm({ stockForm, setStockForm, saveStock, supplierOption
   );
 }
 
-function StockTable({ stock, setEditingStock }) {
+function StockTable({ stock, setEditingStock, deleteStock }) {
   return (
     <Table
-      headers={["Tür", "Ürün", "Barkod/IMEI", "Stok", "Alış", "Satış", "Tedarikçi/Satıcı", "Cari Kalan", "Düzelt"]}
+      headers={["Tür", "Ürün", "Barkod/IMEI", "Stok", "Alış", "Satış", "Tedarikçi/Satıcı", "Cari Kalan", "Düzelt", "Sil"]}
       rows={stock.map((product) => [
         product.deviceType,
         productTitle(product),
@@ -780,6 +804,7 @@ function StockTable({ stock, setEditingStock }) {
         product.supplier || product.sellerCariName || product.sellerPerson || "-",
         money(product.sellerCariRemaining || 0),
         <button className="edit-btn" onClick={() => setEditingStock({ ...product })}><Pencil size={14} /> Düzenle</button>,
+        <button className="delete-btn" onClick={() => deleteStock(product.id)}>Sil</button>,
       ])}
     />
   );

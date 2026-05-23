@@ -139,3 +139,17 @@ small { color: #64748b; }
   .two { grid-template-columns: 1fr; }
   .button-grid { grid-template-columns: 1fr 1fr; }
 }
+
+.delete-btn {
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-weight: 900;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.delete-btn:hover {
+  background: #fecaca;
+}
