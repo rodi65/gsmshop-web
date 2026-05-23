@@ -23,7 +23,7 @@ const saleTypes = ["Telefon Satışı", "Saat Satışı", "Tablet Satışı", "P
 const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik"];
 const banks = ["Ziraatbank", "İşbank", "Garantibank", "Halkbank", "Qnbbank", "Vakıfbank", "Yapıkredi"];
 const memoryOptions = ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB"];
-const categories = ["KILIF", "EKRAN Koruyucu", "USB", "ŞARJ", "KULAKLIK", "DİĞERLERİ"];
+const categories = ["KILIF", "EKRAN Koruyucu", "USB", "ŞARJ", "KULAKLIK"];
 const accessoryGroups = {
   "KILIF": ["A Kılıf", "B Kılıf", "Silikon Kılıf"],
   "EKRAN Koruyucu": ["A Cam", "B Cam", "C Cam"],
@@ -233,7 +233,8 @@ export default function App() {
   const [suppliers, setSuppliers] = useState(["MOBİLTEK İLETİŞİM", "GALAKSİ TEKNOLOJİ", "BASEUS TÜRKİYE"]);
   const [supplierModalOpen, setSupplierModalOpen] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState("");
-  const [bankCashForm, setBankCashForm] = useState({ amount: "", note: "" });
+  const [bankCashForm, setBankCashForm] = useState({ amount: "", bank: "", note: "" });
+  const [showOtherMainMenu, setShowOtherMainMenu] = useState(false);
   const [bankMovements, setBankMovements] = useState([
     { id: 1, type: "Bankaya Giden", amount: "40.000 TL", note: "POSTAN Gelen - Garantibank", bank: "Garantibank", date: new Date().toISOString() },
   ]);
@@ -375,6 +376,7 @@ export default function App() {
 
   function saveBankCashIncoming() {
     const amount = parseMoneyInput(bankCashForm.amount);
+    if (!bankCashForm.bank) return alert("Banka ismi seçmek zorunludur");
     if (!amount) return alert("Bankadan gelen nakit tutarını yaz");
     if (amount > bankReport.remainingInBank) return alert("Bankada kalan tutardan fazla çekim yapılamaz");
 
@@ -383,13 +385,14 @@ export default function App() {
         id: Date.now(),
         type: "Bankadan Çekilen",
         amount: money(amount),
-        note: bankCashForm.note || "Kasaya nakit giriş",
+        bank: bankCashForm.bank,
+        note: bankCashForm.note || `Bankadan Nakit Gelen - ${bankCashForm.bank}`,
         date: new Date().toISOString(),
       },
       ...bankMovements,
     ]);
 
-    setBankCashForm({ amount: "", note: "" });
+    setBankCashForm({ amount: "", bank: "", note: "" });
     alert("Bankadan gelen para nakit kasasına eklendi ve Bankadan Çekilen bölümüne işlendi.");
   }
 
@@ -538,33 +541,72 @@ export default function App() {
         </header>
 
         <nav className="nav-grid">
-          {[
-            ["kasa", "Kasa", Wallet],
-            ["cihaz", "Cihaz", Smartphone],
-            ["aksesuar", "Aksesuar", Headphones],
-            ["stok", "Stok", Package],
-            ["tamir", "Tamir", Wrench],
-            ["vole", "Kara Defter", TrendingUp],
-          ].map(([key, label, Icon]) => (
-            <button
-              key={key}
-              disabled={key === "tamir"}
-              className={active === key ? "nav-btn active" : key === "tamir" ? "nav-btn disabled" : "nav-btn"}
-              onClick={() => {
-                if (key === "tamir") return;
-                if (key === "vole") {
-                  openKaraDefter();
-                  return;
-                }
-                setActive(key);
-              }}
-            >
-              <Icon size={22} />
-              <span>{label}</span>
-              {key === "tamir" && <small>Yakında</small>}
-            </button>
-          ))}
+          <button
+            className={active === "kasa" ? "nav-btn active" : "nav-btn"}
+            onClick={() => setActive("kasa")}
+          >
+            <Wallet size={22} />
+            <span>Kasa</span>
+          </button>
+
+          <button
+            className={active === "cihaz" && stockForm.deviceType === "Telefon" ? "nav-btn active" : "nav-btn"}
+            onClick={() => {
+              setStockForm({ ...stockForm, module: "Cihaz", deviceType: "Telefon" });
+              setActive("cihaz");
+            }}
+          >
+            <Smartphone size={22} />
+            <span>Telefon</span>
+          </button>
+
+          <button
+            className={active === "aksesuar" ? "nav-btn active" : "nav-btn"}
+            onClick={() => setActive("aksesuar")}
+          >
+            <Headphones size={22} />
+            <span>Aksesuar</span>
+          </button>
+
+          <button
+            className="nav-btn disabled"
+            disabled
+          >
+            <Wrench size={22} />
+            <span>Teknik</span>
+            <small>Yakında</small>
+          </button>
+
+          <button
+            className={active === "cihaz" && stockForm.deviceType === "Tablet" ? "nav-btn active" : "nav-btn"}
+            onClick={() => {
+              setStockForm({ ...stockForm, module: "Cihaz", deviceType: "Tablet" });
+              setActive("cihaz");
+            }}
+          >
+            <Package size={22} />
+            <span>Tablet</span>
+          </button>
+
+          <button
+            className={showOtherMainMenu ? "nav-btn active" : "nav-btn"}
+            onClick={() => setShowOtherMainMenu(!showOtherMainMenu)}
+          >
+            <TrendingUp size={22} />
+            <span>Diğerleri</span>
+          </button>
         </nav>
+
+        {showOtherMainMenu && (
+          <div className="other-menu-panel">
+            <button className={active === "stok" ? "choice active" : "choice"} onClick={() => { setActive("stok"); setShowOtherMainMenu(false); }}>
+              <Package size={16} /> Stok
+            </button>
+            <button className={active === "vole" ? "choice active" : "choice"} onClick={() => { openKaraDefter(); setShowOtherMainMenu(false); }}>
+              <TrendingUp size={16} /> Kara Defter
+            </button>
+          </div>
+        )}
 
         {active === "kasa" && (
           <section className="section">
@@ -682,6 +724,10 @@ export default function App() {
                 </div>
 
                 <div className="form-grid">
+                  <select value={bankCashForm.bank} onChange={(e) => setBankCashForm({ ...bankCashForm, bank: e.target.value })}>
+                    <option value="">Banka seçmek zorunlu</option>
+                    {banks.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+                  </select>
                   <input type="text" inputMode="numeric" placeholder="Bankadan gelen tutar" value={bankCashForm.amount} onFocus={() => setBankCashForm({ ...bankCashForm, amount: stripMoneyForEdit(bankCashForm.amount) })} onChange={(e) => setBankCashForm({ ...bankCashForm, amount: cleanMoneyTyping(e.target.value) })} onBlur={() => setBankCashForm({ ...bankCashForm, amount: formatMoneyInput(bankCashForm.amount) })} />
                   <input placeholder="Açıklama / Not" value={bankCashForm.note} onChange={(e) => setBankCashForm({ ...bankCashForm, note: e.target.value })} />
                 </div>
@@ -694,7 +740,7 @@ export default function App() {
 
         {active === "cihaz" && (
           <section className="card">
-            <h2>Cihaz Kaydı</h2>
+            <h2>{stockForm.deviceType === "Tablet" ? "Tablet Kaydı" : "Telefon Kaydı"}</h2>
             <DeviceStockForm
               stockForm={stockForm}
               setStockForm={setStockForm}
@@ -1052,6 +1098,7 @@ function AccessoryStockForm({
   setCustomAccessoryCategories = () => {},
 }) {
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [showNewCategoryBox, setShowNewCategoryBox] = useState(false);
   const allAccessoryCategories = [...categories, ...customAccessoryCategories];
   const subTypes = accessoryGroups[stockForm.category] || [stockForm.category];
 
@@ -1062,8 +1109,16 @@ function AccessoryStockForm({
     if (allAccessoryCategories.includes(name)) return alert("Bu kategori zaten var");
 
     setCustomAccessoryCategories([...customAccessoryCategories, name]);
-    setStockForm({ ...stockForm, module: "Aksesuar", category: name, accessorySubType: name, archivedCategory: false });
+    setStockForm({
+      ...stockForm,
+      module: "Aksesuar",
+      category: name,
+      accessorySubType: name,
+      name,
+      archivedCategory: false,
+    });
     setNewCategoryName("");
+    setShowNewCategoryBox(false);
   }
 
   const computedProductName = [stockForm.category, stockForm.accessorySubType].filter(Boolean).join("-");
@@ -1075,38 +1130,55 @@ function AccessoryStockForm({
           <div key={category} className="accessory-category-block">
             <button
               className={stockForm.category === category ? "choice active" : "choice"}
-              onClick={() => setStockForm({ ...stockForm, module: "Aksesuar", category, accessorySubType: (accessoryGroups[category] || [category])[0], name: [category, (accessoryGroups[category] || [category])[0]].filter(Boolean).join("-"), archivedCategory: false })}
+              onClick={() => setStockForm({
+                ...stockForm,
+                module: "Aksesuar",
+                category,
+                accessorySubType: (accessoryGroups[category] || [category])[0],
+                name: [category, (accessoryGroups[category] || [category])[0]].filter(Boolean).join("-"),
+                archivedCategory: false,
+              })}
             >
               {category}
             </button>
           </div>
         ))}
+
+        <div className="accessory-category-block">
+          <button
+            className={showNewCategoryBox ? "choice active" : "choice"}
+            onClick={() => setShowNewCategoryBox(!showNewCategoryBox)}
+            type="button"
+          >
+            + Yeni Kategori Ekle
+          </button>
+        </div>
       </div>
 
-      <div className="new-category-box">
-        <div className="form-grid">
-          <input placeholder="Diğerlerinden yeni kategori ekle" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} />
-          <button className="primary" onClick={addCustomCategory} type="button">Yeni Kategori Ekle</button>
-          <div className="remaining-input">
-            <span>Yeni Kategori Hakkı</span>
-            <b>{customAccessoryCategories.length} / 6</b>
+      {showNewCategoryBox && (
+        <div className="new-category-box">
+          <div className="form-grid">
+            <input placeholder="Yeni kategori adı" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} />
+            <button className="primary" onClick={addCustomCategory} type="button">Kaydet</button>
+            <div className="remaining-input">
+              <span>Yeni Kategori Hakkı</span>
+              <b>{customAccessoryCategories.length} / 6</b>
+            </div>
           </div>
         </div>
-      </div>
-
-      {stockForm.category !== "DİĞERLERİ" && (
-        <div className="button-grid">
-          {subTypes.map((subType) => (
-            <button
-              key={subType}
-              className={stockForm.accessorySubType === subType ? "choice active" : "choice"}
-              onClick={() => setStockForm({ ...stockForm, module: "Aksesuar", accessorySubType: subType, name: [stockForm.category, subType].filter(Boolean).join("-") })}
-            >
-              {subType}
-            </button>
-          ))}
-        </div>
       )}
+
+      <div className="button-grid">
+        {subTypes.map((subType) => (
+          <button
+            key={subType}
+            className={stockForm.accessorySubType === subType ? "choice active" : "choice"}
+            onClick={() => setStockForm({ ...stockForm, module: "Aksesuar", accessorySubType: subType, name: [stockForm.category, subType].filter(Boolean).join("-") })}
+          >
+            {subType}
+          </button>
+        ))}
+      </div>
 
       <div className="form-grid">
         <select value={stockForm.supplier} onChange={(e) => {
