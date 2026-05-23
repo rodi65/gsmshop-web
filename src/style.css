@@ -154,3 +154,56 @@ small { color: #64748b; }
 .delete-btn:hover {
   background: #fecaca;
 }
+
+.link-btn {
+  background: transparent;
+  color: #075985;
+  font-weight: 900;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.supplier-account-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.supplier-summary {
+  display: grid;
+  gap: 10px;
+  max-width: 520px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.summary-row span {
+  color: #64748b;
+  font-weight: 900;
+}
+
+.summary-row b {
+  color: #020617;
+  font-size: 18px;
+}
+
+.summary-row.main,
+.summary-row.debt {
+  background: #020617;
+  color: white;
+}
+
+.summary-row.main span,
+.summary-row.debt span,
+.summary-row.main b,
+.summary-row.debt b {
+  color: white;
+}

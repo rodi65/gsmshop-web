@@ -21,7 +21,7 @@ const sellerCariName = (name) => {
 
 const saleTypes = ["Telefon Satışı", "Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı", "Aksesuar Satışı"];
 const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik"];
-const banks = ["Ziraat", "İş Bankası", "Garanti", "Akbank", "Yapı Kredi", "Halkbank", "VakıfBank", "QNB", "Enpara", "Diğer"];
+const banks = ["Ziraatbank", "İşbank", "Garantibank", "Halkbank", "Qnbbank", "Vakıfbank", "Yapıkredi"];
 const memoryOptions = ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB"];
 const categories = ["Kılıf", "Şarj", "Koruyucu", "Kulaklık", "Blutut Kulaklık"];
 const brands = ["Apple", "Samsung", "Huawei", "Xiaomi", "Oppo", "Vivo", "Honor", "Realme", "Tecno", "Poco", "OnePlus", "TCL", "Infinix", "Alcatel", "Motorola"];
@@ -205,6 +205,7 @@ export default function App() {
   const [active, setActive] = useState("kasa");
   const [kasaTab, setKasaTab] = useState("satis");
   const [karaTab, setKaraTab] = useState("alacak");
+  const [selectedSupplierAccount, setSelectedSupplierAccount] = useState(null);
   const [stockTab, setStockTab] = useState("liste");
   const [stock, setStock] = useState(initialStock);
   const [sales, setSales] = useState(initialSales);
@@ -213,7 +214,7 @@ export default function App() {
   const [newSupplierName, setNewSupplierName] = useState("");
   const [bankCashForm, setBankCashForm] = useState({ amount: "", note: "" });
   const [bankMovements, setBankMovements] = useState([
-    { id: 1, type: "Bankaya Giden", amount: "40.000 TL", note: "Kart ödemesi", date: new Date().toISOString() },
+    { id: 1, type: "Bankaya Giden", amount: "40.000 TL", note: "POSTAN Gelen - Garantibank", bank: "Garantibank", date: new Date().toISOString() },
   ]);
   const [saleForm, setSaleForm] = useState({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
   const [stockForm, setStockForm] = useState(emptyStockForm);
@@ -417,7 +418,8 @@ export default function App() {
           id: Date.now() + 1,
           type: "Bankaya Giden",
           amount: sale.card,
-          note: `${sale.bank || "Banka"} kart satışı - ${sale.productName}`,
+          note: `POSTAN Gelen - ${sale.bank || "Banka"} - ${sale.productName}`,
+          bank: sale.bank || "",
           date: new Date().toISOString(),
         },
         ...bankMovements,
@@ -655,7 +657,7 @@ export default function App() {
           <section className="section">
             <div className="kasa-subtabs">
               <button className={karaTab === "alacak" ? "choice active" : "choice"} onClick={() => setKaraTab("alacak")}>Alacaklarım</button>
-              <button className={karaTab === "borc" ? "choice active" : "choice"} onClick={() => setKaraTab("borc")}>Borçlarım</button>
+              <button className={karaTab === "borc" ? "choice active" : "choice"} onClick={() => setKaraTab("borc")}>Tedarikçi/Firma</button>
               <button className={karaTab === "banka" ? "choice active" : "choice"} onClick={() => setKaraTab("banka")}>Bankadan Alacağım</button>
               <button className={karaTab === "sorgu" ? "choice active" : "choice"} onClick={() => setKaraTab("sorgu")}>Sorgula</button>
             </div>
@@ -676,15 +678,26 @@ export default function App() {
 
             {karaTab === "borc" && (
               <section className="card">
-                <h2>Kara Defter / Borçlarım</h2>
-                <Table headers={["Firma", "Son Alınan Mal", "Alış Toplam", "Ödenen", "Kalan", "Sil"]} rows={borclarim.map((row) => [
-                  row.supplier,
-                  row.lastProduct,
-                  money(row.totalBuy),
-                  money(row.paid),
-                  money(row.remaining),
-                  <button className="delete-btn" onClick={() => deleteSupplierDebt(row.supplier)}>Sil</button>,
-                ])} />
+                {!selectedSupplierAccount ? (
+                  <>
+                    <h2>Kara Defter / Tedarikçi/Firma</h2>
+                    <p>Hesap detayını görmek için firma adına tıkla.</p>
+                    <Table headers={["Tedarikçi/Firma", "Son Alınan Mal", "Alış Toplam", "Ödenen", "Şimdiki Borç", "Sil"]} rows={borclarim.map((row) => [
+                      <button className="link-btn" onClick={() => setSelectedSupplierAccount(row.supplier)}>{row.supplier}</button>,
+                      row.lastProduct,
+                      money(row.totalBuy),
+                      money(row.paid),
+                      money(row.remaining),
+                      <button className="delete-btn" onClick={() => deleteSupplierDebt(row.supplier)}>Sil</button>,
+                    ])} />
+                  </>
+                ) : (
+                  <SupplierAccountPage
+                    supplierName={selectedSupplierAccount}
+                    stock={stock}
+                    setSelectedSupplierAccount={setSelectedSupplierAccount}
+                  />
+                )}
               </section>
             )}
 
@@ -697,9 +710,10 @@ export default function App() {
                   <Stat title="Bankada Kalan" value={money(bankReport.remainingInBank)} />
                 </div>
 
-                <Table headers={["Tarih", "İşlem", "Tutar", "Not"]} rows={bankMovements.map((item) => [
+                <Table headers={["Tarih", "İşlem", "Banka/POS", "Tutar", "Not"]} rows={bankMovements.map((item) => [
                   new Date(item.date).toLocaleString("tr-TR"),
                   item.type,
+                  item.bank || "-",
                   item.amount,
                   item.note || "-",
                 ])} />
@@ -870,6 +884,59 @@ function AccessoryStockForm({ stockForm, setStockForm, saveStock, supplierOption
     </>
   );
 }
+
+
+function SupplierAccountPage({ supplierName, stock, setSelectedSupplierAccount }) {
+  const items = stock.filter((product) => product.supplier === supplierName);
+  const totalBuy = items.reduce((sum, product) => sum + parseMoneyInput(product.buy) * Number(product.qty || 0), 0);
+  const totalPaid = items.reduce((sum, product) => sum + parseMoneyInput(product.supplierPaid || 0), 0);
+  const currentDebt = Math.max(totalBuy - totalPaid, 0);
+  const lastItem = items[0];
+  const lastPayment = items.find((product) => parseMoneyInput(product.supplierPaid || 0) > 0);
+
+  return (
+    <div className="supplier-account-page">
+      <button className="choice" onClick={() => setSelectedSupplierAccount(null)}>← Tedarikçi/Firma Listesine Dön</button>
+      <h2>{supplierName}</h2>
+
+      <div className="supplier-summary">
+        <div className="summary-row main">
+          <span>SON Hesap</span>
+          <b>{money(currentDebt)}</b>
+        </div>
+        <div className="summary-row">
+          <span>SON Gelen</span>
+          <b>{lastItem ? productTitle(lastItem) : "-"}</b>
+        </div>
+        <div className="summary-row">
+          <span>SON Ödenen</span>
+          <b>{lastPayment ? money(lastPayment.supplierPaid) : money(0)}</b>
+        </div>
+        <div className="summary-row debt">
+          <span>ŞİMDİKİ Borcun</span>
+          <b>{money(currentDebt)}</b>
+        </div>
+      </div>
+
+      <Table
+        headers={["Tarih", "Ürün", "Adet", "Alış", "Ödenen", "Kalan"]}
+        rows={items.map((item) => {
+          const total = parseMoneyInput(item.buy) * Number(item.qty || 0);
+          const paid = parseMoneyInput(item.supplierPaid || 0);
+          return [
+            item.saleDate ? new Date(item.saleDate).toLocaleString("tr-TR") : "-",
+            productTitle(item),
+            item.qty,
+            money(total),
+            money(paid),
+            money(Math.max(total - paid, 0)),
+          ];
+        })}
+      />
+    </div>
+  );
+}
+
 
 function StockTable({ stock, setEditingStock, deleteStock }) {
   return (
