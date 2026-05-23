@@ -162,8 +162,8 @@ export default function App() {
     setEditingStock(null);
   }
 
-  const filteredStock = stock.filter(p => !query || has(productTitle(p), query) || has(p.barcode, query) || has(p.supplier, query));
-  const filteredSales = sales.filter(s => !query || has(s.productName, query) || has(s.customer, query) || has(s.cariPerson, query));
+  const filteredStock = stock.filter(p => !query || has(productTitle(p), query) || has(p.barcode, query) || has(p.supplier, query) || has(p.brand, query) || has(p.model, query) || has(p.name, query));
+  const filteredSales = sales.filter(s => !query || has(s.productName, query) || has(s.customer, query) || has(s.cariPerson, query) || has(s.productBarcodeImei, query));
 
   return (
     <div className="app">
@@ -275,7 +275,21 @@ export default function App() {
         )}
 
         {active === "aksesuar" && (
-          <StockSection title="Aksesuar Stok" only="Aksesuar" stock={stock} stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} setEditingStock={setEditingStock} />
+          <section className="card">
+            <h2>Aksesuar</h2>
+            <p>Aksesuar işlemleri için ürünleri Kasa ekranında satabilir, Stok Kaydı ekranında yeni aksesuar girebilir, Stok ekranında mevcut aksesuarları görebilirsin.</p>
+          </section>
+        )}
+
+        {active === "stokKaydi" && (
+          <section className="section">
+            <div className="card">
+              <h2>Stok Kaydı</h2>
+              <p>Cihaz ve aksesuar stok girişleri buradan yapılır. Eklenen ürünler Stok bölümünde listelenir.</p>
+            </div>
+            <StockSection title="Cihaz Stok Kaydı" only="Cihaz" stock={stock} stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} setEditingStock={setEditingStock} />
+            <StockSection title="Aksesuar Stok Kaydı" only="Aksesuar" stock={stock} stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} setEditingStock={setEditingStock} />
+          </section>
         )}
 
         {active === "alacak" && (
@@ -309,13 +323,37 @@ export default function App() {
         {active === "sorgu" && (
           <section className="card">
             <h2>Sorgulama</h2>
-            <input placeholder="Ürün, müşteri, firma, barkod ara" value={query} onChange={e => setQuery(e.target.value)} />
+            <p>IMEI, barkod, isim soyisim, marka, model, ürün adı veya tedarikçi firma ile arama yap.</p>
+            <input
+              placeholder="IMEI / Barkod / İsim Soyisim / Marka Model / Ürün / Firma"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
+
+            <div className="query-hints">
+              <span>IMEI/Barkod</span>
+              <span>İsim Soyisim</span>
+              <span>Marka Model</span>
+              <span>Ürün Adı</span>
+              <span>Tedarikçi Firma</span>
+            </div>
+
             <h3>Stok Sonuçları</h3>
             <StockTable stock={filteredStock} setEditingStock={setEditingStock} />
+
             <h3>Satış Sonuçları</h3>
-            <Table headers={["Ürün", "Müşteri", "Satış", "Kalan", "Düzelt"]} rows={filteredSales.map(s => [
-              s.productName, s.customer || "-", money(s.total), money(s.remaining), <button className="edit-btn" onClick={() => setEditingSale({ ...s })}>Düzenle</button>
-            ])} />
+            <Table
+              headers={["Ürün", "Müşteri / Cari Kişi", "Satış", "Nakit", "Kart", "Kalan", "Düzelt"]}
+              rows={filteredSales.map(s => [
+                s.productName,
+                s.cariPerson || s.customer || "-",
+                money(s.total),
+                money(s.cash),
+                money(s.card),
+                money(s.remaining),
+                <button className="edit-btn" onClick={() => setEditingSale({ ...s })}>Düzenle</button>
+              ])}
+            />
           </section>
         )}
 
