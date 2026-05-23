@@ -348,3 +348,29 @@ small { color: #64748b; }
 @media (max-width: 800px) {
   .quick-accessory-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+.commission-info {
+  border: 1px solid #fecaca;
+  background: #fff7ed;
+  color: #7c2d12;
+  border-radius: 18px;
+  padding: 14px 16px;
+  margin: 12px 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.commission-info strong {
+  font-size: 15px;
+  font-weight: 1000;
+}
+
+.commission-info span {
+  font-size: 26px;
+  font-weight: 1000;
+}
+
+.commission-info small {
+  color: #9a3412;
+}

@@ -333,6 +333,13 @@ export default function App() {
     withdrawnFromBank: bankMovements.filter((item) => item.type === "Bankadan Çekilen").reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
   };
   bankReport.remainingInBank = Math.max(bankReport.totalToBank - bankReport.withdrawnFromBank, 0);
+
+  const currentMonthKey = new Date().toISOString().slice(0, 7);
+  const monthlyPosTotal = bankMovements
+    .filter((item) => item.type === "Bankaya Giden" && item.date && item.date.slice(0, 7) === currentMonthKey)
+    .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
+  const monthlyPosCommission = monthlyPosTotal * 0.035;
+
   const cashWithBankIncoming = report.cash + bankReport.withdrawnFromBank;
   const cashAfterExpenses = Math.max(cashWithBankIncoming - expenseReport.total, 0);
 
@@ -662,6 +669,9 @@ export default function App() {
             <button className={active === "vole" ? "choice active" : "choice"} onClick={() => { openKaraDefter(); setShowOtherMainMenu(false); }}>
               <TrendingUp size={16} /> Kara Defter
             </button>
+            <button className={active === "kasa" && kasaTab === "bankadanNakit" ? "choice active" : "choice"} onClick={() => { setActive("kasa"); setKasaTab("bankadanNakit"); setShowOtherMainMenu(false); }}>
+              <Wallet size={16} /> Bankadan Nakit Gelen
+            </button>
           </div>
         )}
 
@@ -911,6 +921,12 @@ export default function App() {
               <section className="card">
                 <h2>Bankadan Nakit Gelen</h2>
                 <p>Bankadan kasaya para çekildiğinde nakit kasasına eklenir ve Kara Defter içindeki Bankadan Çekilen bölümüne otomatik işlenir.</p>
+
+                <div className="commission-info">
+                  <strong>Banka Bu Ay Bu Kadar Paranı Komisyon Olarak Aldı</strong>
+                  <span>{money(monthlyPosCommission)}</span>
+                  <small>Hesap: Bu ay POS’a giden paranın %3,5’i. Bu ay POS’a giden toplam: {money(monthlyPosTotal)}</small>
+                </div>
 
                 <div className="stats three">
                   <Stat title="Bankaya Toplam Giden" value={money(bankReport.totalToBank)} />
