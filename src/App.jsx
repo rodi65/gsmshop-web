@@ -204,12 +204,17 @@ function Table({ headers, rows }) {
 export default function App() {
   const [active, setActive] = useState("kasa");
   const [kasaTab, setKasaTab] = useState("satis");
+  const [karaTab, setKaraTab] = useState("alacak");
   const [stockTab, setStockTab] = useState("liste");
   const [stock, setStock] = useState(initialStock);
   const [sales, setSales] = useState(initialSales);
   const [suppliers, setSuppliers] = useState(["MOBİLTEK İLETİŞİM", "GALAKSİ TEKNOLOJİ", "BASEUS TÜRKİYE"]);
   const [supplierModalOpen, setSupplierModalOpen] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState("");
+  const [bankCashForm, setBankCashForm] = useState({ amount: "", note: "" });
+  const [bankMovements, setBankMovements] = useState([
+    { id: 1, type: "Bankaya Giden", amount: "40.000 TL", note: "Kart ödemesi", date: new Date().toISOString() },
+  ]);
   const [saleForm, setSaleForm] = useState({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
   const [stockForm, setStockForm] = useState(emptyStockForm);
   const [editingSale, setEditingSale] = useState(null);
@@ -260,6 +265,13 @@ export default function App() {
     profit: sales.reduce((sum, sale) => sum + Number(sale.profit || 0), 0),
   };
 
+  const bankReport = {
+    totalToBank: bankMovements.filter((item) => item.type === "Bankaya Giden").reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
+    withdrawnFromBank: bankMovements.filter((item) => item.type === "Bankadan Çekilen").reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
+  };
+  bankReport.remainingInBank = Math.max(bankReport.totalToBank - bankReport.withdrawnFromBank, 0);
+  const cashWithBankIncoming = report.cash + bankReport.withdrawnFromBank;
+
   const filteredStock = stock.filter((product) =>
     !query ||
     has(productTitle(product), query) ||
@@ -307,6 +319,26 @@ export default function App() {
   function deleteSupplierDebt(supplierName) {
     if (!askDeletePassword()) return alert("Şifre yanlış. Silme işlemi iptal edildi.");
     setStock(stock.filter((product) => product.supplier !== supplierName));
+  }
+
+  function saveBankCashIncoming() {
+    const amount = parseMoneyInput(bankCashForm.amount);
+    if (!amount) return alert("Bankadan gelen nakit tutarını yaz");
+    if (amount > bankReport.remainingInBank) return alert("Bankada kalan tutardan fazla çekim yapılamaz");
+
+    setBankMovements([
+      {
+        id: Date.now(),
+        type: "Bankadan Çekilen",
+        amount: money(amount),
+        note: bankCashForm.note || "Kasaya nakit giriş",
+        date: new Date().toISOString(),
+      },
+      ...bankMovements,
+    ]);
+
+    setBankCashForm({ amount: "", note: "" });
+    alert("Bankadan gelen para nakit kasasına eklendi ve Bankadan Çekilen bölümüne işlendi.");
   }
 
   function validateStock(module) {
@@ -378,6 +410,20 @@ export default function App() {
 
     setStock(stock.map((product) => product.id === selectedProduct.id ? { ...product, qty: Math.max(Number(product.qty || 0) - 1, 0) } : product));
     setSales([sale, ...sales]);
+
+    if (parseMoneyInput(sale.card) > 0) {
+      setBankMovements([
+        {
+          id: Date.now() + 1,
+          type: "Bankaya Giden",
+          amount: sale.card,
+          note: `${sale.bank || "Banka"} kart satışı - ${sale.productName}`,
+          date: new Date().toISOString(),
+        },
+        ...bankMovements,
+      ]);
+    }
+
     setSaleForm({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
   }
 
@@ -416,9 +462,8 @@ export default function App() {
             ["cihaz", "Cihaz", Smartphone],
             ["aksesuar", "Aksesuar", Headphones],
             ["stok", "Stok", Package],
-            ["sorgu", "Sorgula", Search],
             ["tamir", "Tamir", Wrench],
-            ["vole", "Vole", TrendingUp],
+            ["vole", "Kara Defter", TrendingUp],
           ].map(([key, label, Icon]) => (
             <button
               key={key}
@@ -437,15 +482,14 @@ export default function App() {
           <section className="section">
             <div className="kasa-subtabs">
               <button className={kasaTab === "satis" ? "choice active" : "choice"} onClick={() => setKasaTab("satis")}>Yeni Satış</button>
-              <button className={kasaTab === "alacak" ? "choice active" : "choice"} onClick={() => setKasaTab("alacak")}>ALACAKLARIM</button>
-              <button className={kasaTab === "borc" ? "choice active" : "choice"} onClick={() => setKasaTab("borc")}>Borçlarım</button>
+              <button className={kasaTab === "bankadanNakit" ? "choice active" : "choice"} onClick={() => setKasaTab("bankadanNakit")}>Bankadan Nakit Gelen</button>
             </div>
 
             {kasaTab === "satis" && (
               <>
                 <div className="stats five">
                   <Stat title="Toplam Satış" value={money(report.total)} />
-                  <Stat title="Nakit" value={money(report.cash)} />
+                  <Stat title="Nakit Kasa" value={money(cashWithBankIncoming)} />
                   <Stat title="Kart" value={money(report.card)} />
                   <Stat title="Kalan Alacak" value={money(report.remaining)} />
                   <Stat title="Kâr" value={money(report.profit)} />
@@ -531,31 +575,23 @@ export default function App() {
               </>
             )}
 
-            {kasaTab === "alacak" && (
+            {kasaTab === "bankadanNakit" && (
               <section className="card">
-                <h2>Alacaklarım</h2>
-                <Table headers={["İşlem", "Adı Soyad", "Alınan Mal", "Kalan", "Düzelt", "Sil"]} rows={alacaklarim.map((sale, index) => [
-                  index + 1,
-                  sale.cariPerson || sale.customer,
-                  sale.productName,
-                  money(sale.remaining),
-                  <button className="edit-btn" onClick={() => setEditingSale({ ...sale })}><Pencil size={14} /> Düzenle</button>,
-                  <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
-                ])} />
-              </section>
-            )}
+                <h2>Bankadan Nakit Gelen</h2>
+                <p>Bankadan kasaya para çekildiğinde nakit kasasına eklenir ve Kara Defter içindeki Bankadan Çekilen bölümüne otomatik işlenir.</p>
 
-            {kasaTab === "borc" && (
-              <section className="card">
-                <h2>Borçlarım</h2>
-                <Table headers={["Firma", "Son Alınan Mal", "Alış Toplam", "Ödenen", "Kalan", "Sil"]} rows={borclarim.map((row) => [
-                  row.supplier,
-                  row.lastProduct,
-                  money(row.totalBuy),
-                  money(row.paid),
-                  money(row.remaining),
-                  <button className="delete-btn" onClick={() => deleteSupplierDebt(row.supplier)}>Sil</button>,
-                ])} />
+                <div className="stats three">
+                  <Stat title="Bankaya Toplam Giden" value={money(bankReport.totalToBank)} />
+                  <Stat title="Bankadan Çekilen" value={money(bankReport.withdrawnFromBank)} />
+                  <Stat title="Bankada Kalan" value={money(bankReport.remainingInBank)} />
+                </div>
+
+                <div className="form-grid">
+                  <input type="text" inputMode="numeric" placeholder="Bankadan gelen tutar" value={bankCashForm.amount} onFocus={() => setBankCashForm({ ...bankCashForm, amount: stripMoneyForEdit(bankCashForm.amount) })} onChange={(e) => setBankCashForm({ ...bankCashForm, amount: cleanMoneyTyping(e.target.value) })} onBlur={() => setBankCashForm({ ...bankCashForm, amount: formatMoneyInput(bankCashForm.amount) })} />
+                  <input placeholder="Açıklama / Not" value={bankCashForm.note} onChange={(e) => setBankCashForm({ ...bankCashForm, note: e.target.value })} />
+                </div>
+
+                <button className="primary" onClick={saveBankCashIncoming}>Kasaya Nakit Girişi Kaydet</button>
               </section>
             )}
           </section>
@@ -613,45 +649,90 @@ export default function App() {
           </section>
         )}
 
-        {active === "sorgu" && (
-          <section className="card">
-            <h2>Sorgula</h2>
-            <input placeholder="IMEI / Barkod / İsim Soyisim / Marka Model / Ürün / Firma" value={query} onChange={(e) => setQuery(e.target.value)} />
-            <div className="query-hints">
-              <span>IMEI/Barkod</span>
-              <span>İsim Soyisim</span>
-              <span>Marka Model</span>
-              <span>Ürün Adı</span>
-              <span>Tedarikçi Firma</span>
-            </div>
-            <h3>Stok Sonuçları</h3>
-            <StockTable stock={filteredStock} setEditingStock={setEditingStock} deleteStock={deleteStock} />
-            <h3>Satış Sonuçları</h3>
-            <Table headers={["Ürün", "Müşteri / Cari Kişi", "Satış", "Nakit", "Kart", "Kalan", "Düzelt", "Sil"]} rows={filteredSales.map((sale) => [
-              sale.productName,
-              sale.cariPerson || sale.customer || "-",
-              sale.total,
-              sale.cash,
-              sale.card,
-              money(sale.remaining),
-              <button className="edit-btn" onClick={() => setEditingSale({ ...sale })}>Düzenle</button>,
-              <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
-            ])} />
-          </section>
-        )}
-
         {active === "tamir" && <section className="card"><h2>Tamir</h2><p>Tamir modülü şimdilik aktif değil.</p></section>}
 
         {active === "vole" && (
-          <section className="card">
-            <h2>Vole</h2>
-            <div className="stats five">
-              <Stat title="Satış" value={money(report.total)} />
-              <Stat title="Alacak" value={money(report.remaining)} />
-              <Stat title="Nakit" value={money(report.cash)} />
-              <Stat title="Kart" value={money(report.card)} />
-              <Stat title="Kâr" value={money(report.profit)} />
+          <section className="section">
+            <div className="kasa-subtabs">
+              <button className={karaTab === "alacak" ? "choice active" : "choice"} onClick={() => setKaraTab("alacak")}>Alacaklarım</button>
+              <button className={karaTab === "borc" ? "choice active" : "choice"} onClick={() => setKaraTab("borc")}>Borçlarım</button>
+              <button className={karaTab === "banka" ? "choice active" : "choice"} onClick={() => setKaraTab("banka")}>Bankadan Alacağım</button>
+              <button className={karaTab === "sorgu" ? "choice active" : "choice"} onClick={() => setKaraTab("sorgu")}>Sorgula</button>
             </div>
+
+            {karaTab === "alacak" && (
+              <section className="card">
+                <h2>Kara Defter / Alacaklarım</h2>
+                <Table headers={["İşlem", "Adı Soyad", "Alınan Mal", "Kalan", "Düzelt", "Sil"]} rows={alacaklarim.map((sale, index) => [
+                  index + 1,
+                  sale.cariPerson || sale.customer,
+                  sale.productName,
+                  money(sale.remaining),
+                  <button className="edit-btn" onClick={() => setEditingSale({ ...sale })}><Pencil size={14} /> Düzenle</button>,
+                  <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
+                ])} />
+              </section>
+            )}
+
+            {karaTab === "borc" && (
+              <section className="card">
+                <h2>Kara Defter / Borçlarım</h2>
+                <Table headers={["Firma", "Son Alınan Mal", "Alış Toplam", "Ödenen", "Kalan", "Sil"]} rows={borclarim.map((row) => [
+                  row.supplier,
+                  row.lastProduct,
+                  money(row.totalBuy),
+                  money(row.paid),
+                  money(row.remaining),
+                  <button className="delete-btn" onClick={() => deleteSupplierDebt(row.supplier)}>Sil</button>,
+                ])} />
+              </section>
+            )}
+
+            {karaTab === "banka" && (
+              <section className="card">
+                <h2>Kara Defter / Bankadan Alacağım</h2>
+                <div className="stats three">
+                  <Stat title="Bankaya Toplam Giden" value={money(bankReport.totalToBank)} />
+                  <Stat title="Bankadan Çekilen" value={money(bankReport.withdrawnFromBank)} />
+                  <Stat title="Bankada Kalan" value={money(bankReport.remainingInBank)} />
+                </div>
+
+                <Table headers={["Tarih", "İşlem", "Tutar", "Not"]} rows={bankMovements.map((item) => [
+                  new Date(item.date).toLocaleString("tr-TR"),
+                  item.type,
+                  item.amount,
+                  item.note || "-",
+                ])} />
+              </section>
+            )}
+
+            {karaTab === "sorgu" && (
+              <section className="card">
+                <h2>Kara Defter / Sorgula</h2>
+                <input placeholder="IMEI / Barkod / İsim Soyisim / Marka Model / Ürün / Firma" value={query} onChange={(e) => setQuery(e.target.value)} />
+                <div className="query-hints">
+                  <span>IMEI/Barkod</span>
+                  <span>İsim Soyisim</span>
+                  <span>Marka Model</span>
+                  <span>Ürün Adı</span>
+                  <span>Tedarikçi Firma</span>
+                </div>
+                <h3>Stok Sonuçları</h3>
+                <StockTable stock={filteredStock} setEditingStock={setEditingStock} deleteStock={deleteStock} />
+                <h3>Satış Sonuçları</h3>
+                <Table headers={["Ürün", "Müşteri / Cari Kişi", "Satış", "Nakit", "Kart", "Kalan", "Düzelt", "Sil"]} rows={filteredSales.map((sale) => [
+                  sale.productName,
+                  sale.cariPerson || sale.customer || "-",
+                  sale.total,
+                  sale.cash,
+                  sale.card,
+                  money(sale.remaining),
+                  <button className="edit-btn" onClick={() => setEditingSale({ ...sale })}>Düzenle</button>,
+                  <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
+                ])} />
+              </section>
+            )}
+
           </section>
         )}
 
