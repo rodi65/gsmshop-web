@@ -7,6 +7,10 @@ const formatMoneyInput = (value) => {
   if (!digits) return "";
   return `${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".")} TL`;
 };
+
+const cleanMoneyTyping = (value) => String(value || "").replace(/\D/g, "");
+const stripMoneyForEdit = (value) => String(value || "").replace(/\D/g, "");
+const cleanPhone = (value) => String(value || "").replace(/\D/g, "").slice(0, 11);
 const money = (value) => `${new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 0 }).format(parseMoneyInput(value))} TL`;
 const has = (a, b) => String(a || "").toLowerCase().includes(String(b || "").toLowerCase());
 const stockRemainingAmount = (form) => Math.max(parseMoneyInput(form.buy) - parseMoneyInput(form.supplierPaid), 0);
@@ -291,7 +295,9 @@ export default function App() {
     if (!isCustomerPurchase && !stockForm.supplier.trim()) return "Tedarikçi firma seç";
     if (isCustomerPurchase && !stockForm.sellerPerson.trim()) return "Satanın adı soyadı yaz";
     if (isCustomerPurchase && !stockForm.sellerPhone.trim()) return "Satanın telefonu yaz";
-    if (!stockForm.buy || !stockForm.sell) return "Alış ve satış fiyatı yaz";
+    if (isCustomerPurchase && cleanPhone(stockForm.sellerPhone).length !== 11) return "Satanın telefonu 11 rakam olmalı";
+    if (isCustomerPurchase && !stockForm.saleFormImageName) return "Satış formu resmi eklemeden kayıt yapılamaz";
+    if (!stockForm.buy || !stockForm.sell) return "Kaça aldın ve kaça satacaksın alanlarını yaz";
     if (!isDevice && !stockForm.qty) return "Stok adedi yaz";
     if (!stockForm.barcode) return "Barkod / IMEI yaz";
     if (stockForm.barcode.length > 15) return "Barkod / IMEI en fazla 15 rakam olabilir";
@@ -317,6 +323,7 @@ export default function App() {
       supplierPaid: formatMoneyInput(stockForm.supplierPaid),
       supplier: isCustomerPurchase ? "" : stockForm.supplier,
       saleDate: stockForm.saleDate || new Date().toISOString(),
+      sellerPhone: cleanPhone(stockForm.sellerPhone),
       sellerCariName: isCustomerPurchase ? sellerCariName(stockForm.sellerPerson) : "",
       sellerCariRemaining: isCustomerPurchase ? stockRemainingAmount(stockForm) : 0,
     };
@@ -451,11 +458,11 @@ export default function App() {
                       ))}
                     </select>
 
-                    <input type="text" inputMode="numeric" placeholder="Satış fiyatı" value={saleForm.total} onChange={(e) => setSaleForm({ ...saleForm, total: formatMoneyInput(e.target.value) })} />
-                    <input type="text" inputMode="numeric" placeholder="Nakit" value={saleForm.cash} onChange={(e) => setSaleForm({ ...saleForm, cash: formatMoneyInput(e.target.value) })} />
+                    <input type="text" inputMode="numeric" placeholder="Satış fiyatı" value={saleForm.total} onFocus={() => setSaleForm({ ...saleForm, total: stripMoneyForEdit(saleForm.total) })} onChange={(e) => setSaleForm({ ...saleForm, total: cleanMoneyTyping(e.target.value) })} onBlur={() => setSaleForm({ ...saleForm, total: formatMoneyInput(saleForm.total) })} />
+                    <input type="text" inputMode="numeric" placeholder="Nakit" value={saleForm.cash} onFocus={() => setSaleForm({ ...saleForm, cash: stripMoneyForEdit(saleForm.cash) })} onChange={(e) => setSaleForm({ ...saleForm, cash: cleanMoneyTyping(e.target.value) })} onBlur={() => setSaleForm({ ...saleForm, cash: formatMoneyInput(saleForm.cash) })} />
 
                     <div className="two">
-                      <input type="text" inputMode="numeric" placeholder="Kart" value={saleForm.card} onChange={(e) => setSaleForm({ ...saleForm, card: formatMoneyInput(e.target.value) })} />
+                      <input type="text" inputMode="numeric" placeholder="Kart" value={saleForm.card} onFocus={() => setSaleForm({ ...saleForm, card: stripMoneyForEdit(saleForm.card) })} onChange={(e) => setSaleForm({ ...saleForm, card: cleanMoneyTyping(e.target.value) })} onBlur={() => setSaleForm({ ...saleForm, card: formatMoneyInput(saleForm.card) })} />
                       <div className="remaining-box"><span>Kalan</span><b>{money(saleRemaining)}</b></div>
                     </div>
 
@@ -690,9 +697,9 @@ function DeviceStockForm({ stockForm, setStockForm, saveStock, supplierOptions, 
           </select>
         )}
 
-        <input type="text" inputMode="numeric" placeholder="Alış" value={stockForm.buy} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", buy: formatMoneyInput(e.target.value) })} />
-        <input type="text" inputMode="numeric" placeholder="Satış" value={stockForm.sell} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", sell: formatMoneyInput(e.target.value) })} />
-        <input type="text" inputMode="numeric" placeholder="Ödenen" value={stockForm.supplierPaid} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", supplierPaid: formatMoneyInput(e.target.value) })} />
+        <input type="text" inputMode="numeric" placeholder="Kaça aldın" value={stockForm.buy} onFocus={() => setStockForm({ ...stockForm, buy: stripMoneyForEdit(stockForm.buy) })} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", buy: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, buy: formatMoneyInput(stockForm.buy) })} />
+        <input type="text" inputMode="numeric" placeholder="Kaça Satacaksın" value={stockForm.sell} onFocus={() => setStockForm({ ...stockForm, sell: stripMoneyForEdit(stockForm.sell) })} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", sell: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, sell: formatMoneyInput(stockForm.sell) })} />
+        <input type="text" inputMode="numeric" placeholder="Ödenen" value={stockForm.supplierPaid} onFocus={() => setStockForm({ ...stockForm, supplierPaid: stripMoneyForEdit(stockForm.supplierPaid) })} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", supplierPaid: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, supplierPaid: formatMoneyInput(stockForm.supplierPaid) })} />
 
         <div className="remaining-input">
           <span>Kalan</span>
@@ -713,11 +720,11 @@ function DeviceStockForm({ stockForm, setStockForm, saveStock, supplierOptions, 
               <span>Açılacak cari</span>
               <b>{sellerCariName(stockForm.sellerPerson) || "SATICI"}</b>
             </div>
-            <input placeholder="Satanın Telefonu" value={stockForm.sellerPhone} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", sellerPhone: e.target.value })} />
+            <input placeholder="Satanın Telefonu" inputMode="numeric" maxLength={11} value={stockForm.sellerPhone} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", sellerPhone: cleanPhone(e.target.value) })} />
             <input value={new Date().toLocaleString("tr-TR")} readOnly title="Sattığı tarih otomatik girilir" />
             <input placeholder="Alımı yapan" value={stockForm.buyerName} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", buyerName: e.target.value })} />
-            <input type="file" accept="image/*,.pdf" onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", saleFormImageName: e.target.files?.[0]?.name || "" })} />
-            <input placeholder="Satış formu resmi" value={stockForm.saleFormImageName} readOnly />
+            <input type="file" accept="image/*,.pdf" required onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", saleFormImageName: e.target.files?.[0]?.name || "" })} />
+            <input placeholder="Satış formu resmi zorunlu" value={stockForm.saleFormImageName} readOnly />
           </div>
         </div>
       )}
@@ -738,8 +745,8 @@ function AccessoryStockForm({ stockForm, setStockForm, saveStock, supplierOption
         <input placeholder="Ürün adı" value={stockForm.name} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", name: e.target.value })} />
         <input placeholder="Model uyumu" value={stockForm.compatibleModel} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", compatibleModel: e.target.value })} />
         <input placeholder="Barkod" inputMode="numeric" maxLength={15} value={stockForm.barcode} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", barcode: cleanBarcode(e.target.value) })} />
-        <input type="text" inputMode="numeric" placeholder="Alış" value={stockForm.buy} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", buy: formatMoneyInput(e.target.value) })} />
-        <input type="text" inputMode="numeric" placeholder="Satış" value={stockForm.sell} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", sell: formatMoneyInput(e.target.value) })} />
+        <input type="text" inputMode="numeric" placeholder="Kaça aldın" value={stockForm.buy} onFocus={() => setStockForm({ ...stockForm, buy: stripMoneyForEdit(stockForm.buy) })} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", buy: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, buy: formatMoneyInput(stockForm.buy) })} />
+        <input type="text" inputMode="numeric" placeholder="Kaça Satacaksın" value={stockForm.sell} onFocus={() => setStockForm({ ...stockForm, sell: stripMoneyForEdit(stockForm.sell) })} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", sell: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, sell: formatMoneyInput(stockForm.sell) })} />
         <input type="number" placeholder="Stok adedi" value={stockForm.qty} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", qty: e.target.value })} />
         <select value={stockForm.supplier} onChange={(e) => {
           if (e.target.value === "__add_supplier__") {
@@ -752,7 +759,7 @@ function AccessoryStockForm({ stockForm, setStockForm, saveStock, supplierOption
           <option value="__add_supplier__">+ Tedarikçi Ekle</option>
           {supplierOptions.map((supplier) => <option key={supplier} value={supplier}>{supplier}</option>)}
         </select>
-        <input type="text" inputMode="numeric" placeholder="Ödenen" value={stockForm.supplierPaid} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", supplierPaid: formatMoneyInput(e.target.value) })} />
+        <input type="text" inputMode="numeric" placeholder="Ödenen" value={stockForm.supplierPaid} onFocus={() => setStockForm({ ...stockForm, supplierPaid: stripMoneyForEdit(stockForm.supplierPaid) })} onChange={(e) => setStockForm({ ...stockForm, module: "Aksesuar", supplierPaid: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, supplierPaid: formatMoneyInput(stockForm.supplierPaid) })} />
       </div>
       <button className="primary" onClick={() => saveStock("Aksesuar")}><Plus size={16} /> Aksesuarı Stoka Kaydet</button>
     </>
@@ -786,9 +793,9 @@ function SaleEditModal({ sale, setSale, save }) {
         <h2>Satış Düzelt</h2>
         <input placeholder="Müşteri adı soyadı / telefon" value={sale.customer || ""} onChange={(e) => setSale({ ...sale, customer: e.target.value, cariPerson: e.target.value })} />
         <input placeholder="Cari kişi" value={sale.cariPerson || ""} onChange={(e) => setSale({ ...sale, cariPerson: e.target.value })} />
-        <input type="text" inputMode="numeric" placeholder="Satış fiyatı" value={sale.total} onChange={(e) => setSale({ ...sale, total: formatMoneyInput(e.target.value) })} />
-        <input type="text" inputMode="numeric" placeholder="Nakit" value={sale.cash} onChange={(e) => setSale({ ...sale, cash: formatMoneyInput(e.target.value) })} />
-        <input type="text" inputMode="numeric" placeholder="Kart" value={sale.card} onChange={(e) => setSale({ ...sale, card: formatMoneyInput(e.target.value) })} />
+        <input type="text" inputMode="numeric" placeholder="Satış fiyatı" value={sale.total} onFocus={() => setSale({ ...sale, total: stripMoneyForEdit(sale.total) })} onChange={(e) => setSale({ ...sale, total: cleanMoneyTyping(e.target.value) })} onBlur={() => setSale({ ...sale, total: formatMoneyInput(sale.total) })} />
+        <input type="text" inputMode="numeric" placeholder="Nakit" value={sale.cash} onFocus={() => setSale({ ...sale, cash: stripMoneyForEdit(sale.cash) })} onChange={(e) => setSale({ ...sale, cash: cleanMoneyTyping(e.target.value) })} onBlur={() => setSale({ ...sale, cash: formatMoneyInput(sale.cash) })} />
+        <input type="text" inputMode="numeric" placeholder="Kart" value={sale.card} onFocus={() => setSale({ ...sale, card: stripMoneyForEdit(sale.card) })} onChange={(e) => setSale({ ...sale, card: cleanMoneyTyping(e.target.value) })} onBlur={() => setSale({ ...sale, card: formatMoneyInput(sale.card) })} />
         <select value={sale.bank || ""} onChange={(e) => setSale({ ...sale, bank: e.target.value })}>
           <option value="">Banka seç</option>
           {banks.map((bank) => <option key={bank}>{bank}</option>)}
@@ -815,10 +822,10 @@ function StockEditModal({ item, setItem, save }) {
         )}
         <input placeholder="Barkod / IMEI" inputMode="numeric" maxLength={15} value={item.barcode || ""} onChange={(e) => setItem({ ...item, barcode: cleanBarcode(e.target.value) })} />
         <input type="number" placeholder="Stok" value={item.qty} onChange={(e) => setItem({ ...item, qty: e.target.value })} />
-        <input type="text" inputMode="numeric" placeholder="Alış" value={item.buy} onChange={(e) => setItem({ ...item, buy: formatMoneyInput(e.target.value) })} />
-        <input type="text" inputMode="numeric" placeholder="Satış" value={item.sell} onChange={(e) => setItem({ ...item, sell: formatMoneyInput(e.target.value) })} />
+        <input type="text" inputMode="numeric" placeholder="Kaça aldın" value={item.buy} onFocus={() => setItem({ ...item, buy: stripMoneyForEdit(item.buy) })} onChange={(e) => setItem({ ...item, buy: cleanMoneyTyping(e.target.value) })} onBlur={() => setItem({ ...item, buy: formatMoneyInput(item.buy) })} />
+        <input type="text" inputMode="numeric" placeholder="Kaça Satacaksın" value={item.sell} onFocus={() => setItem({ ...item, sell: stripMoneyForEdit(item.sell) })} onChange={(e) => setItem({ ...item, sell: cleanMoneyTyping(e.target.value) })} onBlur={() => setItem({ ...item, sell: formatMoneyInput(item.sell) })} />
         <input placeholder="Tedarikçi / Satıcı firma" value={item.supplier || ""} onChange={(e) => setItem({ ...item, supplier: e.target.value })} />
-        <input type="text" inputMode="numeric" placeholder="Ödenen" value={item.supplierPaid || ""} onChange={(e) => setItem({ ...item, supplierPaid: formatMoneyInput(e.target.value) })} />
+        <input type="text" inputMode="numeric" placeholder="Ödenen" value={item.supplierPaid || ""} onFocus={() => setItem({ ...item, supplierPaid: stripMoneyForEdit(item.supplierPaid) })} onChange={(e) => setItem({ ...item, supplierPaid: cleanMoneyTyping(e.target.value) })} onBlur={() => setItem({ ...item, supplierPaid: formatMoneyInput(item.supplierPaid) })} />
         <div className="modal-actions">
           <button className="primary" onClick={save}><Save size={16} /> Kaydet</button>
           <button className="choice" onClick={() => setItem(null)}><X size={16} /> Vazgeç</button>
