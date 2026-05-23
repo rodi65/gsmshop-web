@@ -341,7 +341,6 @@ export default function App() {
 
 function StockSection({ title, only, stock, stockForm, setStockForm, saveStock, setEditingStock }) {
   const isAcc = only === "Aksesuar";
-  const visible = stock.filter(p => p.module === only);
   return (
     <section className="section">
       <div className="card">
@@ -371,10 +370,7 @@ function StockSection({ title, only, stock, stockForm, setStockForm, saveStock, 
         </div>
         <button className="primary" onClick={saveStock}><Plus size={16}/> Stok Kaydet</button>
       </div>
-      <div className="card">
-        <h2>{title} Listesi</h2>
-        <StockTable stock={visible} setEditingStock={setEditingStock} />
-      </div>
+
     </section>
   );
 }
