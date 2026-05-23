@@ -307,7 +307,7 @@ function NewSale({ data, setData }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  const [cariPerson, setCariPerson] = useState('');
   const [salePrice, setSalePrice] = useState('');
   const [cashAmount, setCashAmount] = useState('');
   const [cardAmount, setCardAmount] = useState('');
@@ -352,11 +352,20 @@ function NewSale({ data, setData }) {
   const creditAmount = isAccessorySale ? 0 : Math.max(0, saleTotal - paidTotal);
   const projectedProfit = saleTotal - purchaseTotal;
 
+  const cariPersonOptions = useMemo(() => {
+    const existing = data.sales
+      .filter((sale) => sale.creditAmount > 0 && sale.customerName)
+      .map((sale) => sale.customerName);
+    if (customerName.trim()) existing.unshift(customerName.trim());
+    return Array.from(new Set(existing));
+  }, [data.sales, customerName]);
+
   useEffect(() => {
     setSelectedProductId('');
     setSalePrice('');
     setCashAmount('');
     setCardAmount('');
+    setCariPerson('');
     setMessage('');
     setSuccess(null);
   }, [saleType]);
@@ -385,7 +394,12 @@ function NewSale({ data, setData }) {
     }
 
     if (!isAccessorySale && !customerName.trim()) {
-      setMessage('Cihaz satışında müşteri adı zorunludur.');
+      setMessage('Müşteri adı soyadı / telefon birlikte yazılmalı.');
+      return;
+    }
+
+    if (!isAccessorySale && creditAmount > 0 && !cariPerson.trim()) {
+      setMessage('Kalan varsa cari kişi seçilmeden hesap kapanmaz.');
       return;
     }
 
@@ -404,8 +418,10 @@ function NewSale({ data, setData }) {
       productId: selectedProduct.id,
       productName: selectedProduct.title,
       barcode: selectedProduct.barcode,
-      customerName: isAccessorySale ? '' : customerName.trim(),
-      customerPhone: isAccessorySale ? '' : customerPhone.trim(),
+      customerName: isAccessorySale ? '' : (creditAmount > 0 ? cariPerson.trim() : customerName.trim()),
+      customerDisplay: isAccessorySale ? '' : customerName.trim(),
+      customerPhone: '',
+      cariPerson: isAccessorySale ? '' : cariPerson.trim(),
       sellerCompany: selectedProduct.sellerCompany ?? '',
       sellerPerson: selectedProduct.sellerPerson ?? '',
       quantity: 1,
@@ -445,7 +461,7 @@ function NewSale({ data, setData }) {
     setSelectedProductId('');
     setSearchTerm('');
     setCustomerName('');
-    setCustomerPhone('');
+    setCariPerson('');
     setSalePrice('');
     setCashAmount('');
     setCardAmount('');
@@ -485,16 +501,18 @@ function NewSale({ data, setData }) {
         </label>
 
         {!isAccessorySale && (
-          <>
-            <label>
-              Müşteri adı
-              <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} required />
-            </label>
-            <label>
-              Müşteri telefonu
-              <input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} />
-            </label>
-          </>
+          <label className="span-2">
+            Müşteri adı soyadı / telefon
+            <input
+              placeholder="Örnek: Ahmet Yılmaz 0555 555 55 55"
+              value={customerName}
+              onChange={(event) => {
+                setCustomerName(event.target.value);
+                if (!cariPerson) setCariPerson(event.target.value);
+              }}
+              required
+            />
+          </label>
         )}
 
         <label>
@@ -524,10 +542,26 @@ function NewSale({ data, setData }) {
         )}
 
         {!isAccessorySale && creditAmount > 0 && (
-          <div className="alert span-3">
-            <AlertTriangle size={18} />
-            Nakit + kart toplamı satıştan düşük. {formatMoney(creditAmount)} cari kalan oluşacak.
-          </div>
+          <>
+            <div className="alert span-3">
+              <AlertTriangle size={18} />
+              Nakit + kart toplamı satıştan düşük. {formatMoney(creditAmount)} kalan cari oluşacak.
+            </div>
+
+            <label className="span-3">
+              Kalan cari kişi
+              <input
+                list="cari-person-options"
+                placeholder="Cari kişi seç veya müşteri adı soyadı / telefon yaz"
+                value={cariPerson}
+                onChange={(event) => setCariPerson(event.target.value)}
+                required
+              />
+              <datalist id="cari-person-options">
+                {cariPersonOptions.map((name) => <option key={name} value={name} />)}
+              </datalist>
+            </label>
+          </>
         )}
 
         {isAccessorySale && (
@@ -603,7 +637,7 @@ function SalesList({ sales }) {
           formatDate(sale.createdAt),
           sale.saleType,
           sale.productName,
-          sale.customerName || '-',
+          sale.customerDisplay || sale.customerName || '-',
           formatMoney(sale.cashAmount),
           formatMoney(sale.cardAmount),
           formatMoney(sale.creditAmount),
@@ -627,7 +661,7 @@ function CurrentSummary({ data }) {
           headers={['Müşteri', 'Telefon', 'İşlem', 'Kalan']}
           rows={customerCurrents.map((item) => [
             item.customerName,
-            item.customerPhone || '-',
+            'Tek alanda',
             item.count,
             formatMoney(item.balance),
           ])}
