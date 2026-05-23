@@ -206,6 +206,7 @@ export default function App() {
   const [kasaTab, setKasaTab] = useState("satis");
   const [karaTab, setKaraTab] = useState("alacak");
   const [selectedSupplierAccount, setSelectedSupplierAccount] = useState(null);
+  const [selectedReceivableMovement, setSelectedReceivableMovement] = useState(null);
   const [stockTab, setStockTab] = useState("liste");
   const [stock, setStock] = useState(initialStock);
   const [sales, setSales] = useState(initialSales);
@@ -664,15 +665,27 @@ export default function App() {
 
             {karaTab === "alacak" && (
               <section className="card">
-                <h2>Kara Defter / Alacaklarım</h2>
-                <Table headers={["İşlem", "Adı Soyad", "Alınan Mal", "Kalan", "Düzelt", "Sil"]} rows={alacaklarim.map((sale, index) => [
-                  index + 1,
-                  sale.cariPerson || sale.customer,
-                  sale.productName,
-                  money(sale.remaining),
-                  <button className="edit-btn" onClick={() => setEditingSale({ ...sale })}><Pencil size={14} /> Düzenle</button>,
-                  <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
-                ])} />
+                {!selectedReceivableMovement ? (
+                  <>
+                    <h2>Kara Defter / Alacaklarım</h2>
+                    <p>Alınan Mal adına tıklayınca o satış/ürün hareketi açılır.</p>
+                    <Table headers={["İşlem", "Tarih", "Adı Soyad", "Alınan Mal", "Kalan", "Düzelt", "Sil"]} rows={alacaklarim.map((sale, index) => [
+                      index + 1,
+                      new Date(sale.date).toLocaleString("tr-TR"),
+                      sale.cariPerson || sale.customer,
+                      <button className="link-btn" onClick={() => setSelectedReceivableMovement(sale)}>{sale.productName}</button>,
+                      money(sale.remaining),
+                      <button className="edit-btn" onClick={() => setEditingSale({ ...sale })}><Pencil size={14} /> Düzenle</button>,
+                      <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
+                    ])} />
+                  </>
+                ) : (
+                  <ReceivableMovementPage
+                    sale={selectedReceivableMovement}
+                    stock={stock}
+                    setSelectedReceivableMovement={setSelectedReceivableMovement}
+                  />
+                )}
               </section>
             )}
 
@@ -882,6 +895,62 @@ function AccessoryStockForm({ stockForm, setStockForm, saveStock, supplierOption
       </div>
       <button className="primary" onClick={() => saveStock("Aksesuar")}><Plus size={16} /> Aksesuarı Stoka Kaydet</button>
     </>
+  );
+}
+
+
+
+function ReceivableMovementPage({ sale, stock, setSelectedReceivableMovement }) {
+  const product = stock.find((item) => item.id === sale.productId || item.barcode === sale.productBarcode);
+  const saleTotal = parseMoneyInput(sale.total);
+  const paid = parseMoneyInput(sale.cash) + parseMoneyInput(sale.card);
+  const remaining = Number(sale.remaining || 0);
+
+  return (
+    <div className="movement-page">
+      <button className="choice" onClick={() => setSelectedReceivableMovement(null)}>← Alacaklarım Listesine Dön</button>
+      <h2>Ürün Hareketi</h2>
+
+      <div className="supplier-summary">
+        <div className="summary-row main">
+          <span>Alınan Mal</span>
+          <b>{sale.productName}</b>
+        </div>
+        <div className="summary-row">
+          <span>Tarih</span>
+          <b>{new Date(sale.date).toLocaleString("tr-TR")}</b>
+        </div>
+        <div className="summary-row">
+          <span>Adı Soyad</span>
+          <b>{sale.cariPerson || sale.customer || "-"}</b>
+        </div>
+        <div className="summary-row">
+          <span>Satış Tutarı</span>
+          <b>{money(saleTotal)}</b>
+        </div>
+        <div className="summary-row">
+          <span>Ödenen</span>
+          <b>{money(paid)}</b>
+        </div>
+        <div className="summary-row debt">
+          <span>Kalan</span>
+          <b>{money(remaining)}</b>
+        </div>
+      </div>
+
+      <Table
+        headers={["Hareket", "Tutar", "Açıklama"]}
+        rows={[
+          ["Satış", money(saleTotal), sale.productName],
+          ["Nakit Ödeme", sale.cash, "Kasaya giren nakit"],
+          ["Kart Ödeme", sale.card, sale.bank ? `POS / ${sale.bank}` : "Kart"],
+          ["Kalan Alacak", money(remaining), sale.cariPerson || sale.customer || "-"],
+          ["Barkod / IMEI", sale.productBarcode || product?.barcode || "-", "Ürün kimliği"],
+          ["Alış Maliyeti", product?.buy || money(sale.productBuyPrice || 0), "Kâr hesabı için maliyet"],
+          ["Kâr", money(sale.profit || 0), "Satış kârı"],
+        ]}
+      />
+    </div>
   );
 }
 

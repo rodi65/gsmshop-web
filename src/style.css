@@ -207,3 +207,9 @@ small { color: #64748b; }
 .summary-row.debt b {
   color: white;
 }
+
+.movement-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
