@@ -179,11 +179,12 @@ export default function App() {
         <nav className="nav-grid">
           {[
             ["kasa", "Kasa", Wallet],
-            ["cihaz", "Cihaz/Stok", Smartphone],
+            ["cihaz", "Cihaz", Smartphone],
             ["aksesuar", "Aksesuar", Headphones],
-            ["sorgu", "Sorgulama", Search],
-            ["vole", "Vole", TrendingUp],
+            ["stok", "Stok", Smartphone],
+            ["sorgu", "Sorgula", Search],
             ["tamir", "Tamir", Wrench],
+            ["vole", "Vole", TrendingUp],
           ].map(([key, label, Icon]) => (
             <button key={key} disabled={key === "tamir"} className={active === key ? "nav-btn active" : key === "tamir" ? "nav-btn disabled" : "nav-btn"} onClick={() => key !== "tamir" && setActive(key)}>
               <Icon size={22} /><span>{label}</span>{key === "tamir" && <small>Yakında</small>}
@@ -278,17 +279,6 @@ export default function App() {
           <section className="card">
             <h2>Aksesuar</h2>
             <p>Aksesuar işlemleri için ürünleri Kasa ekranında satabilir, Stok Kaydı ekranında yeni aksesuar girebilir, Stok ekranında mevcut aksesuarları görebilirsin.</p>
-          </section>
-        )}
-
-        {active === "stokKaydi" && (
-          <section className="section">
-            <div className="card">
-              <h2>Stok Kaydı</h2>
-              <p>Cihaz ve aksesuar stok girişleri buradan yapılır. Eklenen ürünler Stok bölümünde listelenir.</p>
-            </div>
-            <StockSection title="Cihaz Stok Kaydı" only="Cihaz" stock={stock} stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} setEditingStock={setEditingStock} />
-            <StockSection title="Aksesuar Stok Kaydı" only="Aksesuar" stock={stock} stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} setEditingStock={setEditingStock} />
           </section>
         )}
 

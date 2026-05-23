@@ -14,7 +14,7 @@ small { color: #64748b; }
 .hero h1 { margin: 0; font-size: 42px; }
 .hero p { margin: 4px 0 0; color: #64748b; }
 .status-pill { background: #020617; color: white; border-radius: 999px; padding: 12px 18px; font-weight: 900; }
-.nav-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; }
+.nav-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
 .nav-btn { min-height: 78px; border-radius: 20px; background: white; color: #0f172a; border: 1px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-weight: 900; }
 .nav-btn.active { background: #020617; color: white; }
 .nav-btn.disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
