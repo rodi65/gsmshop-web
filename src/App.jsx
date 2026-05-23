@@ -288,7 +288,8 @@ function KasaModule({ data, setData }) {
     { id: 'daily', label: 'Günlük rapor', icon: BarChart3 },
     { id: 'new', label: 'Yeni satış', icon: Plus },
     { id: 'list', label: 'Satış listesi', icon: ClipboardList },
-    { id: 'current', label: 'Cari özeti', icon: Building2 },
+    { id: 'current', label: 'ALACAKLARIM', icon: Building2 },
+    { id: 'debt', label: 'Borçlarım', icon: Building2 },
   ];
 
   return (
@@ -298,6 +299,7 @@ function KasaModule({ data, setData }) {
       {activeTab === 'new' && <NewSale data={data} setData={setData} />}
       {activeTab === 'list' && <SalesList sales={data.sales} />}
       {activeTab === 'current' && <CurrentSummary data={data} />}
+      {activeTab === 'debt' && <DebtSummary data={data} />}
     </div>
   );
 }
@@ -655,10 +657,10 @@ function CurrentSummary({ data }) {
   return (
     <div className="module-stack">
       <section className="panel">
-        <PanelHeader title="Müşteri cari özeti" text="Cihaz satışlarında eksik tahsilat oluşursa burada takip edilir." />
+        <PanelHeader title="Alacaklarım" text="Cihaz satışlarında eksik tahsilat oluşursa burada takip edilir." />
         <ResponsiveTable
           emptyText="Müşteri carisi yok."
-          headers={['Müşteri', 'Telefon', 'İşlem', 'Kalan']}
+          headers={['İşlem', 'Adı Soyad', 'Alınan Mal', 'Kalan']}
           rows={customerCurrents.map((item) => [
             item.customerName,
             'Tek alanda',
@@ -669,6 +671,27 @@ function CurrentSummary({ data }) {
       </section>
       <FirmCurrentCards summaries={firmSummaries} />
     </div>
+  );
+}
+
+
+function DebtSummary({ data }) {
+  const firmSummaries = buildFirmSummaries(data);
+
+  return (
+    <section className="panel">
+      <PanelHeader title="Borçlarım" text="Satıcı firmalara olan alış kaynaklı borçların özetidir." />
+      <ResponsiveTable
+        emptyText="Borç kaydı yok."
+        headers={['Firma', 'Son alınan mal', 'Son ödeme', 'Kalan']}
+        rows={firmSummaries.map((item) => [
+          item.name,
+          item.lastProduct || '-',
+          formatMoney(item.lastPayment || 0),
+          formatMoney(item.balance || item.remaining || 0),
+        ])}
+      />
+    </section>
   );
 }
 
