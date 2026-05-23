@@ -1,1671 +1,437 @@
-import { useEffect, useMemo, useState } from 'react';
-import {
-  AlertTriangle,
-  Archive,
-  Banknote,
-  BarChart3,
-  Boxes,
-  Building2,
-  Cable,
-  CheckCircle2,
-  ClipboardList,
-  CreditCard,
-  PackageSearch,
-  Pencil,
-  Plus,
-  RefreshCw,
-  RotateCcw,
-  Save,
-  Search,
-  Smartphone,
-  Trash2,
-  TrendingUp,
-  WalletCards,
-  Wrench,
-} from 'lucide-react';
 
-const STORAGE_KEY = 'gsmshop-web:local-data';
+import React, { useMemo, useState } from "react";
+import { Wallet, Smartphone, Headphones, Search, TrendingUp, Wrench, Plus, Pencil, Save, X } from "lucide-react";
+import "./style.css";
 
-const DEVICE_TYPES = ['Telefon', 'Saat', 'Tablet', 'PC', 'Elektronik'];
-const DEVICE_CONDITIONS = ['Sıfır Garantili', 'Sıfır Spot', 'İkinci El'];
-const SALE_TYPES = [
-  'Telefon Satışı',
-  'Saat Satışı',
-  'Tablet Satışı',
-  'PC Satışı',
-  'Elektronik Satışı',
-  'Aksesuar Satışı',
-];
-const PROFIT_GROUPS = [...SALE_TYPES, 'Tamir Geliri'];
-const CATEGORY_SEEDS = ['Kılıf', 'Şarj', 'Koruyucu', 'Kulaklık', 'Blutut Kulaklık'];
-const BRAND_GROUPS = ['Apple', 'Samsung', 'Xiaomi', 'Oppo', 'Realme', 'Huawei', 'Lenovo', 'HP', 'Asus', 'Diğer'];
-const BRAND_MODELS = {
-  Samsung: [
-    'Galaxy S26 Ultra',
-    'Galaxy S26+',
-    'Galaxy S26',
-    'Galaxy S25 Ultra',
-    'Galaxy S25+',
-    'Galaxy S25',
-    'Galaxy Z Fold 7',
-    'Galaxy Z Flip 7',
-  ],
-  Apple: [
-    'iPhone 17 Pro Max',
-    'iPhone 17 Pro',
-    'iPhone Air',
-    'iPhone 17',
-    'iPhone 16 Pro Max',
-    'iPhone 16 Pro',
-    'iPhone 16',
-    'Apple Watch Ultra 3',
-  ],
+const money = (v) => new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 }).format(Number(v || 0));
+const today = () => new Date().toISOString().slice(0, 10);
+const has = (a, b) => String(a || "").toLowerCase().includes(String(b || "").toLowerCase());
+
+const saleTypes = ["Telefon Satışı", "Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı", "Aksesuar Satışı"];
+const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik"];
+const banks = ["Ziraat", "İş Bankası", "Garanti", "Akbank", "Yapı Kredi", "Halkbank", "VakıfBank", "QNB", "Enpara", "Diğer"];
+const categories = ["Kılıf", "Şarj", "Koruyucu", "Kulaklık", "Blutut Kulaklık"];
+const brands = ["Apple", "Samsung", "Huawei", "Xiaomi", "Oppo", "Vivo", "Honor", "Realme", "Tecno", "Poco", "OnePlus", "TCL", "Infinix", "Alcatel", "Motorola"];
+const modelsByBrand = {
+  Apple: ["iPhone 17 Pro Max", "iPhone 17 Pro", "iPhone Air", "iPhone 17", "iPhone 16 Pro Max", "iPhone 16 Pro", "Apple Watch Ultra 3"],
+  Samsung: ["Galaxy S26 Ultra", "Galaxy S26+", "Galaxy S26", "Galaxy S25 Ultra", "Galaxy S25+", "Galaxy S25", "Galaxy Watch Ultra"],
+  Huawei: ["Huawei Pura 80 Ultra", "Huawei Pura 80 Pro", "Huawei Mate 70 Pro", "Huawei Watch GT 6 Pro"],
+  Xiaomi: ["Xiaomi 15 Ultra", "Xiaomi 15 Pro", "Redmi Note 14 Pro+ 5G", "Xiaomi Watch S4"],
+  Oppo: ["OPPO Find X9 Pro", "OPPO Find X9"],
+  Vivo: ["vivo X300 Pro", "vivo X300"],
+  Honor: ["HONOR Magic8 Pro", "HONOR Magic8"],
+  Realme: ["realme GT 7 Pro", "realme GT 6"],
+  Tecno: ["TECNO Phantom V Fold2", "TECNO Camon 40 Pro"],
+  Poco: ["POCO F8 Ultra", "POCO F8 Pro"],
+  OnePlus: ["OnePlus 13", "OnePlus 13R"],
+  TCL: ["TCL 60 SE", "TCL 50 Pro NXTPAPER"],
+  Infinix: ["Infinix Zero 40 5G", "Infinix Note 40 Pro+"],
+  Alcatel: ["Alcatel 1S 2021", "Alcatel 1L Pro"],
+  Motorola: ["Motorola Razr Ultra", "Motorola Edge 60 Pro"],
 };
-const MEMORY_OPTIONS = ['64 GB', '128 GB', '256 GB', '512 GB', '1 TB', '2 TB', 'Yok'];
 
-const moneyFormatter = new Intl.NumberFormat('tr-TR', {
-  style: 'currency',
-  currency: 'TRY',
-  maximumFractionDigits: 0,
-});
+const initialStock = [
+  { id: 101, module: "Cihaz", deviceType: "Telefon", condition: "Sıfır Garantili", brand: "Apple", model: "iPhone 17 Pro Max", memory: "256 GB", barcode: "356789123456789", buy: 70000, sell: 85000, qty: 1, supplier: "MOBİLTEK İLETİŞİM", sellerPerson: "", sellerPhone: "", supplierPaid: 0, note: "" },
+  { id: 102, module: "Cihaz", deviceType: "Telefon", condition: "Sıfır Spot", brand: "Samsung", model: "Galaxy S26 Ultra", memory: "512 GB", barcode: "356789123456780", buy: 80000, sell: 98000, qty: 1, supplier: "GALAKSİ TEKNOLOJİ", sellerPerson: "", sellerPhone: "", supplierPaid: 0, note: "S26 serisi" },
+  { id: 103, module: "Cihaz", deviceType: "Saat", condition: "Sıfır Garantili", brand: "Apple", model: "Apple Watch Ultra 3", memory: "", barcode: "869000000001", buy: 25000, sell: 32000, qty: 1, supplier: "MOBİLTEK İLETİŞİM", sellerPerson: "", sellerPhone: "", supplierPaid: 0, note: "" },
+  { id: 201, module: "Aksesuar", deviceType: "Aksesuar", category: "Kılıf", name: "iPhone 17 Pro Max Kılıf", compatibleModel: "iPhone 17 Pro Max", barcode: "869000000101", buy: 150, sell: 400, qty: 20, supplier: "BASEUS TÜRKİYE", supplierPaid: 0 },
+  { id: 202, module: "Aksesuar", deviceType: "Aksesuar", category: "Blutut Kulaklık", name: "Baseus Bluetooth Kulaklık", compatibleModel: "Genel", barcode: "869000000103", buy: 500, sell: 950, qty: 10, supplier: "BASEUS TÜRKİYE", supplierPaid: 0 },
+];
 
-function createInitialData() {
-  const createdAt = new Date().toISOString();
-  const categories = CATEGORY_SEEDS.map((name) => ({
-    id: slugId('cat', name),
-    name,
-    archived: false,
-    fixed: true,
-    createdAt,
-  }));
+const initialSales = [
+  { id: 1, type: "Telefon Satışı", customer: "Mehmet Kaya 0555 555 55 55", cariPerson: "Mehmet Kaya 0555 555 55 55", bank: "Garanti", productName: "iPhone 17 Pro Max", productId: 101, productBuyPrice: 70000, total: 85000, cash: 30000, card: 40000, remaining: 15000, profit: 15000, date: new Date().toISOString() },
+];
 
-  return {
-    categories,
-    companies: [
-      { id: 'firm-mobiltek', name: 'MOBİLTEK İLETİŞİM', createdAt },
-      { id: 'firm-galaksi', name: 'GALAKSİ TEKNOLOJİ', createdAt },
-      { id: 'firm-baseus', name: 'BASEUS TÜRKİYE', createdAt },
-    ],
-    firmPayments: [
-      {
-        id: 'pay-sample-1',
-        companyName: 'MOBİLTEK İLETİŞİM',
-        amount: 25000,
-        note: 'Başlangıç ödemesi',
-        createdAt,
-      },
-    ],
-    devices: [
-      {
-        id: 'dev-iphone-17-pro-max',
-        type: 'Telefon',
-        condition: 'Sıfır Garantili',
-        brandGroup: 'Apple',
-        brand: 'Apple',
-        model: 'iPhone 17 Pro Max',
-        memory: '256 GB',
-        barcode: 'IMEI-170000000001',
-        purchasePrice: 76000,
-        salePrice: 84500,
-        stock: 2,
-        initialStock: 2,
-        sellerCompany: 'MOBİLTEK İLETİŞİM',
-        sellerPerson: '',
-        sellerPhone: '',
-        note: 'Başlangıç örnek cihazı',
-        createdAt,
-      },
-      {
-        id: 'dev-galaxy-s26-ultra',
-        type: 'Telefon',
-        condition: 'Sıfır Spot',
-        brandGroup: 'Samsung',
-        brand: 'Samsung',
-        model: 'Galaxy S26 Ultra',
-        memory: '512 GB',
-        barcode: 'IMEI-260000000001',
-        purchasePrice: 62000,
-        salePrice: 69900,
-        stock: 3,
-        initialStock: 3,
-        sellerCompany: 'GALAKSİ TEKNOLOJİ',
-        sellerPerson: '',
-        sellerPhone: '',
-        note: 'Başlangıç örnek cihazı',
-        createdAt,
-      },
-      {
-        id: 'dev-watch-ultra-3',
-        type: 'Saat',
-        condition: 'Sıfır Garantili',
-        brandGroup: 'Apple',
-        brand: 'Apple',
-        model: 'Apple Watch Ultra 3',
-        memory: 'Yok',
-        barcode: 'IMEI-WATCH-ULTRA-3',
-        purchasePrice: 25000,
-        salePrice: 29900,
-        stock: 1,
-        initialStock: 1,
-        sellerCompany: 'MOBİLTEK İLETİŞİM',
-        sellerPerson: '',
-        sellerPhone: '',
-        note: 'Başlangıç örnek cihazı',
-        createdAt,
-      },
-    ],
-    accessories: [
-      {
-        id: 'acc-iphone-17-pro-max-kilif',
-        categoryId: 'cat-kilif',
-        categoryName: 'Kılıf',
-        name: 'iPhone 17 Pro Max Kılıf',
-        modelCompatibility: 'iPhone 17 Pro Max',
-        barcode: 'ACC-170-PM-KILIF',
-        stock: 14,
-        initialStock: 14,
-        purchasePrice: 180,
-        salePrice: 449,
-        sellerCompany: 'BASEUS TÜRKİYE',
-        createdAt,
-      },
-      {
-        id: 'acc-baseus-bluetooth-kulaklik',
-        categoryId: 'cat-blutut-kulaklik',
-        categoryName: 'Blutut Kulaklık',
-        name: 'Baseus Bluetooth Kulaklık',
-        modelCompatibility: 'Evrensel',
-        barcode: 'ACC-BASEUS-BT-01',
-        stock: 6,
-        initialStock: 6,
-        purchasePrice: 950,
-        salePrice: 1499,
-        sellerCompany: 'BASEUS TÜRKİYE',
-        createdAt,
-      },
-    ],
-    sales: [],
-  };
+function calcSale(sale) {
+  const total = Number(sale.total || 0);
+  const cash = Number(sale.cash || 0);
+  const card = Number(sale.card || 0);
+  const remaining = sale.type === "Aksesuar Satışı" ? 0 : Math.max(total - cash - card, 0);
+  const profit = total - Number(sale.productBuyPrice || 0);
+  return { ...sale, total, cash, card, remaining, profit };
 }
 
-const emptyDeviceForm = {
-  type: 'Telefon',
-  condition: 'Sıfır Garantili',
-  brandGroup: 'Apple',
-  brand: 'Apple',
-  model: 'iPhone 17 Pro Max',
-  memory: '256 GB',
-  barcode: '',
-  purchasePrice: '',
-  salePrice: '',
-  stock: 1,
-  sellerCompany: '',
-  sellerPerson: '',
-  sellerPhone: '',
-  note: '',
-};
+function productTitle(p) {
+  return p.module === "Aksesuar" ? p.name : [p.brand, p.model, p.memory].filter(Boolean).join(" ");
+}
 
-const emptyAccessoryForm = {
-  categoryId: 'cat-kilif',
-  name: '',
-  modelCompatibility: '',
-  barcode: '',
-  stock: 1,
-  purchasePrice: '',
-  salePrice: '',
-  sellerCompany: '',
-};
+function Stat({ title, value }) {
+  return <div className="stat-card"><div className="stat-title">{title}</div><div className="stat-value">{value}</div></div>;
+}
 
-function App() {
-  const [data, setData] = useStoredData();
-  const [activeModule, setActiveModule] = useState('kasa');
+export default function App() {
+  const [active, setActive] = useState("kasa");
+  const [stock, setStock] = useState(initialStock);
+  const [sales, setSales] = useState(initialSales);
+  const [saleForm, setSaleForm] = useState({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
+  const [stockForm, setStockForm] = useState({ module: "Cihaz", deviceType: "Telefon", condition: "Sıfır Garantili", brand: "Apple", model: "iPhone 17 Pro Max", memory: "256 GB", category: "Kılıf", name: "", compatibleModel: "", barcode: "", buy: "", sell: "", qty: 1, supplier: "", supplierPaid: 0, sellerPerson: "", sellerPhone: "", note: "" });
+  const [editingSale, setEditingSale] = useState(null);
+  const [editingStock, setEditingStock] = useState(null);
+  const [query, setQuery] = useState("");
 
-  const modules = [
-    { id: 'kasa', label: 'Kasa', icon: WalletCards },
-    { id: 'cihaz', label: 'Cihaz', icon: Smartphone },
-    { id: 'aksesuar', label: 'Aksesuar', icon: Cable },
-    { id: 'sorgulama', label: 'Sorgulama', icon: Search },
-    { id: 'vole', label: 'Vole', icon: TrendingUp },
-    { id: 'tamir', label: 'Tamir', icon: Wrench, disabled: true, note: 'Yakında aktif olacak' },
-  ];
+  const isAccessorySale = saleForm.type === "Aksesuar Satışı";
+  const saleDeviceType = saleForm.type.replace(" Satışı", "");
+  const saleProducts = stock
+    .filter(p => isAccessorySale ? p.module === "Aksesuar" : p.module === "Cihaz" && p.deviceType === saleDeviceType)
+    .filter(p => !saleForm.search || has(productTitle(p), saleForm.search) || has(p.barcode, saleForm.search));
 
-  const activeLabel = modules.find((item) => item.id === activeModule)?.label ?? 'Kasa';
+  const selectedProduct = stock.find(p => String(p.id) === String(saleForm.productId));
+  const saleTotal = Number(saleForm.total || selectedProduct?.sell || 0);
+  const saleCash = Number(saleForm.cash || 0);
+  const saleCard = Number(saleForm.card || 0);
+  const saleRemaining = isAccessorySale ? 0 : Math.max(saleTotal - saleCash - saleCard, 0);
+
+  const alacaklarim = sales.filter(s => s.type !== "Aksesuar Satışı" && Number(s.remaining || 0) > 0);
+  const borclarim = useMemo(() => {
+    const map = new Map();
+    stock.forEach(p => {
+      const supplier = p.supplier || "FİRMASIZ";
+      const totalBuy = Number(p.buy || 0) * Number(p.qty || 0);
+      const paid = Number(p.supplierPaid || 0);
+      const row = map.get(supplier) || { supplier, lastProduct: "", totalBuy: 0, paid: 0, remaining: 0 };
+      row.lastProduct = productTitle(p);
+      row.totalBuy += totalBuy;
+      row.paid += paid;
+      row.remaining += Math.max(totalBuy - paid, 0);
+      map.set(supplier, row);
+    });
+    return Array.from(map.values());
+  }, [stock]);
+
+  const report = {
+    total: sales.reduce((a, s) => a + Number(s.total || 0), 0),
+    cash: sales.reduce((a, s) => a + Number(s.cash || 0), 0),
+    card: sales.reduce((a, s) => a + Number(s.card || 0), 0),
+    remaining: sales.reduce((a, s) => a + Number(s.remaining || 0), 0),
+    profit: sales.reduce((a, s) => a + Number(s.profit || 0), 0),
+  };
+
+  function saveSale() {
+    if (!selectedProduct) return alert("Ürün seç");
+    if (Number(selectedProduct.qty || 0) <= 0) return alert("Stok yok");
+    if (!isAccessorySale && !saleForm.customer.trim()) return alert("Müşteri adı soyadı / telefon yaz");
+    if (!isAccessorySale && saleRemaining > 0 && !saleForm.cariPerson.trim()) return alert("Kalan varsa cari kişi seçilmelidir");
+    if (saleCard > 0 && !saleForm.bank) return alert("Kart ödeme varsa banka seç");
+
+    const sale = calcSale({
+      id: Date.now(),
+      type: saleForm.type,
+      customer: isAccessorySale ? "" : saleForm.customer.trim(),
+      cariPerson: isAccessorySale ? "" : saleForm.cariPerson.trim(),
+      bank: saleForm.bank,
+      productName: productTitle(selectedProduct),
+      productId: selectedProduct.id,
+      productBuyPrice: selectedProduct.buy,
+      total: saleTotal,
+      cash: saleCash,
+      card: saleCard,
+      date: new Date().toISOString(),
+    });
+
+    setStock(stock.map(p => p.id === selectedProduct.id ? { ...p, qty: Math.max(Number(p.qty) - 1, 0) } : p));
+    setSales([sale, ...sales]);
+    setSaleForm({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
+  }
+
+  function saveStock() {
+    if (!stockForm.supplier) return alert("Tedarikçi / satıcı firma yaz");
+    if (!stockForm.buy || !stockForm.sell || !stockForm.qty) return alert("Alış, satış ve stok yaz");
+    const item = {
+      ...stockForm,
+      id: Date.now(),
+      buy: Number(stockForm.buy),
+      sell: Number(stockForm.sell),
+      qty: Number(stockForm.qty),
+      supplierPaid: Number(stockForm.supplierPaid || 0),
+      module: stockForm.module,
+      deviceType: stockForm.module === "Aksesuar" ? "Aksesuar" : stockForm.deviceType,
+    };
+    setStock([item, ...stock]);
+    setStockForm({ ...stockForm, name: "", barcode: "", buy: "", sell: "", qty: 1, supplierPaid: 0, note: "" });
+  }
+
+  function updateSale() {
+    const fixed = calcSale(editingSale);
+    setSales(sales.map(s => s.id === fixed.id ? fixed : s));
+    setEditingSale(null);
+  }
+
+  function updateStock() {
+    const fixed = { ...editingStock, buy: Number(editingStock.buy || 0), sell: Number(editingStock.sell || 0), qty: Number(editingStock.qty || 0), supplierPaid: Number(editingStock.supplierPaid || 0) };
+    setStock(stock.map(p => p.id === fixed.id ? fixed : p));
+    setEditingStock(null);
+  }
+
+  const filteredStock = stock.filter(p => !query || has(productTitle(p), query) || has(p.barcode, query) || has(p.supplier, query));
+  const filteredSales = sales.filter(s => !query || has(s.productName, query) || has(s.customer, query) || has(s.cariPerson, query));
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand-block">
-          <div className="brand-mark">GS</div>
+    <div className="app">
+      <div className="shell">
+        <header className="hero">
           <div>
             <h1>GSMSHOP</h1>
-            <p>Web kasa ve stok takip</p>
+            <p>Alacaklarım = eksik ödeyen müşteriler. Borçlarım = mal aldığım tedarikçiler.</p>
           </div>
-        </div>
+          <div className="status-pill">WEB TEST</div>
+        </header>
 
-        <nav className="module-nav" aria-label="Ana modüller">
-          {modules.map(({ id, label, icon: Icon, disabled, note }) => (
-            <button
-              className={`module-button ${activeModule === id ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
-              disabled={disabled}
-              key={id}
-              onClick={() => setActiveModule(id)}
-              type="button"
-            >
-              <Icon size={20} />
-              <span>{label}</span>
-              {note && <small>{note}</small>}
+        <nav className="nav-grid">
+          {[
+            ["kasa", "Kasa", Wallet],
+            ["cihaz", "Cihaz/Stok", Smartphone],
+            ["aksesuar", "Aksesuar", Headphones],
+            ["alacak", "ALACAKLARIM", Wallet],
+            ["borc", "Borçlarım", Wallet],
+            ["sorgu", "Sorgulama", Search],
+            ["vole", "Vole", TrendingUp],
+            ["tamir", "Tamir", Wrench],
+          ].map(([key, label, Icon]) => (
+            <button key={key} disabled={key === "tamir"} className={active === key ? "nav-btn active" : key === "tamir" ? "nav-btn disabled" : "nav-btn"} onClick={() => key !== "tamir" && setActive(key)}>
+              <Icon size={22} /><span>{label}</span>{key === "tamir" && <small>Yakında</small>}
             </button>
           ))}
         </nav>
-      </aside>
 
-      <main className="content">
-        <header className="topbar">
-          <div>
-            <span className="eyebrow">GSMSHOP</span>
-            <h2>{activeLabel}</h2>
-          </div>
-          <div className="topbar-metrics">
-            <span>{data.devices.length} cihaz</span>
-            <span>{data.accessories.length} aksesuar</span>
-            <span>{data.sales.length} satış</span>
-          </div>
-        </header>
-
-        {activeModule === 'kasa' && <KasaModule data={data} setData={setData} />}
-        {activeModule === 'cihaz' && <DeviceModule data={data} setData={setData} />}
-        {activeModule === 'aksesuar' && <AccessoryModule data={data} setData={setData} />}
-        {activeModule === 'sorgulama' && <QueryModule data={data} />}
-        {activeModule === 'vole' && <VoleModule sales={data.sales} />}
-      </main>
-    </div>
-  );
-}
-
-function KasaModule({ data, setData }) {
-  const [activeTab, setActiveTab] = useState('new');
-  const tabs = [
-    { id: 'daily', label: 'Günlük rapor', icon: BarChart3 },
-    { id: 'new', label: 'Yeni satış', icon: Plus },
-    { id: 'list', label: 'Satış listesi', icon: ClipboardList },
-    { id: 'current', label: 'ALACAKLARIM', icon: Building2 },
-    { id: 'debt', label: 'Borçlarım', icon: Building2 },
-  ];
-
-  return (
-    <div className="module-stack">
-      <TabBar activeTab={activeTab} setActiveTab={setActiveTab} tabs={tabs} />
-      {activeTab === 'daily' && <DailyReport sales={data.sales} />}
-      {activeTab === 'new' && <NewSale data={data} setData={setData} />}
-      {activeTab === 'list' && <SalesList sales={data.sales} />}
-      {activeTab === 'current' && <CurrentSummary data={data} />}
-      {activeTab === 'debt' && <DebtSummary data={data} />}
-    </div>
-  );
-}
-
-function NewSale({ data, setData }) {
-  const [saleType, setSaleType] = useState('Telefon Satışı');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedProductId, setSelectedProductId] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [cariPerson, setCariPerson] = useState('');
-  const [salePrice, setSalePrice] = useState('');
-  const [cashAmount, setCashAmount] = useState('');
-  const [cardAmount, setCardAmount] = useState('');
-  const [message, setMessage] = useState('');
-  const [success, setSuccess] = useState(null);
-
-  const isAccessorySale = saleType === 'Aksesuar Satışı';
-  const deviceType = saleType.replace(' Satışı', '');
-  const productPool = useMemo(() => {
-    if (isAccessorySale) {
-      return data.accessories.map((item) => ({
-        ...item,
-        searchableName: item.name,
-        title: item.name,
-        productKind: 'accessory',
-      }));
-    }
-
-    return data.devices
-      .filter((item) => item.type === deviceType)
-      .map((item) => ({
-        ...item,
-        searchableName: deviceTitle(item),
-        title: deviceTitle(item),
-        productKind: 'device',
-      }));
-  }, [data.accessories, data.devices, deviceType, isAccessorySale]);
-
-  const filteredProducts = useMemo(() => {
-    const needle = normalize(searchTerm);
-    return productPool.filter((product) => {
-      if (!needle) return true;
-      return [product.searchableName, product.barcode, product.modelCompatibility, product.brand, product.model]
-        .some((field) => normalize(field).includes(needle));
-    });
-  }, [productPool, searchTerm]);
-
-  const selectedProduct = productPool.find((item) => item.id === selectedProductId);
-  const saleTotal = toNumber(salePrice);
-  const purchaseTotal = selectedProduct ? toNumber(selectedProduct.purchasePrice) : 0;
-  const paidTotal = toNumber(cashAmount) + toNumber(cardAmount);
-  const creditAmount = isAccessorySale ? 0 : Math.max(0, saleTotal - paidTotal);
-  const projectedProfit = saleTotal - purchaseTotal;
-
-  const cariPersonOptions = useMemo(() => {
-    const existing = data.sales
-      .filter((sale) => sale.creditAmount > 0 && sale.customerName)
-      .map((sale) => sale.customerName);
-    if (customerName.trim()) existing.unshift(customerName.trim());
-    return Array.from(new Set(existing));
-  }, [data.sales, customerName]);
-
-  useEffect(() => {
-    setSelectedProductId('');
-    setSalePrice('');
-    setCashAmount('');
-    setCardAmount('');
-    setCariPerson('');
-    setMessage('');
-    setSuccess(null);
-  }, [saleType]);
-
-  useEffect(() => {
-    if (!selectedProduct) return;
-    const autoPrice = String(selectedProduct.salePrice ?? '');
-    setSalePrice(autoPrice);
-    setCashAmount(autoPrice);
-    setCardAmount('');
-  }, [selectedProduct]);
-
-  function handleSubmit(event) {
-    event.preventDefault();
-    setMessage('');
-    setSuccess(null);
-
-    if (!selectedProduct) {
-      setMessage('Satış için ürün seçmelisin.');
-      return;
-    }
-
-    if (toNumber(selectedProduct.stock) < 1) {
-      setMessage('Seçilen üründe stok yok.');
-      return;
-    }
-
-    if (!isAccessorySale && !customerName.trim()) {
-      setMessage('Müşteri adı soyadı / telefon birlikte yazılmalı.');
-      return;
-    }
-
-    if (!isAccessorySale && creditAmount > 0 && !cariPerson.trim()) {
-      setMessage('Kalan varsa cari kişi seçilmeden hesap kapanmaz.');
-      return;
-    }
-
-    if (saleTotal <= 0) {
-      setMessage('Satış fiyatı 0’dan büyük olmalı.');
-      return;
-    }
-
-    const stockBefore = toNumber(selectedProduct.stock);
-    const stockAfter = stockBefore - 1;
-    const createdAt = new Date().toISOString();
-    const sale = {
-      id: uid('sale'),
-      saleType,
-      productKind: isAccessorySale ? 'accessory' : 'device',
-      productId: selectedProduct.id,
-      productName: selectedProduct.title,
-      barcode: selectedProduct.barcode,
-      customerName: isAccessorySale ? '' : (creditAmount > 0 ? cariPerson.trim() : customerName.trim()),
-      customerDisplay: isAccessorySale ? '' : customerName.trim(),
-      customerPhone: '',
-      cariPerson: isAccessorySale ? '' : cariPerson.trim(),
-      sellerCompany: selectedProduct.sellerCompany ?? '',
-      sellerPerson: selectedProduct.sellerPerson ?? '',
-      quantity: 1,
-      purchaseTotal,
-      saleTotal,
-      cashAmount: toNumber(cashAmount),
-      cardAmount: toNumber(cardAmount),
-      creditAmount,
-      profit: projectedProfit,
-      stockBefore,
-      stockAfter,
-      createdAt,
-    };
-
-    setData((current) => ({
-      ...current,
-      devices: isAccessorySale
-        ? current.devices
-        : current.devices.map((item) => (
-          item.id === selectedProduct.id ? { ...item, stock: Math.max(0, toNumber(item.stock) - 1) } : item
-        )),
-      accessories: isAccessorySale
-        ? current.accessories.map((item) => (
-          item.id === selectedProduct.id ? { ...item, stock: Math.max(0, toNumber(item.stock) - 1) } : item
-        ))
-        : current.accessories,
-      sales: [sale, ...current.sales],
-    }));
-
-    setSuccess({
-      productName: sale.productName,
-      stockBefore,
-      stockAfter,
-      profit: sale.profit,
-      creditAmount,
-    });
-    setSelectedProductId('');
-    setSearchTerm('');
-    setCustomerName('');
-    setCariPerson('');
-    setSalePrice('');
-    setCashAmount('');
-    setCardAmount('');
-  }
-
-  return (
-    <section className="panel">
-      <PanelHeader title="Yeni satış" text="Cihaz satışları cari takip açabilir, aksesuar satışları stoktan düşer ve cari oluşturmaz." />
-
-      <form className="form-grid" onSubmit={handleSubmit}>
-        <label>
-          Satış türü
-          <select value={saleType} onChange={(event) => setSaleType(event.target.value)}>
-            {SALE_TYPES.map((type) => <option key={type}>{type}</option>)}
-          </select>
-        </label>
-
-        <label className="span-2">
-          Barkod / IMEI veya ürün adıyla ara
-          <input
-            placeholder={isAccessorySale ? 'Barkod veya aksesuar adı' : 'Barkod, IMEI, marka veya model'}
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-          />
-        </label>
-
-        <label className="span-2">
-          Ürün seç
-          <select value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)}>
-            <option value="">Ürün seç</option>
-            {filteredProducts.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.title} | {product.barcode || 'barkod yok'} | Stok {product.stock}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {!isAccessorySale && (
-          <label className="span-2">
-            Müşteri adı soyadı / telefon
-            <input
-              placeholder="Örnek: Ahmet Yılmaz 0555 555 55 55"
-              value={customerName}
-              onChange={(event) => {
-                setCustomerName(event.target.value);
-                if (!cariPerson) setCariPerson(event.target.value);
-              }}
-              required
-            />
-          </label>
-        )}
-
-        <label>
-          Satış fiyatı
-          <input min="0" type="number" value={salePrice} onChange={(event) => setSalePrice(event.target.value)} />
-        </label>
-        <label>
-          Nakit
-          <input min="0" type="number" value={cashAmount} onChange={(event) => setCashAmount(event.target.value)} />
-        </label>
-        <label>
-          Kart
-          <input min="0" type="number" value={cardAmount} onChange={(event) => setCardAmount(event.target.value)} />
-        </label>
-
-        {selectedProduct && (
-          <div className="product-preview span-3">
-            <div>
-              <strong>{selectedProduct.title}</strong>
-              <span>{selectedProduct.barcode || 'Barkod / IMEI yok'}</span>
-            </div>
-            <Metric label="Alış" value={formatMoney(purchaseTotal)} />
-            <Metric label="Satış" value={formatMoney(saleTotal)} />
-            <Metric label="Stok" value={selectedProduct.stock} />
-            <Metric label="Ön kâr" value={formatMoney(projectedProfit)} tone={projectedProfit >= 0 ? 'good' : 'bad'} />
-          </div>
-        )}
-
-        {!isAccessorySale && creditAmount > 0 && (
-          <>
-            <div className="alert span-3">
-              <AlertTriangle size={18} />
-              Nakit + kart toplamı satıştan düşük. {formatMoney(creditAmount)} kalan cari oluşacak.
+        {active === "kasa" && (
+          <section className="section">
+            <div className="stats five">
+              <Stat title="Toplam Satış" value={money(report.total)} />
+              <Stat title="Nakit" value={money(report.cash)} />
+              <Stat title="Kart" value={money(report.card)} />
+              <Stat title="Kalan Alacak" value={money(report.remaining)} />
+              <Stat title="Kâr" value={money(report.profit)} />
             </div>
 
-            <label className="span-3">
-              Kalan cari kişi
-              <input
-                list="cari-person-options"
-                placeholder="Cari kişi seç veya müşteri adı soyadı / telefon yaz"
-                value={cariPerson}
-                onChange={(event) => setCariPerson(event.target.value)}
-                required
-              />
-              <datalist id="cari-person-options">
-                {cariPersonOptions.map((name) => <option key={name} value={name} />)}
-              </datalist>
-            </label>
-          </>
-        )}
+            <div className="grid sale-layout">
+              <div className="card">
+                <h2>Yeni Satış</h2>
+                <div className="button-grid">{saleTypes.map(t => <button key={t} className={saleForm.type === t ? "choice active" : "choice"} onClick={() => setSaleForm({ ...saleForm, type: t, productId: "", search: "" })}>{t.replace(" Satışı", "")}</button>)}</div>
 
-        {isAccessorySale && (
-          <div className="soft-note span-3">Aksesuar satışında müşteri bilgisi ve cari kaydı oluşturulmaz.</div>
-        )}
+                {!isAccessorySale && <input placeholder="Müşteri adı soyadı / telefon" value={saleForm.customer} onChange={e => setSaleForm({ ...saleForm, customer: e.target.value, cariPerson: saleForm.cariPerson || e.target.value })} />}
 
-        {message && <div className="error-note span-3">{message}</div>}
+                <input placeholder={isAccessorySale ? "Barkod veya ürün adı" : "Barkod / IMEI veya model"} value={saleForm.search} onChange={e => setSaleForm({ ...saleForm, search: e.target.value })} />
 
-        <div className="form-actions span-3">
-          <button className="primary-button" type="submit">
-            <Save size={18} />
-            Satışı kaydet
-          </button>
-        </div>
-      </form>
+                <select value={saleForm.productId} onChange={e => {
+                  const p = stock.find(x => String(x.id) === e.target.value);
+                  setSaleForm({ ...saleForm, productId: e.target.value, total: p?.sell || "", cash: p?.sell || "", card: "" });
+                }}>
+                  <option value="">Ürün seç</option>
+                  {saleProducts.map(p => <option key={p.id} value={p.id}>{productTitle(p)} | Stok {p.qty} | {money(p.sell)}</option>)}
+                </select>
 
-      {success && (
-        <div className="success-card">
-          <CheckCircle2 size={24} />
-          <div>
-            <h3>Satış kaydedildi</h3>
-            <div className="success-grid">
-              <span>Ürün adı</span><strong>{success.productName}</strong>
-              <span>Stok önce / sonra</span><strong>{success.stockBefore} / {success.stockAfter}</strong>
-              <span>Kâr</span><strong>{formatMoney(success.profit)}</strong>
-              <span>Cari kalan</span><strong>{formatMoney(success.creditAmount)}</strong>
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
+                <input type="number" placeholder="Satış fiyatı" value={saleForm.total} onChange={e => setSaleForm({ ...saleForm, total: e.target.value })} />
+                <input type="number" placeholder="Nakit" value={saleForm.cash} onChange={e => setSaleForm({ ...saleForm, cash: e.target.value })} />
+                <div className="two">
+                  <input type="number" placeholder="Kart" value={saleForm.card} onChange={e => setSaleForm({ ...saleForm, card: e.target.value })} />
+                  <div className="remaining-box"><span>Kalan</span><b>{money(saleRemaining)}</b></div>
+                </div>
+                <select value={saleForm.bank} onChange={e => setSaleForm({ ...saleForm, bank: e.target.value })}>
+                  <option value="">Banka seç</option>{banks.map(b => <option key={b}>{b}</option>)}
+                </select>
 
-function DailyReport({ sales }) {
-  const todayKey = localDateKey(new Date().toISOString());
-  const dailySales = sales.filter((sale) => localDateKey(sale.createdAt) === todayKey);
-  const summary = summarizeSales(dailySales);
-
-  return (
-    <section className="panel">
-      <PanelHeader title="Günlük rapor" text={`${formatDate(new Date().toISOString())} tarihli satış hareketleri`} />
-      <div className="stat-grid">
-        <StatCard icon={ClipboardList} label="İşlem adedi" value={dailySales.length} />
-        <StatCard icon={Banknote} label="Nakit" value={formatMoney(summary.cash)} />
-        <StatCard icon={CreditCard} label="Kart" value={formatMoney(summary.card)} />
-        <StatCard icon={TrendingUp} label="Kâr" value={formatMoney(summary.profit)} />
-      </div>
-      <ResponsiveTable
-        emptyText="Bugün satış kaydı yok."
-        headers={['Saat', 'Tür', 'Ürün', 'Satış', 'Kâr', 'Cari']}
-        rows={dailySales.map((sale) => [
-          formatTime(sale.createdAt),
-          sale.saleType,
-          sale.productName,
-          formatMoney(sale.saleTotal),
-          formatMoney(sale.profit),
-          formatMoney(sale.creditAmount),
-        ])}
-      />
-    </section>
-  );
-}
-
-function SalesList({ sales }) {
-  return (
-    <section className="panel">
-      <PanelHeader title="Satış listesi" text="Kaydedilen tüm satışlar, ödeme kırılımı ve stok kontrol bilgisiyle listelenir." />
-      <ResponsiveTable
-        emptyText="Henüz satış kaydı yok."
-        headers={['Tarih', 'Tür', 'Ürün', 'Müşteri', 'Nakit', 'Kart', 'Cari', 'Kâr']}
-        rows={sales.map((sale) => [
-          formatDate(sale.createdAt),
-          sale.saleType,
-          sale.productName,
-          sale.customerDisplay || sale.customerName || '-',
-          formatMoney(sale.cashAmount),
-          formatMoney(sale.cardAmount),
-          formatMoney(sale.creditAmount),
-          formatMoney(sale.profit),
-        ])}
-      />
-    </section>
-  );
-}
-
-function CurrentSummary({ data }) {
-  const customerCurrents = buildCustomerCurrents(data.sales);
-  const firmSummaries = buildFirmSummaries(data);
-
-  return (
-    <div className="module-stack">
-      <section className="panel">
-        <PanelHeader title="Alacaklarım" text="Cihaz satışlarında eksik tahsilat oluşursa burada takip edilir." />
-        <ResponsiveTable
-          emptyText="Müşteri carisi yok."
-          headers={['İşlem', 'Adı Soyad', 'Alınan Mal', 'Kalan']}
-          rows={customerCurrents.map((item) => [
-            item.customerName,
-            'Tek alanda',
-            item.count,
-            formatMoney(item.balance),
-          ])}
-        />
-      </section>
-      <FirmCurrentCards summaries={firmSummaries} />
-    </div>
-  );
-}
-
-
-function DebtSummary({ data }) {
-  const firmSummaries = buildFirmSummaries(data);
-
-  return (
-    <section className="panel">
-      <PanelHeader title="Borçlarım" text="Satıcı firmalara olan alış kaynaklı borçların özetidir." />
-      <ResponsiveTable
-        emptyText="Borç kaydı yok."
-        headers={['Firma', 'Son alınan mal', 'Son ödeme', 'Kalan']}
-        rows={firmSummaries.map((item) => [
-          item.name,
-          item.lastProduct || '-',
-          formatMoney(item.lastPayment || 0),
-          formatMoney(item.balance || item.remaining || 0),
-        ])}
-      />
-    </section>
-  );
-}
-
-function DeviceModule({ data, setData }) {
-  const [form, setForm] = useState(emptyDeviceForm);
-  const [notice, setNotice] = useState('');
-  const brandModels = BRAND_MODELS[form.brandGroup] ?? [];
-
-  useEffect(() => {
-    if (brandModels.length && !brandModels.includes(form.model)) {
-      setForm((current) => ({ ...current, model: brandModels[0], brand: current.brand || current.brandGroup }));
-    }
-  }, [brandModels, form.brandGroup, form.model]);
-
-  function updateField(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
-  }
-
-  function handleSubmit(event) {
-    event.preventDefault();
-    setNotice('');
-
-    const isUsed = form.condition === 'İkinci El';
-    if (isUsed && (!form.sellerPerson.trim() || !form.sellerPhone.trim() || !form.barcode.trim())) {
-      setNotice('İkinci el cihazda satıcı şahıs, satıcı telefon ve Barkod / IMEI zorunludur.');
-      return;
-    }
-
-    if (toNumber(form.purchasePrice) <= 0 || toNumber(form.salePrice) <= 0 || toNumber(form.stock) <= 0) {
-      setNotice('Alış fiyatı, satış fiyatı ve stok adedi 0’dan büyük olmalı.');
-      return;
-    }
-
-    const companyName = form.sellerCompany.trim();
-    const device = {
-      id: uid('dev'),
-      ...form,
-      purchasePrice: toNumber(form.purchasePrice),
-      salePrice: toNumber(form.salePrice),
-      stock: toNumber(form.stock),
-      initialStock: toNumber(form.stock),
-      sellerCompany: companyName,
-      createdAt: new Date().toISOString(),
-    };
-
-    setData((current) => ({
-      ...current,
-      companies: ensureCompany(current.companies, companyName),
-      devices: [device, ...current.devices],
-    }));
-    setForm({ ...emptyDeviceForm, sellerCompany: companyName });
-    setNotice('Cihaz stok kaydı eklendi.');
-  }
-
-  return (
-    <div className="module-stack">
-      <section className="panel">
-        <PanelHeader title="Cihaz stok kayıt" text="Telefon, saat, tablet, PC ve elektronik cihaz stokları aksesuar alanlarından ayrı tutulur." />
-        <form className="form-grid" onSubmit={handleSubmit}>
-          <label>
-            Cihaz türü
-            <select value={form.type} onChange={(event) => updateField('type', event.target.value)}>
-              {DEVICE_TYPES.map((type) => <option key={type}>{type}</option>)}
-            </select>
-          </label>
-          <label>
-            Ürün durumu
-            <select value={form.condition} onChange={(event) => updateField('condition', event.target.value)}>
-              {DEVICE_CONDITIONS.map((condition) => <option key={condition}>{condition}</option>)}
-            </select>
-          </label>
-          <label>
-            Marka grubu
-            <select value={form.brandGroup} onChange={(event) => updateField('brandGroup', event.target.value)}>
-              {BRAND_GROUPS.map((brand) => <option key={brand}>{brand}</option>)}
-            </select>
-          </label>
-          <label>
-            Marka
-            <input value={form.brand} onChange={(event) => updateField('brand', event.target.value)} />
-          </label>
-          <label>
-            Model
-            <input list="device-models" value={form.model} onChange={(event) => updateField('model', event.target.value)} />
-            <datalist id="device-models">
-              {brandModels.map((model) => <option key={model} value={model} />)}
-            </datalist>
-          </label>
-          <label>
-            Hafıza
-            <select value={form.memory} onChange={(event) => updateField('memory', event.target.value)}>
-              {MEMORY_OPTIONS.map((memory) => <option key={memory}>{memory}</option>)}
-            </select>
-          </label>
-          <label>
-            Barkod / IMEI
-            <input value={form.barcode} onChange={(event) => updateField('barcode', event.target.value)} />
-          </label>
-          <label>
-            Alış fiyatı
-            <input min="0" type="number" value={form.purchasePrice} onChange={(event) => updateField('purchasePrice', event.target.value)} />
-          </label>
-          <label>
-            Satış fiyatı
-            <input min="0" type="number" value={form.salePrice} onChange={(event) => updateField('salePrice', event.target.value)} />
-          </label>
-          <label>
-            Stok adedi
-            <input min="1" type="number" value={form.stock} onChange={(event) => updateField('stock', event.target.value)} />
-          </label>
-          <label className="span-2">
-            Satıcı firma
-            <input list="company-list" value={form.sellerCompany} onChange={(event) => updateField('sellerCompany', event.target.value)} />
-            <CompanyDatalist companies={data.companies} />
-          </label>
-          <label>
-            Satıcı şahıs
-            <input value={form.sellerPerson} onChange={(event) => updateField('sellerPerson', event.target.value)} />
-          </label>
-          <label>
-            Satıcı telefon
-            <input value={form.sellerPhone} onChange={(event) => updateField('sellerPhone', event.target.value)} />
-          </label>
-          <label className="span-3">
-            Not
-            <textarea rows="3" value={form.note} onChange={(event) => updateField('note', event.target.value)} />
-          </label>
-          {form.condition === 'İkinci El' && (
-            <div className="soft-note span-3">İkinci el cihazda satıcı şahıs, satıcı telefon ve Barkod / IMEI zorunludur.</div>
-          )}
-          {notice && <div className={`span-3 ${notice.includes('eklendi') ? 'soft-note' : 'error-note'}`}>{notice}</div>}
-          <div className="form-actions span-3">
-            <button className="primary-button" type="submit">
-              <Save size={18} />
-              Cihaz kaydet
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section className="panel">
-        <PanelHeader title="Cihaz stok listesi" text="Bu bölümde aksesuar ürünü bulunmaz." />
-        <ResponsiveTable
-          emptyText="Cihaz stoku yok."
-          headers={['Tür', 'Durum', 'Ürün', 'Barkod / IMEI', 'Stok', 'Alış', 'Satış', 'Satıcı firma']}
-          rows={data.devices.map((device) => [
-            device.type,
-            device.condition,
-            deviceTitle(device),
-            device.barcode || '-',
-            device.stock,
-            formatMoney(device.purchasePrice),
-            formatMoney(device.salePrice),
-            device.sellerCompany || '-',
-          ])}
-        />
-      </section>
-    </div>
-  );
-}
-
-function AccessoryModule({ data, setData }) {
-  const [activeTab, setActiveTab] = useState('stock');
-  const tabs = [
-    { id: 'stock', label: 'Stok kayıt', icon: Plus },
-    { id: 'list', label: 'Stok listesi', icon: Boxes },
-    { id: 'category', label: 'Kategori', icon: PackageSearch },
-    { id: 'firm', label: 'Firma cari', icon: Building2 },
-  ];
-
-  return (
-    <div className="module-stack">
-      <TabBar activeTab={activeTab} setActiveTab={setActiveTab} tabs={tabs} />
-      {activeTab === 'stock' && <AccessoryStockForm data={data} setData={setData} />}
-      {activeTab === 'list' && <AccessoryStockList accessories={data.accessories} />}
-      {activeTab === 'category' && <CategoryManager data={data} setData={setData} />}
-      {activeTab === 'firm' && <FirmCurrentCards summaries={buildFirmSummaries(data)} />}
-    </div>
-  );
-}
-
-function AccessoryStockForm({ data, setData }) {
-  const activeCategories = data.categories.filter((category) => !category.archived);
-  const [form, setForm] = useState({
-    ...emptyAccessoryForm,
-    categoryId: activeCategories[0]?.id ?? '',
-  });
-  const [notice, setNotice] = useState('');
-
-  useEffect(() => {
-    if (!activeCategories.some((category) => category.id === form.categoryId)) {
-      setForm((current) => ({ ...current, categoryId: activeCategories[0]?.id ?? '' }));
-    }
-  }, [activeCategories, form.categoryId]);
-
-  function updateField(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
-  }
-
-  function handleSubmit(event) {
-    event.preventDefault();
-    setNotice('');
-    const category = activeCategories.find((item) => item.id === form.categoryId);
-
-    if (!category) {
-      setNotice('Aktif kategori seçmelisin.');
-      return;
-    }
-
-    if (!form.name.trim() || !form.barcode.trim()) {
-      setNotice('Ürün adı ve barkod zorunludur.');
-      return;
-    }
-
-    if (toNumber(form.purchasePrice) <= 0 || toNumber(form.salePrice) <= 0 || toNumber(form.stock) <= 0) {
-      setNotice('Alış fiyatı, satış fiyatı ve stok adedi 0’dan büyük olmalı.');
-      return;
-    }
-
-    const companyName = form.sellerCompany.trim();
-    const accessory = {
-      id: uid('acc'),
-      ...form,
-      categoryName: category.name,
-      stock: toNumber(form.stock),
-      initialStock: toNumber(form.stock),
-      purchasePrice: toNumber(form.purchasePrice),
-      salePrice: toNumber(form.salePrice),
-      sellerCompany: companyName,
-      createdAt: new Date().toISOString(),
-    };
-
-    setData((current) => ({
-      ...current,
-      companies: ensureCompany(current.companies, companyName),
-      accessories: [accessory, ...current.accessories],
-    }));
-    setForm({ ...emptyAccessoryForm, categoryId: activeCategories[0]?.id ?? '', sellerCompany: companyName });
-    setNotice('Aksesuar stok kaydı eklendi.');
-  }
-
-  return (
-    <section className="panel">
-      <PanelHeader title="Aksesuar stok kayıt" text="Aksesuar kayıtları cihaz stoklarından ayrı tutulur." />
-      <form className="form-grid" onSubmit={handleSubmit}>
-        <label>
-          Kategori
-          <select value={form.categoryId} onChange={(event) => updateField('categoryId', event.target.value)}>
-            {activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-          </select>
-        </label>
-        <label className="span-2">
-          Ürün adı
-          <input value={form.name} onChange={(event) => updateField('name', event.target.value)} />
-        </label>
-        <label>
-          Model uyumu
-          <input value={form.modelCompatibility} onChange={(event) => updateField('modelCompatibility', event.target.value)} />
-        </label>
-        <label>
-          Barkod
-          <input value={form.barcode} onChange={(event) => updateField('barcode', event.target.value)} />
-        </label>
-        <label>
-          Stok adedi
-          <input min="1" type="number" value={form.stock} onChange={(event) => updateField('stock', event.target.value)} />
-        </label>
-        <label>
-          Alış fiyatı
-          <input min="0" type="number" value={form.purchasePrice} onChange={(event) => updateField('purchasePrice', event.target.value)} />
-        </label>
-        <label>
-          Satış fiyatı
-          <input min="0" type="number" value={form.salePrice} onChange={(event) => updateField('salePrice', event.target.value)} />
-        </label>
-        <label className="span-2">
-          Satıcı firma adı
-          <input list="company-list" value={form.sellerCompany} onChange={(event) => updateField('sellerCompany', event.target.value)} />
-          <CompanyDatalist companies={data.companies} />
-        </label>
-        {notice && <div className={`span-3 ${notice.includes('eklendi') ? 'soft-note' : 'error-note'}`}>{notice}</div>}
-        <div className="form-actions span-3">
-          <button className="primary-button" type="submit">
-            <Save size={18} />
-            Aksesuar kaydet
-          </button>
-        </div>
-      </form>
-    </section>
-  );
-}
-
-function AccessoryStockList({ accessories }) {
-  return (
-    <section className="panel">
-      <PanelHeader title="Aksesuar stok listesi" text="Kâr ve toplam tahmini kâr stok adedine göre hesaplanır." />
-      <ResponsiveTable
-        emptyText="Aksesuar stoku yok."
-        headers={['Kategori', 'Ürün adı', 'Model uyumu', 'Barkod', 'Stok', 'Alış', 'Satış', 'Kâr', 'Toplam tahmini kâr', 'Satıcı firma adı']}
-        rows={accessories.map((item) => {
-          const profit = toNumber(item.salePrice) - toNumber(item.purchasePrice);
-          return [
-            item.categoryName,
-            item.name,
-            item.modelCompatibility || '-',
-            item.barcode || '-',
-            item.stock,
-            formatMoney(item.purchasePrice),
-            formatMoney(item.salePrice),
-            formatMoney(profit),
-            formatMoney(profit * toNumber(item.stock)),
-            item.sellerCompany || '-',
-          ];
-        })}
-      />
-    </section>
-  );
-}
-
-function CategoryManager({ data, setData }) {
-  const [categoryName, setCategoryName] = useState('');
-  const [editingId, setEditingId] = useState('');
-  const [notice, setNotice] = useState('');
-  const activeCategories = data.categories.filter((category) => !category.archived);
-  const archivedCategories = data.categories.filter((category) => category.archived);
-  const editingCategory = data.categories.find((category) => category.id === editingId);
-
-  function saveCategory(event) {
-    event.preventDefault();
-    setNotice('');
-    const name = categoryName.trim();
-    if (!name) {
-      setNotice('Kategori adı yazmalısın.');
-      return;
-    }
-    if (data.categories.some((category) => normalize(category.name) === normalize(name))) {
-      setNotice('Bu kategori zaten kayıtlı.');
-      return;
-    }
-    setData((current) => ({
-      ...current,
-      categories: [
-        ...current.categories,
-        { id: uid('cat'), name, archived: false, fixed: false, createdAt: new Date().toISOString() },
-      ],
-    }));
-    setCategoryName('');
-    setNotice('Kategori kayıt edildi.');
-  }
-
-  function updateCategory() {
-    setNotice('');
-    const name = categoryName.trim();
-    if (!editingCategory) {
-      setNotice('Güncellemek için kategori seçmelisin.');
-      return;
-    }
-    if (editingCategory.fixed) {
-      setNotice('Sabit kategoriler düzenlenemez.');
-      return;
-    }
-    if (!name) {
-      setNotice('Kategori adı boş olamaz.');
-      return;
-    }
-    setData((current) => ({
-      ...current,
-      categories: current.categories.map((category) => (
-        category.id === editingId ? { ...category, name } : category
-      )),
-      accessories: current.accessories.map((accessory) => (
-        accessory.categoryId === editingId ? { ...accessory, categoryName: name } : accessory
-      )),
-    }));
-    setCategoryName('');
-    setEditingId('');
-    setNotice('Kategori güncellendi.');
-  }
-
-  function archiveCategory(categoryId) {
-    setData((current) => ({
-      ...current,
-      categories: current.categories.map((category) => (
-        category.id === categoryId ? { ...category, archived: true } : category
-      )),
-    }));
-  }
-
-  function restoreCategory(categoryId) {
-    setData((current) => ({
-      ...current,
-      categories: current.categories.map((category) => (
-        category.id === categoryId ? { ...category, archived: false } : category
-      )),
-    }));
-  }
-
-  function deleteArchivedCategory(categoryId) {
-    setData((current) => ({
-      ...current,
-      categories: current.categories.filter((category) => category.id !== categoryId),
-    }));
-  }
-
-  return (
-    <div className="module-stack">
-      <section className="panel">
-        <PanelHeader title="Kategori kayıt" text="Aktif kategoriler arşivlenebilir; silme işlemi sadece arşiv bölümünde bulunur." />
-        <form className="form-grid compact" onSubmit={saveCategory}>
-          <label className="span-2">
-            Kategori adı
-            <input value={categoryName} onChange={(event) => setCategoryName(event.target.value)} />
-          </label>
-          <div className="button-pair">
-            <button className="secondary-button" onClick={updateCategory} type="button" disabled={!editingId}>
-              <RefreshCw size={17} />
-              Güncelle
-            </button>
-            <button className="primary-button" type="submit">
-              <Plus size={17} />
-              Kategori Kayıt
-            </button>
-          </div>
-          {notice && <div className={`span-3 ${notice.includes('edildi') || notice.includes('güncellendi') ? 'soft-note' : 'error-note'}`}>{notice}</div>}
-        </form>
-      </section>
-
-      <section className="panel">
-        <PanelHeader title="Aktif kategoriler" text="Sabit 5 kategoride düzenleme butonu yoktur." />
-        <div className="category-list">
-          {activeCategories.map((category) => (
-            <div className="category-row" key={category.id}>
-              <div>
-                <strong>{category.name}</strong>
-                <span>{category.fixed ? 'Sabit kategori' : 'Özel kategori'}</span>
-              </div>
-              <div className="row-actions">
-                {!category.fixed && (
-                  <button
-                    className="icon-button"
-                    onClick={() => {
-                      setEditingId(category.id);
-                      setCategoryName(category.name);
-                    }}
-                    title="Düzenle"
-                    type="button"
-                  >
-                    <Pencil size={17} />
-                  </button>
+                {!isAccessorySale && saleRemaining > 0 && (
+                  <div className="warning">
+                    <b>Kalan cari kişi</b>
+                    <input list="cari-list" placeholder="Cari kişi seç veya yaz" value={saleForm.cariPerson} onChange={e => setSaleForm({ ...saleForm, cariPerson: e.target.value })} />
+                    <datalist id="cari-list">{alacaklarim.map(s => <option key={s.id} value={s.cariPerson || s.customer} />)}</datalist>
+                  </div>
                 )}
-                <button className="secondary-button" onClick={() => archiveCategory(category.id)} type="button">
-                  <Archive size={17} />
-                  Arşivle
-                </button>
+
+                <div className="close-summary">
+                  <small>KAPANIŞ ÖZETİ</small>
+                  <div><span>Satış</span><b>{money(saleTotal)}</b></div>
+                  <div><span>Nakit</span><b>{money(saleCash)}</b></div>
+                  <div><span>Kart</span><b>{money(saleCard)}</b></div>
+                  <div><span>Kalan</span><b>{money(saleRemaining)}</b></div>
+                </div>
+
+                <button className="primary" onClick={saveSale}><Plus size={16}/> Satışı Kaydet</button>
+              </div>
+
+              <div className="card">
+                <h2>Satış Listesi <small>Yanlış satışta düzenle</small></h2>
+                <Table headers={["No", "Saat", "Ürün", "Müşteri", "Nakit", "Kart", "Kalan", "Kâr", "İşlem"]} rows={sales.map((s, i) => [
+                  i + 1,
+                  new Date(s.date).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+                  s.productName,
+                  s.customer || "-",
+                  money(s.cash),
+                  money(s.card),
+                  money(s.remaining),
+                  money(s.profit),
+                  <button className="edit-btn" onClick={() => setEditingSale({ ...s })}><Pencil size={14}/> Düzenle</button>
+                ])} />
               </div>
             </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel">
-        <PanelHeader title="Arşiv" text="Arşivlenen kategoriler geri alınabilir veya kalıcı silinebilir." />
-        <div className="category-list">
-          {archivedCategories.length === 0 && <p className="empty-text">Arşivde kategori yok.</p>}
-          {archivedCategories.map((category) => (
-            <div className="category-row archived" key={category.id}>
-              <div>
-                <strong>{category.name}</strong>
-                <span>Arşivde</span>
-              </div>
-              <div className="row-actions">
-                <button className="secondary-button" onClick={() => restoreCategory(category.id)} type="button">
-                  <RotateCcw size={17} />
-                  Geri al
-                </button>
-                <button className="danger-button" onClick={() => deleteArchivedCategory(category.id)} type="button">
-                  <Trash2 size={17} />
-                  Sil
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function QueryModule({ data }) {
-  const [filters, setFilters] = useState({
-    barcode: '',
-    productName: '',
-    brand: '',
-    model: '',
-    category: '',
-    sellerCompany: '',
-    sellerPerson: '',
-    customerName: '',
-    phone: '',
-  });
-
-  const records = useMemo(() => buildQueryRecords(data), [data]);
-  const results = useMemo(() => {
-    return records.filter((record) => {
-      return Object.entries(filters).every(([key, value]) => {
-        const needle = normalize(value);
-        if (!needle) return true;
-        const haystack = normalize(record[key]);
-        if (key === 'phone') {
-          return [record.phone, record.customerPhone, record.sellerPhone].some((field) => normalize(field).includes(needle));
-        }
-        return haystack.includes(needle);
-      });
-    });
-  }, [filters, records]);
-
-  function updateFilter(field, value) {
-    setFilters((current) => ({ ...current, [field]: value }));
-  }
-
-  return (
-    <section className="panel">
-      <PanelHeader title="Sorgulama" text="Tek alanla arama yapabilir veya birden fazla alanı birlikte filtreleyebilirsin." />
-      <div className="form-grid">
-        <label>
-          Barkod / IMEI
-          <input value={filters.barcode} onChange={(event) => updateFilter('barcode', event.target.value)} />
-        </label>
-        <label>
-          Ürün adı
-          <input value={filters.productName} onChange={(event) => updateFilter('productName', event.target.value)} />
-        </label>
-        <label>
-          Marka
-          <input value={filters.brand} onChange={(event) => updateFilter('brand', event.target.value)} />
-        </label>
-        <label>
-          Model
-          <input value={filters.model} onChange={(event) => updateFilter('model', event.target.value)} />
-        </label>
-        <label>
-          Kategori
-          <input value={filters.category} onChange={(event) => updateFilter('category', event.target.value)} />
-        </label>
-        <label>
-          Satıcı firma
-          <input value={filters.sellerCompany} onChange={(event) => updateFilter('sellerCompany', event.target.value)} />
-        </label>
-        <label>
-          Satıcı şahıs
-          <input value={filters.sellerPerson} onChange={(event) => updateFilter('sellerPerson', event.target.value)} />
-        </label>
-        <label>
-          Müşteri adı
-          <input value={filters.customerName} onChange={(event) => updateFilter('customerName', event.target.value)} />
-        </label>
-        <label>
-          Telefon numarası
-          <input value={filters.phone} onChange={(event) => updateFilter('phone', event.target.value)} />
-        </label>
-      </div>
-
-      <div className="result-count">{results.length} kayıt bulundu</div>
-      <ResponsiveTable
-        emptyText="Filtrelerle eşleşen kayıt yok."
-        headers={['Kaynak', 'Ürün', 'Barkod / IMEI', 'Kategori', 'Stok', 'Satış', 'Satıcı / Müşteri']}
-        rows={results.map((record) => [
-          record.source,
-          record.productName,
-          record.barcode || '-',
-          record.category || '-',
-          record.stock ?? '-',
-          formatMoney(record.salePrice || record.saleTotal || 0),
-          record.customerName || record.sellerCompany || record.sellerPerson || '-',
-        ])}
-      />
-    </section>
-  );
-}
-
-function VoleModule({ sales }) {
-  const today = localDateKey(new Date().toISOString());
-  const currentMonth = today.slice(0, 7);
-  const [activeTab, setActiveTab] = useState('daily');
-  const [month, setMonth] = useState(currentMonth);
-  const [startDate, setStartDate] = useState(today);
-  const [endDate, setEndDate] = useState(today);
-  const tabs = [
-    { id: 'daily', label: 'Günlük', icon: BarChart3 },
-    { id: 'monthly', label: 'Aylık', icon: TrendingUp },
-    { id: 'range', label: 'Tarih Aralığı', icon: Search },
-  ];
-
-  const filteredSales = useMemo(() => {
-    return sales.filter((sale) => {
-      const key = localDateKey(sale.createdAt);
-      if (activeTab === 'daily') return key === today;
-      if (activeTab === 'monthly') return key.startsWith(month);
-      return (!startDate || key >= startDate) && (!endDate || key <= endDate);
-    });
-  }, [activeTab, endDate, month, sales, startDate, today]);
-
-  const profitRows = useMemo(() => {
-    return PROFIT_GROUPS.map((group) => {
-      const groupSales = filteredSales.filter((sale) => sale.saleType === group);
-      const totals = summarizeSales(groupSales);
-      return {
-        group,
-        count: groupSales.length,
-        saleTotal: totals.sale,
-        purchaseTotal: group === 'Tamir Geliri' ? 0 : totals.purchase,
-        profit: group === 'Tamir Geliri' ? totals.sale : totals.profit,
-      };
-    });
-  }, [filteredSales]);
-
-  const totalProfit = profitRows.reduce((sum, row) => sum + row.profit, 0);
-
-  return (
-    <section className="panel">
-      <PanelHeader title="Vole" text="Kâr raporu satış toplamı eksi ürün alış maliyeti hesabıyla hazırlanır." />
-      <TabBar activeTab={activeTab} setActiveTab={setActiveTab} tabs={tabs} />
-
-      <div className="date-tools">
-        {activeTab === 'monthly' && (
-          <label>
-            Ay
-            <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
-          </label>
+          </section>
         )}
-        {activeTab === 'range' && (
-          <>
-            <label>
-              Başlangıç
-              <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-            </label>
-            <label>
-              Bitiş
-              <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
-            </label>
-          </>
+
+        {active === "cihaz" && (
+          <StockSection title="Cihaz / Stok" only="Cihaz" stock={stock} stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} setEditingStock={setEditingStock} />
         )}
-      </div>
 
-      <ResponsiveTable
-        emptyText="Seçilen dönemde kâr kaydı yok."
-        headers={['Kâr grubu', 'İşlem adedi', 'Satış toplamı', 'Alış toplamı', 'Kâr']}
-        rows={profitRows.map((row) => [
-          row.group,
-          row.count,
-          formatMoney(row.saleTotal),
-          formatMoney(row.purchaseTotal),
-          formatMoney(row.profit),
-        ])}
-      />
+        {active === "aksesuar" && (
+          <StockSection title="Aksesuar Stok" only="Aksesuar" stock={stock} stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} setEditingStock={setEditingStock} />
+        )}
 
-      <div className="total-profit">
-        <span>Toplam Kâr</span>
-        <strong>{formatMoney(totalProfit)}</strong>
-      </div>
-    </section>
-  );
-}
+        {active === "alacak" && (
+          <section className="card">
+            <h2>Alacaklarım</h2>
+            <p>Ben satış yaptım, müşteri eksik ödeme yaptı. Bana borçlu olanlar burada görünür.</p>
+            <Table headers={["İşlem", "Adı Soyad", "Alınan Mal", "Kalan", "Düzelt"]} rows={alacaklarim.map((s, i) => [
+              i + 1,
+              s.cariPerson || s.customer,
+              s.productName,
+              money(s.remaining),
+              <button className="edit-btn" onClick={() => setEditingSale({ ...s })}><Pencil size={14}/> Düzenle</button>
+            ])} />
+          </section>
+        )}
 
-function FirmCurrentCards({ summaries }) {
-  return (
-    <section className="panel">
-      <PanelHeader title="Firma cari kartı" text="Her firma için son mal, son ödeme, toplam alış, toplam ödeme ve kalan takip edilir." />
-      <div className="firm-grid">
-        {summaries.length === 0 && <p className="empty-text">Firma cari kaydı yok.</p>}
-        {summaries.map((firm) => (
-          <article className="firm-card" key={firm.name}>
-            <h3>{firm.name.toLocaleUpperCase('tr-TR')}</h3>
-            <p><span>Son alınan mal</span><strong>{firm.lastProduct || '-'}</strong></p>
-            <p><span>Son ödeme</span><strong>{firm.lastPayment ? `${formatMoney(firm.lastPayment.amount)} · ${formatDate(firm.lastPayment.createdAt)}` : '-'}</strong></p>
-            <p><span>Toplam alış</span><strong>{formatMoney(firm.totalPurchase)}</strong></p>
-            <p><span>Toplam ödeme</span><strong>{formatMoney(firm.totalPayment)}</strong></p>
-            <div className="firm-balance">
-              <span>KALAN</span>
-              <strong>{formatMoney(firm.balance)}</strong>
+        {active === "borc" && (
+          <section className="card">
+            <h2>Borçlarım</h2>
+            <p>Mal aldığım tedarikçiler ve firmalara olan borçlarım burada görünür.</p>
+            <Table headers={["Firma", "Son Alınan Mal", "Alış Toplam", "Ödenen", "Kalan"]} rows={borclarim.map(b => [
+              b.supplier,
+              b.lastProduct,
+              money(b.totalBuy),
+              money(b.paid),
+              money(b.remaining)
+            ])} />
+          </section>
+        )}
+
+        {active === "sorgu" && (
+          <section className="card">
+            <h2>Sorgulama</h2>
+            <input placeholder="Ürün, müşteri, firma, barkod ara" value={query} onChange={e => setQuery(e.target.value)} />
+            <h3>Stok Sonuçları</h3>
+            <StockTable stock={filteredStock} setEditingStock={setEditingStock} />
+            <h3>Satış Sonuçları</h3>
+            <Table headers={["Ürün", "Müşteri", "Satış", "Kalan", "Düzelt"]} rows={filteredSales.map(s => [
+              s.productName, s.customer || "-", money(s.total), money(s.remaining), <button className="edit-btn" onClick={() => setEditingSale({ ...s })}>Düzenle</button>
+            ])} />
+          </section>
+        )}
+
+        {active === "vole" && (
+          <section className="card">
+            <h2>Vole</h2>
+            <div className="stats five">
+              <Stat title="Satış" value={money(report.total)} />
+              <Stat title="Alacak" value={money(report.remaining)} />
+              <Stat title="Nakit" value={money(report.cash)} />
+              <Stat title="Kart" value={money(report.card)} />
+              <Stat title="Kâr" value={money(report.profit)} />
             </div>
-          </article>
-        ))}
+          </section>
+        )}
+
+        {editingSale && <SaleEditModal sale={editingSale} setSale={setEditingSale} save={updateSale} />}
+        {editingStock && <StockEditModal item={editingStock} setItem={setEditingStock} save={updateStock} />}
+      </div>
+    </div>
+  );
+}
+
+function StockSection({ title, only, stock, stockForm, setStockForm, saveStock, setEditingStock }) {
+  const isAcc = only === "Aksesuar";
+  const visible = stock.filter(p => p.module === only);
+  return (
+    <section className="section">
+      <div className="card">
+        <h2>{title} Kaydı</h2>
+        <div className="form-grid">
+          <select value={stockForm.module} onChange={e => setStockForm({ ...stockForm, module: e.target.value })}><option>Cihaz</option><option>Aksesuar</option></select>
+          {stockForm.module === "Cihaz" ? (
+            <>
+              <select value={stockForm.deviceType} onChange={e => setStockForm({ ...stockForm, deviceType: e.target.value })}>{deviceTypes.map(x => <option key={x}>{x}</option>)}</select>
+              <select value={stockForm.brand} onChange={e => setStockForm({ ...stockForm, brand: e.target.value, model: modelsByBrand[e.target.value]?.[0] || "" })}>{brands.map(x => <option key={x}>{x}</option>)}</select>
+              <select value={stockForm.model} onChange={e => setStockForm({ ...stockForm, model: e.target.value })}>{(modelsByBrand[stockForm.brand] || []).map(x => <option key={x}>{x}</option>)}</select>
+              <input placeholder="Hafıza" value={stockForm.memory} onChange={e => setStockForm({ ...stockForm, memory: e.target.value })} />
+            </>
+          ) : (
+            <>
+              <select value={stockForm.category} onChange={e => setStockForm({ ...stockForm, category: e.target.value })}>{categories.map(x => <option key={x}>{x}</option>)}</select>
+              <input placeholder="Ürün adı" value={stockForm.name} onChange={e => setStockForm({ ...stockForm, name: e.target.value })} />
+              <input placeholder="Model uyumu" value={stockForm.compatibleModel} onChange={e => setStockForm({ ...stockForm, compatibleModel: e.target.value })} />
+            </>
+          )}
+          <input placeholder="Barkod / IMEI" value={stockForm.barcode} onChange={e => setStockForm({ ...stockForm, barcode: e.target.value })} />
+          <input type="number" placeholder="Alış" value={stockForm.buy} onChange={e => setStockForm({ ...stockForm, buy: e.target.value })} />
+          <input type="number" placeholder="Satış" value={stockForm.sell} onChange={e => setStockForm({ ...stockForm, sell: e.target.value })} />
+          <input type="number" placeholder="Stok" value={stockForm.qty} onChange={e => setStockForm({ ...stockForm, qty: e.target.value })} />
+          <input placeholder="Tedarikçi / Satıcı firma" value={stockForm.supplier} onChange={e => setStockForm({ ...stockForm, supplier: e.target.value })} />
+          <input type="number" placeholder="Firmaya ödenen" value={stockForm.supplierPaid} onChange={e => setStockForm({ ...stockForm, supplierPaid: e.target.value })} />
+        </div>
+        <button className="primary" onClick={saveStock}><Plus size={16}/> Stok Kaydet</button>
+      </div>
+      <div className="card">
+        <h2>{title} Listesi <small>Yanlış stok kaydında düzenle</small></h2>
+        <StockTable stock={visible} setEditingStock={setEditingStock} />
       </div>
     </section>
   );
 }
 
-function TabBar({ tabs, activeTab, setActiveTab }) {
-  return (
-    <div className="tabbar">
-      {tabs.map(({ id, label, icon: Icon }) => (
-        <button className={activeTab === id ? 'active' : ''} key={id} onClick={() => setActiveTab(id)} type="button">
-          <Icon size={17} />
-          {label}
-        </button>
-      ))}
-    </div>
-  );
+function StockTable({ stock, setEditingStock }) {
+  return <Table headers={["Tür", "Ürün", "Barkod/IMEI", "Stok", "Alış", "Satış", "Tedarikçi", "Düzelt"]} rows={stock.map(p => [
+    p.deviceType,
+    productTitle(p),
+    p.barcode,
+    p.qty,
+    money(p.buy),
+    money(p.sell),
+    p.supplier,
+    <button className="edit-btn" onClick={() => setEditingStock({ ...p })}><Pencil size={14}/> Düzenle</button>
+  ])} />;
 }
 
-function PanelHeader({ title, text }) {
+function Table({ headers, rows }) {
+  return <div className="table-wrap"><table><thead><tr>{headers.map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{rows.length ? rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>) : <tr><td colSpan={headers.length}>Kayıt yok.</td></tr>}</tbody></table></div>;
+}
+
+function SaleEditModal({ sale, setSale, save }) {
+  const remaining = sale.type === "Aksesuar Satışı" ? 0 : Math.max(Number(sale.total || 0) - Number(sale.cash || 0) - Number(sale.card || 0), 0);
   return (
-    <div className="panel-header">
-      <div>
-        <h3>{title}</h3>
-        {text && <p>{text}</p>}
+    <div className="modal-bg">
+      <div className="modal">
+        <h2>Satış Düzelt</h2>
+        <input placeholder="Müşteri adı soyadı / telefon" value={sale.customer || ""} onChange={e => setSale({ ...sale, customer: e.target.value, cariPerson: e.target.value })} />
+        <input placeholder="Cari kişi" value={sale.cariPerson || ""} onChange={e => setSale({ ...sale, cariPerson: e.target.value })} />
+        <input type="number" placeholder="Satış fiyatı" value={sale.total} onChange={e => setSale({ ...sale, total: e.target.value, remaining })} />
+        <input type="number" placeholder="Nakit" value={sale.cash} onChange={e => setSale({ ...sale, cash: e.target.value })} />
+        <input type="number" placeholder="Kart" value={sale.card} onChange={e => setSale({ ...sale, card: e.target.value })} />
+        <select value={sale.bank || ""} onChange={e => setSale({ ...sale, bank: e.target.value })}><option value="">Banka seç</option>{banks.map(b => <option key={b}>{b}</option>)}</select>
+        <div className="remaining-box"><span>Yeni Kalan</span><b>{money(remaining)}</b></div>
+        <div className="modal-actions">
+          <button className="primary" onClick={save}><Save size={16}/> Kaydet</button>
+          <button className="choice" onClick={() => setSale(null)}><X size={16}/> Vazgeç</button>
+        </div>
       </div>
     </div>
   );
 }
 
-function StatCard({ icon: Icon, label, value }) {
+function StockEditModal({ item, setItem, save }) {
   return (
-    <article className="stat-card">
-      <Icon size={20} />
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </article>
-  );
-}
-
-function Metric({ label, value, tone }) {
-  return (
-    <div className={`metric ${tone ?? ''}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div className="modal-bg">
+      <div className="modal">
+        <h2>Stok Düzelt</h2>
+        {item.module === "Aksesuar" ? <input placeholder="Ürün adı" value={item.name || ""} onChange={e => setItem({ ...item, name: e.target.value })} /> : <input placeholder="Model" value={item.model || ""} onChange={e => setItem({ ...item, model: e.target.value })} />}
+        <input placeholder="Barkod / IMEI" value={item.barcode || ""} onChange={e => setItem({ ...item, barcode: e.target.value })} />
+        <input type="number" placeholder="Stok" value={item.qty} onChange={e => setItem({ ...item, qty: e.target.value })} />
+        <input type="number" placeholder="Alış" value={item.buy} onChange={e => setItem({ ...item, buy: e.target.value })} />
+        <input type="number" placeholder="Satış" value={item.sell} onChange={e => setItem({ ...item, sell: e.target.value })} />
+        <input placeholder="Tedarikçi / Satıcı firma" value={item.supplier || ""} onChange={e => setItem({ ...item, supplier: e.target.value })} />
+        <input type="number" placeholder="Firmaya ödenen" value={item.supplierPaid || 0} onChange={e => setItem({ ...item, supplierPaid: e.target.value })} />
+        <div className="modal-actions">
+          <button className="primary" onClick={save}><Save size={16}/> Kaydet</button>
+          <button className="choice" onClick={() => setItem(null)}><X size={16}/> Vazgeç</button>
+        </div>
+      </div>
     </div>
   );
 }
-
-function ResponsiveTable({ headers, rows, emptyText }) {
-  if (!rows.length) return <p className="empty-text">{emptyText}</p>;
-
-  return (
-    <div className="table-wrap">
-      <table>
-        <thead>
-          <tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={`${row.join('-')}-${index}`}>
-              {row.map((cell, cellIndex) => (
-                <td data-label={headers[cellIndex]} key={`${headers[cellIndex]}-${cellIndex}`}>{cell}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function CompanyDatalist({ companies }) {
-  return (
-    <datalist id="company-list">
-      {companies.map((company) => <option key={company.id} value={company.name} />)}
-    </datalist>
-  );
-}
-
-function useStoredData() {
-  const [data, setData] = useState(() => {
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) return hydrateData(JSON.parse(stored));
-    } catch {
-      return createInitialData();
-    }
-    return createInitialData();
-  });
-
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }, [data]);
-
-  return [data, setData];
-}
-
-function hydrateData(raw) {
-  const initial = createInitialData();
-  return {
-    ...initial,
-    ...raw,
-    categories: raw.categories?.length ? raw.categories : initial.categories,
-    companies: raw.companies?.length ? raw.companies : initial.companies,
-    firmPayments: raw.firmPayments ?? initial.firmPayments,
-    devices: raw.devices ?? initial.devices,
-    accessories: raw.accessories ?? initial.accessories,
-    sales: raw.sales ?? [],
-  };
-}
-
-function buildFirmSummaries(data) {
-  const companyNames = new Set(data.companies.map((company) => company.name));
-  [...data.devices, ...data.accessories].forEach((item) => {
-    if (item.sellerCompany) companyNames.add(item.sellerCompany);
-  });
-
-  return [...companyNames].sort((a, b) => a.localeCompare(b, 'tr')).map((name) => {
-    const goods = [
-      ...data.devices
-        .filter((device) => normalize(device.sellerCompany) === normalize(name))
-        .map((device) => ({
-          title: deviceTitle(device),
-          total: toNumber(device.purchasePrice) * toNumber(device.initialStock ?? device.stock),
-          createdAt: device.createdAt,
-        })),
-      ...data.accessories
-        .filter((accessory) => normalize(accessory.sellerCompany) === normalize(name))
-        .map((accessory) => ({
-          title: accessory.name,
-          total: toNumber(accessory.purchasePrice) * toNumber(accessory.initialStock ?? accessory.stock),
-          createdAt: accessory.createdAt,
-        })),
-    ];
-    const payments = data.firmPayments.filter((payment) => normalize(payment.companyName) === normalize(name));
-    const latestGood = [...goods].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-    const latestPayment = [...payments].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-    const totalPurchase = goods.reduce((sum, good) => sum + good.total, 0);
-    const totalPayment = payments.reduce((sum, payment) => sum + toNumber(payment.amount), 0);
-
-    return {
-      name,
-      lastProduct: latestGood?.title ?? '',
-      lastPayment: latestPayment,
-      totalPurchase,
-      totalPayment,
-      balance: totalPurchase - totalPayment,
-    };
-  });
-}
-
-function buildCustomerCurrents(sales) {
-  const map = new Map();
-  sales.filter((sale) => sale.creditAmount > 0).forEach((sale) => {
-    const key = `${sale.customerName}-${sale.customerPhone}`;
-    const current = map.get(key) ?? {
-      customerName: sale.customerName,
-      customerPhone: sale.customerPhone,
-      balance: 0,
-      count: 0,
-    };
-    current.balance += toNumber(sale.creditAmount);
-    current.count += 1;
-    map.set(key, current);
-  });
-  return [...map.values()].sort((a, b) => b.balance - a.balance);
-}
-
-function buildQueryRecords(data) {
-  const deviceRecords = data.devices.map((device) => ({
-    source: 'Cihaz Stok',
-    barcode: device.barcode,
-    productName: deviceTitle(device),
-    brand: device.brand,
-    model: device.model,
-    category: device.type,
-    sellerCompany: device.sellerCompany,
-    sellerPerson: device.sellerPerson,
-    sellerPhone: device.sellerPhone,
-    customerName: '',
-    customerPhone: '',
-    phone: device.sellerPhone,
-    stock: device.stock,
-    salePrice: device.salePrice,
-  }));
-  const accessoryRecords = data.accessories.map((accessory) => ({
-    source: 'Aksesuar Stok',
-    barcode: accessory.barcode,
-    productName: accessory.name,
-    brand: '',
-    model: accessory.modelCompatibility,
-    category: accessory.categoryName,
-    sellerCompany: accessory.sellerCompany,
-    sellerPerson: '',
-    sellerPhone: '',
-    customerName: '',
-    customerPhone: '',
-    phone: '',
-    stock: accessory.stock,
-    salePrice: accessory.salePrice,
-  }));
-  const saleRecords = data.sales.map((sale) => ({
-    source: 'Satış',
-    barcode: sale.barcode,
-    productName: sale.productName,
-    brand: '',
-    model: sale.productName,
-    category: sale.saleType,
-    sellerCompany: sale.sellerCompany,
-    sellerPerson: sale.sellerPerson,
-    sellerPhone: '',
-    customerName: sale.customerName,
-    customerPhone: sale.customerPhone,
-    phone: sale.customerPhone,
-    stock: '',
-    saleTotal: sale.saleTotal,
-  }));
-  return [...deviceRecords, ...accessoryRecords, ...saleRecords];
-}
-
-function summarizeSales(sales) {
-  return sales.reduce((total, sale) => ({
-    cash: total.cash + toNumber(sale.cashAmount),
-    card: total.card + toNumber(sale.cardAmount),
-    credit: total.credit + toNumber(sale.creditAmount),
-    sale: total.sale + toNumber(sale.saleTotal),
-    purchase: total.purchase + toNumber(sale.purchaseTotal),
-    profit: total.profit + toNumber(sale.profit),
-  }), {
-    cash: 0,
-    card: 0,
-    credit: 0,
-    sale: 0,
-    purchase: 0,
-    profit: 0,
-  });
-}
-
-function ensureCompany(companies, name) {
-  const cleanName = name.trim();
-  if (!cleanName) return companies;
-  if (companies.some((company) => normalize(company.name) === normalize(cleanName))) return companies;
-  return [...companies, { id: uid('firm'), name: cleanName, createdAt: new Date().toISOString() }];
-}
-
-function deviceTitle(device) {
-  return [device.brand, device.model, device.memory && device.memory !== 'Yok' ? device.memory : '']
-    .filter(Boolean)
-    .join(' ');
-}
-
-function formatMoney(value) {
-  return moneyFormatter.format(toNumber(value));
-}
-
-function formatDate(value) {
-  return new Intl.DateTimeFormat('tr-TR', { dateStyle: 'medium' }).format(new Date(value));
-}
-
-function formatTime(value) {
-  return new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit' }).format(new Date(value));
-}
-
-function localDateKey(value) {
-  const date = new Date(value);
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 10);
-}
-
-function normalize(value) {
-  return String(value ?? '').trim().toLocaleLowerCase('tr-TR');
-}
-
-function toNumber(value) {
-  return Number(value || 0);
-}
-
-function uid(prefix) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function slugId(prefix, value) {
-  return `${prefix}-${normalize(value)
-    .replaceAll('ı', 'i')
-    .replaceAll('ğ', 'g')
-    .replaceAll('ü', 'u')
-    .replaceAll('ş', 's')
-    .replaceAll('ö', 'o')
-    .replaceAll('ç', 'c')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')}`;
-}
-
-export default App;
