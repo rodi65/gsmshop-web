@@ -1106,3 +1106,516 @@ select {
     font-size: 12px !important;
   }
 }
+
+
+/* CEPLOG GPT görseline yakın modern ana ekran tasarımı */
+body {
+  background:
+    radial-gradient(circle at top left, rgba(59,130,246,.08), transparent 34%),
+    radial-gradient(circle at top right, rgba(168,85,247,.08), transparent 32%),
+    #eef3f9 !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+.app {
+  padding: 10px 14px !important;
+}
+
+.shell {
+  max-width: 1480px !important;
+  gap: 14px !important;
+}
+
+.hero {
+  position: relative !important;
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center !important;
+  background: rgba(255,255,255,.86) !important;
+  border: 1px solid rgba(255,255,255,.95) !important;
+  border-radius: 24px !important;
+  padding: 12px 18px !important;
+  box-shadow: 0 12px 36px rgba(15,23,42,.08) !important;
+  backdrop-filter: blur(12px);
+}
+
+.hero > div:first-child {
+  width: 100%;
+}
+
+.brand-title-row,
+.brand-center {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100%;
+}
+
+.brand-center {
+  flex-direction: column !important;
+}
+
+.brand-main-line {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 12px !important;
+  flex-wrap: wrap;
+}
+
+.hero h1 {
+  margin: 0 !important;
+  font-size: 42px !important;
+  line-height: .95 !important;
+  font-weight: 1000 !important;
+  letter-spacing: -3px !important;
+  color: #020617 !important;
+  text-align: center !important;
+}
+
+.brand-log {
+  color: #2563eb !important;
+}
+
+.since-badge {
+  transform: rotate(-5deg) !important;
+  background: #020617 !important;
+  color: #fff !important;
+  border-radius: 999px !important;
+  padding: 7px 13px !important;
+  font-size: 11px !important;
+  font-weight: 1000 !important;
+  letter-spacing: .1px;
+  box-shadow: 0 8px 20px rgba(2,6,23,.18) !important;
+}
+
+.live-clock {
+  background: #fff !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 999px !important;
+  padding: 7px 14px !important;
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+  box-shadow: 0 7px 20px rgba(15,23,42,.10) !important;
+}
+
+.hero p {
+  margin: 6px 0 0 !important;
+  color: #334155 !important;
+  font-size: 13px !important;
+  font-weight: 1000 !important;
+}
+
+.sync-message {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  margin-top: 9px !important;
+  border-radius: 999px !important;
+  background: #ecfdf5 !important;
+  color: #059669 !important;
+  border: 1px solid #bbf7d0 !important;
+  padding: 6px 14px !important;
+  font-weight: 1000 !important;
+}
+
+.status-pill {
+  position: absolute !important;
+  right: 18px !important;
+  top: 18px !important;
+  background: #020617 !important;
+  color: #fff !important;
+  border-radius: 999px !important;
+  padding: 10px 16px !important;
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+  box-shadow: 0 10px 26px rgba(2,6,23,.20) !important;
+}
+
+/* Ana menü renkli kartlar */
+.nav-grid {
+  grid-template-columns: repeat(6, 1fr) !important;
+  gap: 12px !important;
+}
+
+.nav-btn {
+  min-height: 64px !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  color: #fff !important;
+  font-weight: 1000 !important;
+  text-transform: uppercase;
+  box-shadow: 0 12px 28px rgba(15,23,42,.14) !important;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.nav-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(15,23,42,.18) !important;
+}
+
+.nav-grid .nav-btn:nth-child(1) {
+  background: linear-gradient(135deg, #020617, #111827) !important;
+}
+
+.nav-grid .nav-btn:nth-child(2) {
+  background: linear-gradient(135deg, #38bdf8, #2563eb) !important;
+}
+
+.nav-grid .nav-btn:nth-child(3) {
+  background: linear-gradient(135deg, #d946ef, #ec4899) !important;
+}
+
+.nav-grid .nav-btn:nth-child(4) {
+  background: linear-gradient(135deg, #f59e0b, #f97316) !important;
+}
+
+.nav-grid .nav-btn:nth-child(5) {
+  background: linear-gradient(135deg, #ccfbf1, #99f6e4) !important;
+  color: #0f766e !important;
+}
+
+.nav-grid .nav-btn:nth-child(6) {
+  background: linear-gradient(135deg, #8b5cf6, #4f46e5) !important;
+}
+
+.nav-btn.disabled {
+  opacity: .82 !important;
+  cursor: not-allowed !important;
+}
+
+.nav-btn small {
+  color: inherit !important;
+  opacity: .78;
+  font-weight: 1000 !important;
+}
+
+/* Kasa alt sekmeleri */
+.kasa-subtabs {
+  gap: 12px !important;
+  margin-top: 2px;
+}
+
+.kasa-subtabs .choice {
+  min-height: 40px !important;
+  border-radius: 12px !important;
+  padding: 0 18px !important;
+  background: #fff !important;
+  color: #334155 !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 8px 22px rgba(15,23,42,.08) !important;
+  font-weight: 1000 !important;
+}
+
+.kasa-subtabs .choice.active {
+  background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+
+/* Özet başlıkları */
+.summary-title {
+  margin: 2px 0 -2px !important;
+  color: #1e293b !important;
+  font-size: 15px !important;
+  font-weight: 1000 !important;
+}
+
+/* Özet kartları */
+.summary-row-single {
+  gap: 12px !important;
+}
+
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255,255,255,.96) !important;
+  border: 1px solid rgba(226,232,240,.9) !important;
+  border-radius: 14px !important;
+  padding: 16px 16px 14px !important;
+  box-shadow: 0 10px 28px rgba(15,23,42,.08) !important;
+  min-height: 102px !important;
+}
+
+.stat-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+}
+
+.sales-summary-row .stat-card:nth-child(2)::before {
+  background: linear-gradient(90deg, #06b6d4, #2563eb);
+}
+
+.sales-summary-row .stat-card:nth-child(3)::before {
+  background: linear-gradient(90deg, #d946ef, #ec4899);
+}
+
+.sales-summary-row .stat-card:nth-child(4)::before {
+  background: linear-gradient(90deg, #10b981, #14b8a6);
+}
+
+.sales-summary-row .stat-card:nth-child(5)::before {
+  background: linear-gradient(90deg, #f59e0b, #f97316);
+}
+
+.sales-summary-row .stat-card:nth-child(6)::before {
+  background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+}
+
+.cash-summary-row .stat-card:nth-child(1)::before {
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+}
+
+.cash-summary-row .stat-card:nth-child(2)::before {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.cash-summary-row .stat-card:nth-child(3)::before {
+  background: linear-gradient(90deg, #fb7185, #e11d48);
+}
+
+.cash-summary-row .stat-card:nth-child(4)::before {
+  background: linear-gradient(90deg, #06b6d4, #0891b2);
+}
+
+.cash-summary-row .stat-card:nth-child(5)::before {
+  background: linear-gradient(90deg, #f59e0b, #f97316);
+}
+
+.cash-summary-row .stat-card:nth-child(6)::before {
+  background: linear-gradient(90deg, #a855f7, #9333ea);
+}
+
+.stat-title {
+  color: #64748b !important;
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+  line-height: 1.2;
+}
+
+.stat-value {
+  color: #020617 !important;
+  font-size: 25px !important;
+  line-height: 1.08 !important;
+  font-weight: 1000 !important;
+  margin-top: 7px !important;
+}
+
+/* Toplam kasa kartı */
+.cash-result-inline,
+.cash-result {
+  background: linear-gradient(135deg, #020617, #172554, #312e81) !important;
+  color: #fff !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 16px 34px rgba(30,64,175,.24) !important;
+}
+
+.cash-result span {
+  color: #dbeafe !important;
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+}
+
+.cash-result b {
+  font-size: 30px !important;
+  font-weight: 1000 !important;
+}
+
+/* Yeni satış ve aksesuar kartları */
+.card {
+  background: rgba(255,255,255,.96) !important;
+  border: 1px solid rgba(255,255,255,.95) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 16px 36px rgba(15,23,42,.08) !important;
+}
+
+.card h2 {
+  color: #020617 !important;
+  font-size: 24px !important;
+  font-weight: 1000 !important;
+  letter-spacing: -.5px;
+}
+
+.card h3 {
+  color: #020617 !important;
+  font-size: 15px !important;
+  font-weight: 1000 !important;
+}
+
+.card p {
+  color: #64748b !important;
+  font-weight: 800 !important;
+}
+
+/* Yeni satış butonları */
+.big-sale-grid {
+  gap: 8px !important;
+}
+
+.big-sale-btn {
+  border-radius: 12px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+  color: #334155 !important;
+  font-weight: 1000 !important;
+  box-shadow: none !important;
+}
+
+.big-sale-btn.active {
+  background: linear-gradient(135deg, #020617, #312e81) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: 0 10px 24px rgba(15,23,42,.18) !important;
+}
+
+/* Form alanları */
+input,
+select {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+}
+
+input:focus,
+select:focus {
+  outline: 0 !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 4px rgba(59,130,246,.12) !important;
+  background: #fff !important;
+}
+
+.remaining-box {
+  background: #eef2ff !important;
+  border-color: #dbeafe !important;
+  text-align: center;
+}
+
+.remaining-box span {
+  color: #4338ca !important;
+  font-weight: 1000 !important;
+}
+
+.remaining-box b {
+  color: #1e1b4b !important;
+  font-weight: 1000 !important;
+}
+
+.primary {
+  background: linear-gradient(135deg, #2563eb, #c026d3) !important;
+  color: #fff !important;
+  border-radius: 12px !important;
+  font-weight: 1000 !important;
+  box-shadow: 0 12px 28px rgba(37,99,235,.22) !important;
+}
+
+/* Aksesuar hızlı seçim */
+.accessory-select-tabs .choice {
+  background: #fff !important;
+  color: #334155 !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  font-weight: 1000 !important;
+}
+
+.accessory-select-tabs .choice.active {
+  background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: 0 10px 22px rgba(59,130,246,.18) !important;
+}
+
+.accessory-sub-tabs .choice.active {
+  background: linear-gradient(135deg, #7c3aed, #d946ef) !important;
+  color: #fff !important;
+}
+
+.shortcut-limit-info {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  color: #1e293b !important;
+}
+
+.shortcut-chip > button:first-child {
+  background: #fff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+  border-radius: 11px !important;
+  box-shadow: 0 7px 16px rgba(15,23,42,.05);
+}
+
+.shortcut-chip.active > button:first-child {
+  background: linear-gradient(135deg, #020617, #312e81) !important;
+  color: #fff !important;
+}
+
+.shortcut-delete {
+  background: #ffe4e6 !important;
+  color: #e11d48 !important;
+  border-radius: 10px !important;
+  font-weight: 1000 !important;
+}
+
+.close-summary {
+  overflow: hidden;
+  background: linear-gradient(135deg, #020617, #111827) !important;
+  border-radius: 16px !important;
+  color: #fff !important;
+  box-shadow: 0 12px 28px rgba(15,23,42,.16);
+}
+
+.close-summary small {
+  color: #dbeafe !important;
+  font-weight: 1000 !important;
+}
+
+.close-summary div {
+  background: rgba(255,255,255,.03);
+  padding: 3px 0;
+}
+
+.close-summary span {
+  color: #cbd5e1 !important;
+  font-weight: 900 !important;
+}
+
+.close-summary b {
+  color: #fff !important;
+  font-weight: 1000 !important;
+}
+
+@media (max-width: 1100px) {
+  .nav-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  .status-pill {
+    position: static !important;
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 620px) {
+  .hero h1 {
+    font-size: 34px !important;
+  }
+
+  .nav-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .brand-main-line {
+    gap: 8px !important;
+  }
+}

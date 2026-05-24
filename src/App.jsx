@@ -1188,11 +1188,11 @@ export default function App() {
             <div className="brand-title-row">
               <div className="brand-center">
                 <div className="brand-main-line">
-                  <h1>CEPLOG</h1>
+                  <h1><span>CEP</span><span className="brand-log">LOG</span></h1>
                   <span className="since-badge">Since 1999</span>
-                  <div className="live-clock">{clockNow.toLocaleString("tr-TR")}</div>
+                  <div className="live-clock">{clockNow.toLocaleDateString("tr-TR")}</div>
                 </div>
-                <p>26 Yıllık Tecrübeyle Yapılan Profesyonel GSM Satış Teknik Hesap Takip Sistemi</p>
+                <p>26 Yıllık Tecrübeyle Yapılan Profesyonel GSM Satış Teknik Servis Takip Sistemi</p>
               </div>
             </div>
         {syncMessage && <div className="sync-message">{syncMessage}</div>}
