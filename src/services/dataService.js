@@ -17,6 +17,19 @@ export async function signOut() {
   if (error) throw error;
 }
 
+
+function toDbNumber(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const cleaned = String(value || "0")
+    .replace(/TL/g, "")
+    .replace(/₺/g, "")
+    .replace(/\./g, "")
+    .replace(/,/g, "")
+    .replace(/\s/g, "")
+    .replace(/[^0-9-]/g, "");
+  return Number(cleaned || 0);
+}
+
 function isMissingRelationError(error) {
   const message = String(error?.message || "").toLowerCase();
   return error?.code === "42P01" || message.includes("could not find the table") || message.includes("does not exist");
@@ -89,7 +102,7 @@ export async function findOrCreateContact({ kind, name, phone = "", balance = 0,
       .from("contacts")
       .update({
         phone: phone || existing.phone,
-        balance: Number(existing.balance || 0) + Number(balance || 0),
+        balance: Number(existing.balance || 0) + toDbNumber(balance),
         balance_type: balanceType || existing.balance_type,
         note: note || existing.note,
         status: "active",
@@ -110,7 +123,7 @@ export async function findOrCreateContact({ kind, name, phone = "", balance = 0,
       kind,
       name: cleanName,
       phone,
-      balance: Number(balance || 0),
+      balance: toDbNumber(balance),
       balance_type: balanceType,
       note,
       status: "active",
@@ -132,7 +145,7 @@ export async function createCashMovement(payload) {
     .insert([{
       movement_type: payload.movement_type,
       direction: payload.direction,
-      amount: Number(payload.amount || 0),
+      amount: toDbNumber(payload.amount),
       note: payload.note || "",
       related_table: payload.related_table || null,
       related_id: payload.related_id || null,
@@ -149,7 +162,7 @@ export async function createCashMovement(payload) {
 export async function createContactPayment({ kind, name, phone = "", amount, currentBalance = 0, notePrefix = "Cari ödeme" }) {
   const user = await getCurrentUser();
   const cleanName = String(name || "").trim();
-  const paymentAmount = Number(amount || 0);
+  const paymentAmount = toDbNumber(amount);
 
   if (!cleanName) throw new Error("Cari adı boş olamaz.");
   if (!paymentAmount) throw new Error("Ödeme tutarı yaz.");
@@ -173,7 +186,7 @@ export async function createContactPayment({ kind, name, phone = "", amount, cur
         kind,
         name: cleanName,
         phone,
-        balance: Number(currentBalance || 0),
+        balance: toDbNumber(currentBalance),
         balance_type: "payable",
         note: "Ödeme sırasında cari kaydı oluşturuldu.",
         status: "active",
@@ -199,7 +212,7 @@ export async function createContactPayment({ kind, name, phone = "", amount, cur
   const { data: updatedContact, error: updateError } = await supabase
     .from("contacts")
     .update({
-      balance: Number(contact.balance || 0) - paymentAmount,
+      balance: toDbNumber(contact.balance) - paymentAmount,
       balance_type: "payable",
       status: "active",
       updated_by: user?.id,
@@ -215,7 +228,7 @@ export async function createContactPayment({ kind, name, phone = "", amount, cur
 
 export async function createReceivablePayment({ saleId, customerName = "", amount, currentRemaining = 0 }) {
   const user = await getCurrentUser();
-  const paymentAmount = Number(amount || 0);
+  const paymentAmount = toDbNumber(amount);
 
   if (!saleId) throw new Error("Alacak kaydı seçilemedi.");
   if (!paymentAmount) throw new Error("Tahsilat tutarını yaz.");
@@ -232,7 +245,7 @@ export async function createReceivablePayment({ saleId, customerName = "", amoun
   const { data: sale, error } = await supabase
     .from("sales")
     .update({
-      remaining_amount: Math.max(Number(currentRemaining || 0) - paymentAmount, 0),
+      remaining_amount: Math.max(toDbNumber(currentRemaining) - paymentAmount, 0),
       updated_by: user?.id,
       updated_at: new Date().toISOString(),
     })
@@ -303,8 +316,8 @@ export async function repairStockSideEffects(stockItems = [], cashMovements = []
 
 export async function createStockItem(payload) {
   const user = await getCurrentUser();
-  const paid = Number(payload.supplier_paid || 0);
-  const buyTotal = Number(payload.buy_price || 0) * Number(payload.quantity || 1);
+  const paid = toDbNumber(payload.supplier_paid);
+  const buyTotal = toDbNumber(payload.buy_price) * Number(payload.quantity || 1);
   const remaining = Math.max(buyTotal - paid, 0);
   const sellerName = stockSellerName(payload);
   const paymentName = sellerName || payload.supplier_name || "";
@@ -374,22 +387,22 @@ export async function createSale(payload) {
 
   if (error) throw error;
 
-  if (Number(payload.cash_amount || 0) > 0) {
+  if (toDbNumber(payload.cash_amount) > 0) {
     await createCashMovement({
       movement_type: "Satış Nakit",
       direction: "in",
-      amount: Number(payload.cash_amount || 0),
+      amount: toDbNumber(payload.cash_amount),
       related_table: "sales",
       related_id: sale.id,
       note: `${payload.product_name || "Satış"} nakit tahsilat`,
     });
   }
 
-  if (Number(payload.card_amount || 0) > 0 && payload.bank_name) {
+  if (toDbNumber(payload.card_amount) > 0 && payload.bank_name) {
     const { error: bankError } = await supabase.from("bank_movements").insert([{
       movement_type: "Bankaya Giden",
       bank_name: payload.bank_name,
-      amount: payload.card_amount,
+      amount: toDbNumber(payload.card_amount),
       note: `POSTAN Gelen - ${payload.bank_name} - ${payload.product_name}`,
       related_sale_id: sale.id,
       created_by: user?.id,
@@ -415,11 +428,11 @@ export async function createExpense(payload) {
     .single();
 
   if (error) throw error;
-  if (Number(payload.amount || 0) > 0) {
+  if (toDbNumber(payload.amount) > 0) {
     await createCashMovement({
       movement_type: "Gider",
       direction: "out",
-      amount: Number(payload.amount || 0),
+      amount: toDbNumber(payload.amount),
       related_table: "expenses",
       related_id: data.id,
       note: payload.note || payload.category || "Gider",
@@ -440,7 +453,7 @@ export async function createBankWithdrawal(payload) {
     .insert([{
       movement_type: "Bankadan Çekilen",
       bank_name: payload.bank_name,
-      amount: payload.amount,
+      amount: toDbNumber(payload.amount),
       note: payload.note || `Bankadan Nakit Gelen - ${payload.bank_name}`,
       created_by: user?.id,
     }])
@@ -448,11 +461,11 @@ export async function createBankWithdrawal(payload) {
     .single();
 
   if (error) throw error;
-  if (Number(payload.amount || 0) > 0) {
+  if (toDbNumber(payload.amount) > 0) {
     await createCashMovement({
       movement_type: "Bankadan Nakit Gelen",
       direction: "in",
-      amount: Number(payload.amount || 0),
+      amount: toDbNumber(payload.amount),
       related_table: "bank_movements",
       related_id: data.id,
       note: payload.note || `Bankadan Nakit Gelen - ${payload.bank_name}`,
