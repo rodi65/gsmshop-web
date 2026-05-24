@@ -9,6 +9,9 @@ import {
   createSale,
   createExpense,
   createBankWithdrawal,
+  createCashMovement,
+  createContactPayment,
+  repairStockSideEffects,
   softDelete,
 } from "./services/dataService";
 
@@ -28,8 +31,34 @@ const money = (value) => `${new Intl.NumberFormat("tr-TR", { maximumFractionDigi
 const has = (a, b) => String(a || "").toLowerCase().includes(String(b || "").toLowerCase());
 const stockRemainingAmount = (form) => Math.max(parseMoneyInput(form.buy) - parseMoneyInput(form.supplierPaid), 0);
 const sellerCariName = (name) => {
-  const clean = String(name || "").trim().toUpperCase();
-  return clean ? `SATICI ${clean}` : "";
+  const clean = String(name || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("tr-TR");
+  if (!clean) return "";
+  return clean.startsWith("SATICI ") ? clean : `SATICI ${clean}`;
+};
+const isSellerLabel = (value) => String(value || "").trim().toLocaleUpperCase("tr-TR").startsWith("SATICI ");
+const sellerNameFromProduct = (product) => {
+  const directName = product?.sellerCariName || product?.sellerPerson || product?.seller_person || product?.seller_cari_name || "";
+  if (directName) return sellerCariName(directName);
+
+  const supplierName = product?.supplier || product?.supplier_name || "";
+  if (isSellerLabel(supplierName)) return sellerCariName(supplierName);
+  if ((product?.acquisitionType || product?.acquisition_type) === "Müşteri" && supplierName) return sellerCariName(supplierName);
+  return "";
+};
+const stockSellerDebt = (product) => {
+  const explicitDebt = Number(product?.sellerCariRemaining || product?.seller_cari_remaining || 0);
+  if (explicitDebt > 0) return explicitDebt;
+  if (!sellerNameFromProduct(product)) return 0;
+
+  const isCustomerPurchase =
+    (product?.acquisitionType || product?.acquisition_type) === "Müşteri" ||
+    product?.condition === "İkinci El" ||
+    product?.category === "İkinci El";
+  if (!isCustomerPurchase) return 0;
+
+  const totalBuy = parseMoneyInput(product?.buy || product?.buy_price || 0) * Number(product?.qty || product?.quantity || 1);
+  const paid = parseMoneyInput(product?.supplierPaid || product?.supplier_paid || 0);
+  return Math.max(totalBuy - paid, 0);
 };
 
 const saleTypes = ["Telefon Satışı", "Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı", "Aksesuar Satışı"];
@@ -43,6 +72,8 @@ const quickAccessoryGroups = {
   "Şarj": ["A Şarj", "B Şarj", "Replika"],
   "Kulaklık": ["Kulaklık"],
 };
+const cashEntryTypes = ["Manuel Nakit Girişi", "Devir Nakit"];
+const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Devir Nakit", "Stok Ödemesi", "Cari Ödeme", "Gider", "Düzeltme"];
 
 const saleGroupRank = (type) => {
   if (type === "Telefon Satışı") return 1;
@@ -56,6 +87,26 @@ const saleGroupName = (type) => {
   if (type === "Aksesuar Satışı") return "Aksesuar";
   if (type === "Teknik Servis") return "Teknik Servis";
   return "Diğerleri";
+};
+
+const normalizeStockText = (value) => String(value || "").toLocaleLowerCase("tr-TR");
+const isPhoneStockItem = (item) =>
+  normalizeStockText(item.module) === "cihaz" && normalizeStockText(item.deviceType || item.device_type) === "telefon";
+const isAccessoryStockItem = (item) => normalizeStockText(item.module) === "aksesuar";
+const isOtherStockItem = (item) => !isPhoneStockItem(item) && !isAccessoryStockItem(item);
+const isSecondHandPhonePurchase = (form, module = form.module) =>
+  module === "Cihaz" && form.deviceType === "Telefon" && form.condition === "İkinci El";
+const recordDate = (item) => item.created_at || item.createdAt || item.date || "";
+const isTodayRecord = (item, todayKey) => recordDate(item).slice(0, 10) === todayKey;
+const cashMovementType = (item) => item.movement_type || item.movementType || item.type || "";
+const cashMovementAmount = (item) => typeof item.amount === "number" ? item.amount : parseMoneyInput(item.amount);
+const stockPurchasePaymentAmount = (product) => {
+  const paid = parseMoneyInput(product.supplierPaid || 0);
+  if (paid > 0) return paid;
+
+  const totalBuy = parseMoneyInput(product.buy) * Number(product.qty || 1);
+  const sellerDebt = stockSellerDebt(product);
+  return sellerDebt > 0 ? Math.max(totalBuy - sellerDebt, 0) : 0;
 };
 
 const sortSalesForList = (items) =>
@@ -72,7 +123,8 @@ const fromDbStock = (item) => ({
   id: item.id,
   module: item.module,
   deviceType: item.device_type || item.deviceType || "Telefon",
-  category: item.category || "KILIF",
+  condition: item.module === "Cihaz" ? item.category || "Sıfır Garantili" : "Sıfır Garantili",
+  category: item.module === "Aksesuar" ? item.category || "KILIF" : item.category || "",
   accessorySubType: item.sub_type || item.accessorySubType || "",
   brand: item.brand || "",
   model: item.model || "",
@@ -87,8 +139,10 @@ const fromDbStock = (item) => ({
   sellerPerson: item.seller_person || "",
   sellerPhone: item.seller_phone || "",
   saleDate: item.created_at || new Date().toISOString(),
-  supplierPaid: money(0),
-  sellerCariRemaining: 0,
+  supplierPaid: money(Number(item.supplier_paid || 0)),
+  sellerCariRemaining: Number(item.seller_cari_remaining || 0),
+  sellerCariName: Number(item.seller_cari_remaining || 0) > 0 ? sellerNameFromProduct(item) : "",
+  acquisitionType: item.acquisition_type || "Tedarikçi Firma",
 });
 
 const fromDbSale = (sale) => ({
@@ -127,8 +181,30 @@ const fromDbBankMovement = (item) => ({
   date: item.created_at || new Date().toISOString(),
 });
 
+const fromDbCashMovement = (item) => ({
+  id: item.id,
+  type: item.movement_type || item.type || "",
+  direction: item.direction || "",
+  amount: Number(item.amount || 0),
+  note: item.note || "",
+  relatedTable: item.related_table || item.relatedTable || "",
+  relatedId: item.related_id || item.relatedId || "",
+  date: item.created_at || item.date || new Date().toISOString(),
+});
 
-const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik"];
+const fromDbContact = (item) => ({
+  id: item.id,
+  kind: item.kind || "",
+  name: item.name || "",
+  phone: item.phone || "",
+  balance: Number(item.balance || 0),
+  balanceType: item.balance_type || item.balanceType || "",
+  note: item.note || "",
+  date: item.created_at || item.date || new Date().toISOString(),
+});
+
+
+const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik", "Diğer"];
 const banks = ["Ziraatbank", "İşbank", "Garantibank", "Halkbank", "Qnbbank", "Vakıfbank", "Yapıkredi"];
 const memoryOptions = ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB"];
 const categories = ["KILIF", "EKRAN Koruyucu", "USB", "ŞARJ", "KULAKLIK"];
@@ -142,6 +218,7 @@ const accessoryGroups = {
 };
 const fixedAccessoryCategories = ["KILIF", "EKRAN Koruyucu", "USB", "ŞARJ", "KULAKLIK"];
 const brands = ["Apple", "Samsung", "Huawei", "Xiaomi", "Oppo", "Vivo", "Honor", "Realme", "Tecno", "Poco", "OnePlus", "TCL", "Infinix", "Alcatel", "Motorola"];
+const nonPhoneBrands = ["Apple", "Samsung", "Huawei", "Xiaomi", "Lenovo", "HP", "Casper", "Monster", "Asus", "Acer", "Sony", "LG", "Diğer"];
 
 const modelsByBrand = {
   Apple: ["iPhone 17 Pro Max", "iPhone 17 Pro", "iPhone Air", "iPhone 17", "iPhone 16 Pro Max", "iPhone 16 Pro", "iPhone 16", "iPhone 15 Pro Max", "iPhone 15 Pro", "iPhone 15", "Apple Watch Ultra 3", "Apple Watch Series 11", "Apple Watch SE 3"],
@@ -294,9 +371,9 @@ function calcSale(sale) {
   return { ...sale, total: money(total), cash: money(cash), card: money(card), remaining, profit };
 }
 
-function Stat({ title, value }) {
+function Stat({ title, value, negative = false }) {
   return (
-    <div className="stat-card">
+    <div className={negative ? "stat-card negative" : "stat-card"}>
       <div className="stat-title">{title}</div>
       <div className="stat-value">{value}</div>
     </div>
@@ -328,6 +405,8 @@ export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [dbReady, setDbReady] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
+  const [cashMovements, setCashMovements] = useState([]);
+  const [contacts, setContacts] = useState([]);
   const [kasaTab, setKasaTab] = useState("yeniSatis");
   const [saleGroup, setSaleGroup] = useState("Telefon");
   const [quickAccessoryGroup, setQuickAccessoryGroup] = useState("Kılıf");
@@ -349,6 +428,7 @@ export default function App() {
   const [supplierModalOpen, setSupplierModalOpen] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState("");
   const [bankCashForm, setBankCashForm] = useState({ amount: "", bank: "", note: "" });
+  const [cashEntryForm, setCashEntryForm] = useState({ type: "Manuel Nakit Girişi", amount: "", note: "" });
   const [bankMovements, setBankMovements] = useState([
     { id: 1, type: "Bankaya Giden", amount: "40.000 TL", note: "POSTAN Gelen - Garantibank", bank: "Garantibank", date: new Date().toISOString() },
   ]);
@@ -361,7 +441,7 @@ export default function App() {
   const [query, setQuery] = useState("");
 
   const supplierOptions = useMemo(() => {
-    return Array.from(new Set([...suppliers, ...stock.map((product) => product.supplier).filter(Boolean)])).sort();
+    return Array.from(new Set([...suppliers, ...stock.map((product) => product.supplier).filter((supplier) => supplier && !isSellerLabel(supplier))])).sort();
   }, [suppliers, stock]);
 
   const isAccessorySale = saleForm.type === "Aksesuar Satışı";
@@ -383,29 +463,96 @@ export default function App() {
   const borclarim = useMemo(() => {
     const map = new Map();
     stock.forEach((product) => {
-      if (!product.supplier) return;
+      if (!product.supplier || isSellerLabel(product.supplier) || product.acquisitionType === "Müşteri") return;
       const totalBuy = parseMoneyInput(product.buy) * Number(product.qty || 0);
       const paid = parseMoneyInput(product.supplierPaid || 0);
-      const row = map.get(product.supplier) || { supplier: product.supplier, lastProduct: "", totalBuy: 0, paid: 0, remaining: 0 };
+      const accountKey = `supplier:${product.supplier.toLocaleLowerCase("tr-TR")}`;
+      const row = map.get(accountKey) || { accountKey, kind: "supplier", name: product.supplier, phone: "", contactId: "", lastProduct: "", totalBuy: 0, paid: 0, remaining: 0 };
       row.lastProduct = productTitle(product);
       row.totalBuy += totalBuy;
       row.paid += paid;
       row.remaining += Math.max(totalBuy - paid, 0);
-      map.set(product.supplier, row);
+      map.set(accountKey, row);
     });
-    return Array.from(map.values());
-  }, [stock]);
+
+    stock.forEach((product) => {
+      const sellerDebt = stockSellerDebt(product);
+      const sellerName = sellerNameFromProduct(product);
+      if (!sellerDebt || !sellerName) return;
+
+      const accountKey = `seller:${sellerName.toLocaleLowerCase("tr-TR")}`;
+      const row = map.get(accountKey) || {
+        accountKey,
+        kind: "seller",
+        name: sellerName,
+        phone: product.sellerPhone || "",
+        contactId: "",
+        lastProduct: "",
+        totalBuy: 0,
+        paid: 0,
+        remaining: 0,
+      };
+
+      row.lastProduct = productTitle(product);
+      row.phone = product.sellerPhone || row.phone || "";
+      row.totalBuy += parseMoneyInput(product.buy) * Number(product.qty || 1);
+      row.paid += parseMoneyInput(product.supplierPaid || 0);
+      row.remaining += sellerDebt;
+      map.set(accountKey, row);
+    });
+
+    contacts
+      .filter((contact) => ["supplier", "seller"].includes(contact.kind) && contact.balanceType === "payable")
+      .forEach((contact) => {
+        const accountKey = `${contact.kind}:${contact.name.toLocaleLowerCase("tr-TR")}`;
+        const row = map.get(accountKey) || {
+          accountKey,
+          kind: contact.kind,
+          name: contact.name,
+          phone: contact.phone || "",
+          contactId: contact.id,
+          lastProduct: contact.note || "Cari bakiye",
+          totalBuy: Math.max(Number(contact.balance || 0), 0),
+          paid: 0,
+          remaining: 0,
+        };
+        row.kind = contact.kind;
+        row.name = contact.name;
+        row.phone = contact.phone || row.phone || "";
+        row.contactId = contact.id;
+        row.remaining = Number(contact.balance || 0);
+        if (!row.lastProduct) row.lastProduct = contact.note || "Cari bakiye";
+        map.set(accountKey, row);
+      });
+
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "tr-TR"));
+  }, [stock, contacts]);
 
 
   async function refreshFromDatabase() {
     setSyncMessage("Veriler Supabase'ten yükleniyor...");
-    const data = await loadDashboardData();
+    let data = await loadDashboardData();
+    let repairMessage = "";
+
+    try {
+      const repaired = await repairStockSideEffects(data.stock || [], data.cashMovements || [], data.contacts || []);
+      if (repaired) {
+        data = await loadDashboardData();
+        repairMessage = "Eksik kasa/cari hareketleri stok kayıtlarından tamamlandı.";
+      }
+    } catch (error) {
+      console.error(error);
+      repairMessage = `Veriler yüklendi; eksik kasa/cari onarımı yapılamadı: ${error.message || "Supabase migration gerekebilir."}`;
+    }
+
     setStock((data.stock || []).map(fromDbStock));
     setSales((data.sales || []).map(fromDbSale));
     setExpenses((data.expenses || []).map(fromDbExpense));
     setBankMovements((data.bankMovements || []).map(fromDbBankMovement));
+    setCashMovements((data.cashMovements || []).map(fromDbCashMovement));
+    setContacts((data.contacts || []).map(fromDbContact));
     setDbReady(true);
-    setSyncMessage("Veriler Supabase ile senkronize.");
+    setSyncMessage(repairMessage || "Veriler Supabase ile senkronize.");
   }
 
   async function checkAuthAndLoad() {
@@ -455,11 +602,56 @@ export default function App() {
     .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
   const monthlyPosCommission = monthlyPosTotal * 0.035;
 
-  const cashWithBankIncoming = report.cash + bankReport.withdrawnFromBank;
-  const cashAfterExpenses = Math.max(cashWithBankIncoming - expenseReport.total, 0);
-
   const todayKey = new Date().toISOString().slice(0, 10);
   const monthKey = new Date().toISOString().slice(0, 7);
+  const cashSaleMovementIds = new Set(cashMovements.filter((item) => cashMovementType(item) === "Satış Nakit" && item.relatedTable === "sales").map((item) => String(item.relatedId)));
+  const cashBankMovementIds = new Set(cashMovements.filter((item) => cashMovementType(item) === "Bankadan Nakit Gelen" && item.relatedTable === "bank_movements").map((item) => String(item.relatedId)));
+  const cashExpenseMovementIds = new Set(cashMovements.filter((item) => cashMovementType(item) === "Gider" && item.relatedTable === "expenses").map((item) => String(item.relatedId)));
+  const cashStockMovementIds = new Set(cashMovements.filter((item) => cashMovementType(item) === "Stok Ödemesi" && item.relatedTable === "stock_items").map((item) => String(item.relatedId)));
+  const legacyCashSales = sales
+    .filter((sale) => !cashSaleMovementIds.has(String(sale.id)))
+    .reduce((sum, sale) => sum + parseMoneyInput(sale.cash), 0);
+  const legacyBankCashIncoming = bankMovements
+    .filter((item) => item.type === "Bankadan Çekilen" && !cashBankMovementIds.has(String(item.id)))
+    .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
+  const legacyExpenseOut = expenses
+    .filter((item) => !cashExpenseMovementIds.has(String(item.id)))
+    .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
+  const legacyStockPaymentOut = stock
+    .filter((product) => !cashStockMovementIds.has(String(product.id)))
+    .reduce((sum, product) => sum + stockPurchasePaymentAmount(product), 0);
+  const cashMovementNet = cashMovements
+    .filter((item) => cashLedgerMovementTypes.includes(cashMovementType(item)))
+    .reduce((sum, item) => sum + (item.direction === "out" ? -cashMovementAmount(item) : cashMovementAmount(item)), 0);
+  const carryOverCash = cashMovements
+    .filter((item) => cashMovementType(item) === "Devir Nakit" && item.direction === "in")
+    .reduce((sum, item) => sum + cashMovementAmount(item), 0);
+  const todayCashSales = sales
+    .filter((sale) => !cashSaleMovementIds.has(String(sale.id)) && isTodayRecord(sale, todayKey))
+    .reduce((sum, sale) => sum + parseMoneyInput(sale.cash), 0);
+  const todayBankCashIncoming = bankMovements
+    .filter((item) => item.type === "Bankadan Çekilen" && !cashBankMovementIds.has(String(item.id)) && isTodayRecord(item, todayKey))
+    .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
+  const todayCashMovementIn = cashMovements
+    .filter((item) => item.direction === "in" && cashMovementType(item) !== "Devir Nakit" && cashLedgerMovementTypes.includes(cashMovementType(item)) && isTodayRecord(item, todayKey))
+    .reduce((sum, item) => sum + cashMovementAmount(item), 0);
+  const todayExpenseOut = expenses
+    .filter((item) => !cashExpenseMovementIds.has(String(item.id)) && isTodayRecord(item, todayKey))
+    .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
+  const todayLegacyStockPaymentOut = stock
+    .filter((product) => !cashStockMovementIds.has(String(product.id)) && isTodayRecord(product, todayKey))
+    .reduce((sum, product) => sum + stockPurchasePaymentAmount(product), 0);
+  const todayCashMovementOut = cashMovements
+    .filter((item) => item.direction === "out" && cashLedgerMovementTypes.includes(cashMovementType(item)) && isTodayRecord(item, todayKey))
+    .reduce((sum, item) => sum + cashMovementAmount(item), 0);
+  const todayCashIn = todayCashSales + todayBankCashIncoming + todayCashMovementIn;
+  const todayCashOut = todayExpenseOut + todayLegacyStockPaymentOut + todayCashMovementOut;
+  const stockPurchasePayments = cashMovements
+    .filter((item) => cashMovementType(item) === "Stok Ödemesi" && item.direction === "out")
+    .reduce((sum, item) => sum + cashMovementAmount(item), 0) + legacyStockPaymentOut;
+  const cashWithBankIncoming = cashMovementNet + legacyCashSales + legacyBankCashIncoming - legacyExpenseOut - legacyStockPaymentOut;
+  const cashAfterExpenses = cashWithBankIncoming;
+
   const dayProfit = sales
     .filter((sale) => sale.date && sale.date.slice(0, 10) === todayKey)
     .reduce((sum, sale) => sum + Number(sale.profit || 0), 0);
@@ -475,9 +667,9 @@ export default function App() {
     })
     .reduce((sum, sale) => sum + Number(sale.profit || 0), 0);
 
-  const deviceStock = stock.filter((product) => product.module === "Cihaz");
-  const accessoryStock = stock.filter((product) => product.module === "Aksesuar");
-  const otherStock = stock.filter((product) => product.module !== "Cihaz" && product.module !== "Aksesuar");
+  const deviceStock = stock.filter(isPhoneStockItem);
+  const accessoryStock = stock.filter(isAccessoryStockItem);
+  const otherStock = stock.filter(isOtherStockItem);
   const allStock = stock;
   const currentStockList =
     stockView === "cihaz" ? deviceStock :
@@ -607,15 +799,63 @@ export default function App() {
     alert("Bankadan gelen para nakit kasasına eklendi ve Bankadan Çekilen bölümüne işlendi.");
   }
 
+  async function saveCashEntry() {
+    const amount = parseMoneyInput(cashEntryForm.amount);
+    const note = cashEntryForm.note.trim();
+    if (!amount) return alert("Nakit giriş tutarını yaz");
+    if (!note) return alert("Nakit nerden geldi? Not alanını yaz");
+
+    try {
+      await createCashMovement({
+        movement_type: cashEntryForm.type,
+        direction: "in",
+        amount,
+        note,
+      });
+      await refreshFromDatabase();
+      setSyncMessage(`${cashEntryForm.type} Supabase'e kaydedildi.`);
+    } catch (error) {
+      alert(error.message || "Nakit girişi Supabase'e yazılamadı.");
+      return;
+    }
+
+    setCashEntryForm({ type: "Manuel Nakit Girişi", amount: "", note: "" });
+  }
+
+  async function saveCariPayment(account, amountValue) {
+    const amount = parseMoneyInput(amountValue);
+    if (!account?.name) return false;
+    if (!amount) {
+      alert("Ödeme tutarını yaz");
+      return false;
+    }
+
+    try {
+      await createContactPayment({
+        kind: account.kind || "supplier",
+        name: account.name,
+        phone: account.phone || "",
+        amount,
+        currentBalance: Number(account.remaining || 0),
+        notePrefix: "Cari ödeme",
+      });
+      await refreshFromDatabase();
+      setSyncMessage(`${account.name} için cari ödeme kasadan çıkış olarak işlendi.`);
+      return true;
+    } catch (error) {
+      alert(error.message || "Cari ödeme Supabase'e yazılamadı.");
+      return false;
+    }
+  }
+
   function validateStock(module) {
     const isDevice = module === "Cihaz";
-    const isAccessory = module === "Aksesuar";
-    const isCustomerPurchase = isDevice && (stockForm.acquisitionType || "Müşteri") === "Müşteri";
-    if (!isCustomerPurchase && !stockForm.supplier.trim()) return "Tedarikçi firma seç";
-    if (isCustomerPurchase && !stockForm.sellerPerson.trim()) return "Satanın adı soyadı yaz";
-    if (isCustomerPurchase && !stockForm.sellerPhone.trim()) return "Satanın telefonu yaz";
-    if (isCustomerPurchase && cleanPhone(stockForm.sellerPhone).length !== 11) return "Satanın telefonu 11 rakam olmalı";
-    if (isCustomerPurchase && !stockForm.saleFormImageName) return "Satış formu resmi eklemeden kayıt yapılamaz";
+    const isSecondHandPhone = isSecondHandPhonePurchase(stockForm, module);
+    if (!isSecondHandPhone && !stockForm.supplier.trim()) return "Tedarikçi firma seç";
+    if (isSecondHandPhone && !stockForm.sellerPerson.trim()) return "Satanın adı soyadı yaz";
+    if (isSecondHandPhone && !stockForm.sellerPhone.trim()) return "Satanın telefonu yaz";
+    if (isSecondHandPhone && cleanPhone(stockForm.sellerPhone).length !== 11) return "Satanın telefonu 11 rakam olmalı";
+    if (isSecondHandPhone && !stockForm.saleFormImageName) return "Satış formu resmi eklemeden kayıt yapılamaz";
     if (!stockForm.buy || !stockForm.sell) return "Kaça aldın ve kaça satacaksın alanlarını yaz";
     if (!isDevice && !stockForm.qty) return "Stok adedi yaz";
     if (!stockForm.barcode) return "Barkod / IMEI yaz";
@@ -624,31 +864,64 @@ export default function App() {
     return "";
   }
 
-  function saveStock(module = stockForm.module) {
+  async function saveStock(module = stockForm.module) {
     const error = validateStock(module);
     if (error) return alert(error);
 
     const isDevice = module === "Cihaz";
     const isAccessory = module === "Aksesuar";
-    const isCustomerPurchase = isDevice && (stockForm.acquisitionType || "Müşteri") === "Müşteri";
+    const isSecondHandPhone = isSecondHandPhonePurchase(stockForm, module);
+    const qty = isDevice ? 1 : Number(stockForm.qty || 0);
+    const remaining = Math.max(parseMoneyInput(stockForm.buy) * qty - parseMoneyInput(stockForm.supplierPaid), 0);
     const item = {
       ...stockForm,
       id: Date.now(),
       module,
       deviceType: isDevice ? stockForm.deviceType : isAccessory ? "Aksesuar" : (stockForm.deviceType || "Diğer"),
       barcode: cleanBarcode(stockForm.barcode),
-      qty: isDevice ? 1 : Number(stockForm.qty || 0),
+      qty,
       buy: formatMoneyInput(stockForm.buy),
       sell: formatMoneyInput(stockForm.sell),
       supplierPaid: formatMoneyInput(stockForm.supplierPaid),
-      supplier: isCustomerPurchase ? "" : stockForm.supplier,
+      supplier: isSecondHandPhone ? "" : stockForm.supplier.trim(),
       saleDate: stockForm.saleDate || new Date().toISOString(),
       sellerPhone: cleanPhone(stockForm.sellerPhone),
-      sellerCariName: isCustomerPurchase ? sellerCariName(stockForm.sellerPerson) : "",
-      sellerCariRemaining: isCustomerPurchase ? stockRemainingAmount(stockForm) : 0,
+      acquisitionType: isSecondHandPhone ? "Müşteri" : "Tedarikçi Firma",
+      sellerCariName: isSecondHandPhone ? sellerCariName(stockForm.sellerPerson) : "",
+      sellerCariRemaining: isSecondHandPhone ? remaining : 0,
     };
 
-    setStock([item, ...stock]);
+    try {
+      await createStockItem({
+        module: item.module,
+        device_type: item.deviceType,
+        category: item.module === "Cihaz" ? item.condition : item.category,
+        sub_type: item.accessorySubType,
+        brand: item.brand,
+        model: item.model,
+        memory: item.memory,
+        product_name: productTitle(item) || item.name || item.model || "Ürün",
+        barcode: item.module === "Cihaz" ? "" : item.barcode,
+        imei: item.module === "Cihaz" ? item.barcode : "",
+        buy_price: parseMoneyInput(item.buy),
+        sell_price: parseMoneyInput(item.sell),
+        quantity: Number(item.qty || 1),
+        supplier_name: item.supplier,
+        seller_person: item.sellerPerson,
+        seller_phone: item.sellerPhone,
+        acquisition_type: item.acquisitionType,
+        supplier_paid: parseMoneyInput(item.supplierPaid),
+        seller_cari_remaining: Number(item.sellerCariRemaining || 0),
+        note: item.module === "Aksesuar" ? item.compatibleModel : item.note,
+      });
+
+      await refreshFromDatabase();
+      setSyncMessage("Stok Supabase'e kaydedildi. Kasa ve cari etkisi işlendi.");
+    } catch (error) {
+      alert(error.message || "Stok kaydı Supabase'e yazılamadı.");
+      return;
+    }
+
     setStockForm({ ...emptyStockForm, module });
     setStockTab("liste");
   }
@@ -796,7 +1069,16 @@ export default function App() {
           <button
             className={active === "cihaz" && stockForm.deviceType === "Telefon" ? "nav-btn active" : "nav-btn"}
             onClick={() => {
-              setStockForm({ ...stockForm, module: "Cihaz", deviceType: "Telefon" });
+              const nextBrand = brands.includes(stockForm.brand) ? stockForm.brand : "Apple";
+              const nextModels = modelsByBrand[nextBrand] || [];
+              setStockForm({
+                ...stockForm,
+                module: "Cihaz",
+                deviceType: "Telefon",
+                brand: nextBrand,
+                model: nextModels.includes(stockForm.model) ? stockForm.model : nextModels[0] || "",
+                memory: stockForm.memory || memoryOptions[0],
+              });
               setActive("cihaz");
             }}
           >
@@ -844,6 +1126,7 @@ export default function App() {
               <button className={kasaTab === "yeniSatis" ? "choice active" : "choice"} onClick={() => setKasaTab("yeniSatis")}>Yeni Satış</button>
               <button className={kasaTab === "satisListesi" ? "choice active" : "choice"} onClick={() => setKasaTab("satisListesi")}>Satış Listesi</button>
               <button className={kasaTab === "giderler" ? "choice active" : "choice"} onClick={() => setKasaTab("giderler")}>Giderler</button>
+              <button className={kasaTab === "nakitGirisi" ? "choice active" : "choice"} onClick={() => setKasaTab("nakitGirisi")}>Nakit Girişi</button>
               <button className={kasaTab === "kapanis" ? "choice active" : "choice"} onClick={() => setKasaTab("kapanis")}>Kasa Kapanış</button>
               <button className={kasaTab === "bankadanNakit" ? "choice active" : "choice"} onClick={() => setKasaTab("bankadanNakit")}>Bankadan Nakit Gelen</button>
             </div>
@@ -855,7 +1138,7 @@ export default function App() {
                     <Stat title="Toplam Satış" value={maskedValue("total", money(report.total))} />
                   </button>
                   <button className="stat-button" onClick={() => revealKasaStat("cash")}>
-                    <Stat title="Nakit Kasa" value={maskedValue("cash", money(cashWithBankIncoming))} />
+                    <Stat title="Nakit Kasa" value={maskedValue("cash", money(cashWithBankIncoming))} negative={cashWithBankIncoming < 0} />
                   </button>
                   <button className="stat-button" onClick={() => revealKasaStat("card")}>
                     <Stat title="Kart" value={maskedValue("card", money(report.card))} />
@@ -863,6 +1146,11 @@ export default function App() {
                   <button className="stat-button" onClick={() => revealKasaStat("remaining")}>
                     <Stat title="Alacak" value={maskedValue("remaining", money(report.remaining))} />
                   </button>
+                </div>
+                <div className="stats three">
+                  <Stat title="Dünden Devir Nakit" value={money(carryOverCash)} />
+                  <Stat title="Bugünkü Nakit Girişleri" value={money(todayCashIn)} />
+                  <Stat title="Bugünkü Nakit Çıkışları" value={money(todayCashOut)} />
                 </div>
 
                 <div className="grid sale-layout">
@@ -941,12 +1229,13 @@ export default function App() {
 
                     <div className="close-summary">
                       <small>KAPANIŞ ÖZETİ</small>
-                      <div><span>Satış</span><b>{money(saleTotal)}</b></div>
-                      <div><span>Nakit</span><b>{money(saleCash)}</b></div>
-                      <div><span>Kart</span><b>{money(saleCard)}</b></div>
-                      <div><span>Kalan</span><b>{money(saleRemaining)}</b></div>
+                      <div><span>Toplam Satış</span><b>{money(report.total)}</b></div>
+                      <div><span>Nakit Satış</span><b>{money(report.cash)}</b></div>
+                      <div><span>Kart</span><b>{money(report.card)}</b></div>
+                      <div><span>Alacak</span><b>{money(report.remaining)}</b></div>
                       <div><span>Gider</span><b>{money(expenseReport.total)}</b></div>
-                      <div><span>Net Nakit</span><b>{money(cashAfterExpenses)}</b></div>
+                      <div><span>Alım Ödemeleri</span><b>{money(stockPurchasePayments)}</b></div>
+                      <div><span>Net Kasa</span><b className={cashAfterExpenses < 0 ? "money-negative" : ""}>{money(cashAfterExpenses)}</b></div>
                     </div>
 
                     <button className="primary" onClick={saveSale}><Plus size={16} /> Satışı Kaydet</button>
@@ -1067,8 +1356,8 @@ export default function App() {
 
                 <div className="stats three">
                   <Stat title="Toplam Gider" value={money(expenseReport.total)} />
-                  <Stat title="Nakit Kasa" value={money(cashWithBankIncoming)} />
-                  <Stat title="Gider Sonrası Nakit" value={money(cashAfterExpenses)} />
+                  <Stat title="Nakit Kasa" value={money(cashWithBankIncoming)} negative={cashWithBankIncoming < 0} />
+                  <Stat title="Gider Sonrası Nakit" value={money(cashAfterExpenses)} negative={cashAfterExpenses < 0} />
                 </div>
 
                 <Table headers={["Tarih", "Gider", "Tutar", "Not", "Sil"]} rows={expenses.map((item) => [
@@ -1077,6 +1366,43 @@ export default function App() {
                   item.amount,
                   item.note || "-",
                   <button className="delete-btn" onClick={() => deleteExpense(item.id)}>Sil</button>,
+                ])} />
+              </section>
+            )}
+
+            {kasaTab === "nakitGirisi" && (
+              <section className="card">
+                <h2>Nakit Girişi</h2>
+
+                <div className="button-grid">
+                  {cashEntryTypes.map((type) => (
+                    <button
+                      key={type}
+                      className={cashEntryForm.type === type ? "choice active" : "choice"}
+                      onClick={() => setCashEntryForm({ ...cashEntryForm, type })}
+                    >
+                      {type === "Devir Nakit" ? "Dünden Devir Nakit" : type}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="form-grid">
+                  <input type="text" inputMode="numeric" placeholder="Tutar" value={cashEntryForm.amount} onFocus={() => setCashEntryForm({ ...cashEntryForm, amount: stripMoneyForEdit(cashEntryForm.amount) })} onChange={(e) => setCashEntryForm({ ...cashEntryForm, amount: cleanMoneyTyping(e.target.value) })} onBlur={() => setCashEntryForm({ ...cashEntryForm, amount: formatMoneyInput(cashEntryForm.amount) })} />
+                  <input placeholder="Nakit nerden geldi?" value={cashEntryForm.note} onChange={(e) => setCashEntryForm({ ...cashEntryForm, note: e.target.value })} />
+                  <div className="remaining-input">
+                    <span>Nakit Kasa</span>
+                    <b className={cashWithBankIncoming < 0 ? "money-negative" : ""}>{money(cashWithBankIncoming)}</b>
+                  </div>
+                </div>
+
+                <button className="primary" onClick={saveCashEntry}><Plus size={16} /> Nakit Girişini Kaydet</button>
+
+                <Table headers={["Tarih", "İşlem", "Yön", "Tutar", "Not"]} rows={cashMovements.map((item) => [
+                  new Date(item.date).toLocaleString("tr-TR"),
+                  item.type || "-",
+                  item.direction === "out" ? "Çıkış" : "Giriş",
+                  money(item.amount),
+                  item.note || "-",
                 ])} />
               </section>
             )}
@@ -1119,7 +1445,7 @@ export default function App() {
 
         {active === "cihaz" && (
           <section className="card">
-            <h2>{stockForm.deviceType === "Tablet" ? "Tablet Kaydı" : "Telefon Kaydı"}</h2>
+            <h2>{stockForm.deviceType || "Cihaz"} Kaydı</h2>
             <DeviceStockForm
               stockForm={stockForm}
               setStockForm={setStockForm}
@@ -1150,7 +1476,7 @@ export default function App() {
           <section className="section">
             <div className="stok-subtabs">
               <button className={stockView === "cihaz" ? "choice active" : "choice"} onClick={() => setStockView("cihaz")}>Cihaz Stok Listesi</button>
-              <button className={stockView === "aksesuar" ? "choice active" : "choice"} onClick={() => setStockView("aksesuar")}>Aksesuar Cihaz Listesi</button>
+              <button className={stockView === "aksesuar" ? "choice active" : "choice"} onClick={() => setStockView("aksesuar")}>Aksesuar Stok Listesi</button>
               <button className={stockView === "diger" ? "choice active" : "choice"} onClick={() => setStockView("diger")}>Diğerleri</button>
               <button className={stockView === "tum" ? "choice active" : "choice"} onClick={() => setStockView("tum")}>TÜM Stok</button>
               <button className={stockTab === "kayit" ? "choice active" : "choice"} onClick={() => setStockTab(stockTab === "kayit" ? "liste" : "kayit")}>Stok Kaydı</button>
@@ -1160,7 +1486,7 @@ export default function App() {
               <div className="stock-title-row">
                 <h2>
                   {stockView === "cihaz" && "Cihaz Stok Listesi"}
-                  {stockView === "aksesuar" && "Aksesuar Cihaz Listesi"}
+                  {stockView === "aksesuar" && "Aksesuar Stok Listesi"}
                   {stockView === "diger" && "Diğerleri"}
                   {stockView === "tum" && "TÜM Stok"}
                 </h2>
@@ -1174,19 +1500,20 @@ export default function App() {
                 </div>
               </div>
 
-              <StockTable stock={currentStockList} setEditingStock={setEditingStock} deleteStock={deleteStock} />
+              <StockTable stock={currentStockList} setEditingStock={setEditingStock} deleteStock={deleteStock} deviceView={stockView === "cihaz"} />
 
               {stockView === "tum" && (
                 <div className="grouped-stock">
                   <h3>Grup Grup Stok Özeti</h3>
-                  {["Cihaz", "Aksesuar", "Diğer"].map((groupName) => {
-                    const groupItems = groupName === "Diğer"
-                      ? stock.filter((item) => item.module !== "Cihaz" && item.module !== "Aksesuar")
-                      : stock.filter((item) => item.module === groupName);
+                  {[
+                    { groupName: "Cihaz", groupItems: deviceStock },
+                    { groupName: "Aksesuar", groupItems: accessoryStock },
+                    { groupName: "Diğerleri", groupItems: otherStock },
+                  ].map(({ groupName, groupItems }) => {
                     return (
                       <div key={groupName} className="group-block">
                         <h4>{groupName}</h4>
-                        <StockTable stock={groupItems} setEditingStock={setEditingStock} deleteStock={deleteStock} />
+                        <StockTable stock={groupItems} setEditingStock={setEditingStock} deleteStock={deleteStock} deviceView={groupName === "Cihaz"} />
                       </div>
                     );
                   })}
@@ -1260,19 +1587,21 @@ export default function App() {
                   <>
                     <h2>Kara Defter / Tedarikçi/Firma</h2>
                     <p>Hesap detayını görmek için firma adına tıkla.</p>
-                    <Table headers={["Tedarikçi/Firma", "Son Alınan Mal", "Alış Toplam", "Ödenen", "Şimdiki Borç", "Sil"]} rows={borclarim.map((row) => [
-                      <button className="link-btn" onClick={() => setSelectedSupplierAccount(row.supplier)}>{row.supplier}</button>,
+                    <Table headers={["Cari", "Tür", "Son Alınan Mal", "Alış Toplam", "Ödenen", "Şimdiki Borç", "Sil"]} rows={borclarim.map((row) => [
+                      <button className="link-btn" onClick={() => setSelectedSupplierAccount(row.accountKey)}>{row.name}</button>,
+                      row.kind === "seller" ? "Satıcı" : row.kind === "supplier" ? "Tedarikçi/Firma" : "Cari",
                       row.lastProduct,
                       money(row.totalBuy),
                       money(row.paid),
                       money(row.remaining),
-                      <button className="delete-btn" onClick={() => deleteSupplierDebt(row.supplier)}>Sil</button>,
+                      row.kind === "supplier" ? <button className="delete-btn" onClick={() => deleteSupplierDebt(row.name)}>Sil</button> : "-",
                     ])} />
                   </>
                 ) : (
                   <SupplierAccountPage
-                    supplierName={selectedSupplierAccount}
+                    account={borclarim.find((row) => row.accountKey === selectedSupplierAccount) || { accountKey: selectedSupplierAccount, kind: "supplier", name: selectedSupplierAccount, remaining: 0, totalBuy: 0, paid: 0 }}
                     stock={stock}
+                    saveCariPayment={saveCariPayment}
                     setSelectedSupplierAccount={setSelectedSupplierAccount}
                   />
                 )}
@@ -1384,39 +1713,90 @@ export default function App() {
 }
 
 function DeviceStockForm({ stockForm, setStockForm, saveStock, supplierOptions, setSupplierModalOpen }) {
+  const isPhone = stockForm.deviceType === "Telefon";
+  const isSecondHandPhone = isSecondHandPhonePurchase(stockForm, "Cihaz");
+  const brandOptions = isPhone ? brands : nonPhoneBrands;
+  const phoneModels = modelsByBrand[stockForm.brand] || [];
+  const selectedPhoneModel = phoneModels.includes(stockForm.model) ? stockForm.model : "";
+
+  function changeDeviceType(deviceType) {
+    const nextIsPhone = deviceType === "Telefon";
+    const nextBrand = nextIsPhone
+      ? (brands.includes(stockForm.brand) ? stockForm.brand : "Apple")
+      : (nonPhoneBrands.includes(stockForm.brand) ? stockForm.brand : nonPhoneBrands[0]);
+    const nextPhoneModels = modelsByBrand[nextBrand] || [];
+
+    setStockForm({
+      ...stockForm,
+      module: "Cihaz",
+      deviceType,
+      brand: nextBrand,
+      model: nextIsPhone ? (nextPhoneModels.includes(stockForm.model) ? stockForm.model : nextPhoneModels[0] || "") : "",
+      memory: nextIsPhone ? stockForm.memory || memoryOptions[0] : "",
+      supplier: nextIsPhone && stockForm.condition === "İkinci El" ? "" : stockForm.supplier,
+      sellerPerson: nextIsPhone ? stockForm.sellerPerson : "",
+      sellerPhone: nextIsPhone ? stockForm.sellerPhone : "",
+      saleFormImageName: nextIsPhone ? stockForm.saleFormImageName : "",
+    });
+  }
+
+  function changeCondition(condition) {
+    const nextSecondHandPhone = stockForm.deviceType === "Telefon" && condition === "İkinci El";
+    setStockForm({
+      ...stockForm,
+      module: "Cihaz",
+      condition,
+      supplier: nextSecondHandPhone ? "" : stockForm.supplier,
+    });
+  }
+
+  function changeBrand(brand) {
+    const nextPhoneModels = modelsByBrand[brand] || [];
+    setStockForm({
+      ...stockForm,
+      module: "Cihaz",
+      brand,
+      model: isPhone ? nextPhoneModels[0] || "" : "",
+    });
+  }
+
   return (
     <>
       <div className="form-grid">
-        <select value={stockForm.deviceType} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", deviceType: e.target.value })}>
+        <select value={stockForm.deviceType} onChange={(e) => changeDeviceType(e.target.value)}>
           {deviceTypes.map((item) => <option key={item}>{item}</option>)}
         </select>
 
-        <select value={stockForm.condition} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", condition: e.target.value })}>
+        <select value={stockForm.condition} onChange={(e) => changeCondition(e.target.value)}>
           <option>Sıfır Garantili</option>
           <option>Sıfır Spot</option>
           <option>İkinci El</option>
         </select>
 
-        <select value={stockForm.brand} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", brand: e.target.value, model: modelsByBrand[e.target.value]?.[0] || "" })}>
-          {brands.map((brand) => <option key={brand}>{brand}</option>)}
+        <select value={stockForm.brand} onChange={(e) => changeBrand(e.target.value)}>
+          {brandOptions.map((brand) => <option key={brand}>{brand}</option>)}
         </select>
 
-        <select value={stockForm.model} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", model: e.target.value })}>
-          {(modelsByBrand[stockForm.brand] || []).map((model) => <option key={model}>{model}</option>)}
-        </select>
-
-        <select value={stockForm.memory} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", memory: e.target.value })}>
-          {memoryOptions.map((memory) => <option key={memory}>{memory}</option>)}
-        </select>
+        {isPhone ? (
+          <>
+            <select value={selectedPhoneModel} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", model: e.target.value })}>
+              <option value="">Model Ekle</option>
+              {phoneModels.map((model) => <option key={model} value={model}>{model}</option>)}
+            </select>
+            {!selectedPhoneModel && (
+              <input placeholder="Model adı yaz" value={stockForm.model} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", model: e.target.value })} />
+            )}
+            <select value={stockForm.memory} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", memory: e.target.value })}>
+              {memoryOptions.map((memory) => <option key={memory}>{memory}</option>)}
+            </select>
+          </>
+        ) : (
+          <input placeholder="Model / Model Ekle" value={stockForm.model} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", model: e.target.value })} />
+        )}
 
         <input placeholder="Barkod / IMEI" inputMode="numeric" maxLength={15} value={stockForm.barcode} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", barcode: cleanBarcode(e.target.value) })} />
 
-        <select value={stockForm.acquisitionType || "Müşteri"} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", acquisitionType: e.target.value, supplier: e.target.value === "Müşteri" ? "" : stockForm.supplier })}>
-          <option>Müşteri</option>
-          <option>Tedarikçi Firma</option>
-        </select>
-
-        {(stockForm.acquisitionType || "Müşteri") === "Tedarikçi Firma" && (
+        {!isSecondHandPhone && (
           <select value={stockForm.supplier} onChange={(e) => {
             if (e.target.value === "__add_supplier__") {
               setSupplierModalOpen(true);
@@ -1440,10 +1820,9 @@ function DeviceStockForm({ stockForm, setStockForm, saveStock, supplierOptions, 
         </div>
       </div>
 
-      {(stockForm.acquisitionType || "Müşteri") === "Müşteri" && (
+      {isSecondHandPhone && (
         <div className="conditional-panel">
           <h3>Müşteriden Alım Bilgileri</h3>
-          <p className="mini-note">Alım tipi Müşteri seçildiğinde tedarikçi firma bilgisi istenmez.</p>
           <div className="form-grid">
             <div className="input-label">
               <strong>SATICI</strong>
@@ -1634,8 +2013,111 @@ function OtherStockForm({ stockForm, setStockForm, saveStock, otherGroupName, se
   );
 }
 
+function SupplierAccountPage({ account, stock, saveCariPayment, setSelectedSupplierAccount }) {
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const accountStock = account.kind === "supplier"
+    ? stock.filter((product) => product.supplier === account.name)
+    : stock.filter((product) => sellerNameFromProduct(product) === account.name);
+  const remaining = Number(account.remaining || 0);
 
-function StockTable({ stock, setEditingStock, deleteStock }) {
+  async function handlePayment() {
+    const saved = await saveCariPayment(account, paymentAmount);
+    if (saved) setPaymentAmount("");
+  }
+
+  return (
+    <div className="supplier-account-page">
+      <button className="choice" onClick={() => setSelectedSupplierAccount(null)}>Geri</button>
+      <h2>{account.name}</h2>
+
+      <div className="supplier-summary">
+        <div className="summary-row main">
+          <span>Cari Türü</span>
+          <b>{account.kind === "seller" ? "Satıcı" : account.kind === "supplier" ? "Tedarikçi/Firma" : "Cari"}</b>
+        </div>
+        <div className={remaining < 0 ? "summary-row debt negative" : "summary-row debt"}>
+          <span>Şimdiki Borç</span>
+          <b>{money(remaining)}</b>
+        </div>
+      </div>
+
+      <div className="conditional-panel">
+        <h3>Cari Ödeme</h3>
+        <div className="form-grid">
+          <input type="text" inputMode="numeric" placeholder="Ödeme tutarı" value={paymentAmount} onFocus={() => setPaymentAmount(stripMoneyForEdit(paymentAmount))} onChange={(e) => setPaymentAmount(cleanMoneyTyping(e.target.value))} onBlur={() => setPaymentAmount(formatMoneyInput(paymentAmount))} />
+          <div className="remaining-input">
+            <span>Ödeme Sonrası</span>
+            <b className={remaining - parseMoneyInput(paymentAmount) < 0 ? "money-negative" : ""}>{money(remaining - parseMoneyInput(paymentAmount))}</b>
+          </div>
+        </div>
+        <button className="primary" onClick={handlePayment}>Cari Ödemeyi Kasadan Çık</button>
+      </div>
+
+      {accountStock.length > 0 && (
+        <Table headers={["Tarih", "Ürün", "Alış", "Ödenen", "Kalan"]} rows={accountStock.map((product) => {
+          const totalBuy = parseMoneyInput(product.buy) * Number(product.qty || 0);
+          const paid = parseMoneyInput(product.supplierPaid || 0);
+          return [
+            product.saleDate ? new Date(product.saleDate).toLocaleString("tr-TR") : "-",
+            productTitle(product),
+            money(totalBuy),
+            money(paid),
+            money(totalBuy - paid),
+          ];
+        })} />
+      )}
+    </div>
+  );
+}
+
+function ReceivableMovementPage({ sale, stock, setSelectedReceivableMovement }) {
+  const product = stock.find((item) => String(item.id) === String(sale.productId));
+  return (
+    <div className="movement-page">
+      <button className="choice" onClick={() => setSelectedReceivableMovement(null)}>Geri</button>
+      <h2>{sale.productName}</h2>
+      <div className="supplier-summary">
+        <div className="summary-row main">
+          <span>Cari Kişi</span>
+          <b>{sale.cariPerson || sale.customer || "-"}</b>
+        </div>
+        <div className="summary-row debt">
+          <span>Kalan Alacak</span>
+          <b>{money(sale.remaining || 0)}</b>
+        </div>
+      </div>
+      <Table headers={["Alan", "Değer"]} rows={[
+        ["Satış", sale.total],
+        ["Nakit", sale.cash],
+        ["Kart", sale.card],
+        ["Ürün", product ? productTitle(product) : sale.productName],
+      ]} />
+    </div>
+  );
+}
+
+function StockTable({ stock, setEditingStock, deleteStock, deviceView = false }) {
+  if (deviceView) {
+    return (
+      <Table
+        headers={["No", "Durum", "Marka", "Model", "Hafıza", "Alış", "Satış", "Stok", "Tedarikçi/Satıcı", "Düzelt", "Sil"]}
+        rows={stock.map((product, index) => [
+          index + 1,
+          product.condition || product.category || "-",
+          product.brand || "-",
+          product.model || "-",
+          product.memory || "-",
+          money(product.buy),
+          money(product.sell),
+          product.qty,
+          product.supplier || product.sellerCariName || product.sellerPerson || "-",
+          <button className="edit-btn" onClick={() => setEditingStock({ ...product })}><Pencil size={14} /> Düzenle</button>,
+          <button className="delete-btn" onClick={() => deleteStock(product.id)}>Sil</button>,
+        ])}
+      />
+    );
+  }
+
   return (
     <Table
       headers={["Tür", "Ürün", "Barkod/IMEI", "Stok", "Alış", "Satış", "Tedarikçi/Satıcı", "Cari Kalan", "Düzelt", "Sil"]}

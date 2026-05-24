@@ -59,8 +59,11 @@ small { color: #64748b; }
 .stats.four { grid-template-columns: repeat(4, 1fr); }
 .stats.three { grid-template-columns: repeat(3, 1fr); }
 .stat-card { background: white; border-radius: 22px; padding: 18px; border: 1px solid #e2e8f0; }
+.stat-card.negative { background: #fef2f2; border-color: #fecaca; }
+.stat-card.negative .stat-value { color: #b91c1c; }
 .stat-title { color: #64748b; font-size: 13px; }
 .stat-value { font-size: 26px; font-weight: 1000; margin-top: 4px; }
+.money-negative { color: #b91c1c !important; }
 
 .button-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
 .kasa-subtabs, .stok-subtabs { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -200,6 +203,10 @@ small { color: #64748b; }
 .summary-row.debt {
   background: #020617;
   color: white;
+}
+.summary-row.negative {
+  background: #7f1d1d;
+  border-color: #fecaca;
 }
 
 .summary-row.main span,
