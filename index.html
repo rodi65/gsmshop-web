@@ -8,5 +8,114 @@
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
+
+<script>
+  (function () {
+    const STORAGE_KEY = "ceplog_screen_zoom";
+    const MIN_ZOOM = 0.75;
+    const MAX_ZOOM = 1.25;
+    const STEP = 0.05;
+
+    function clamp(value) {
+      return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+    }
+
+    function getZoom() {
+      const saved = Number(localStorage.getItem(STORAGE_KEY));
+      return saved ? clamp(saved) : 1;
+    }
+
+    function applyZoom(value) {
+      const zoom = clamp(value);
+      const root = document.getElementById("root");
+      if (root) {
+        root.style.zoom = String(zoom);
+      }
+      localStorage.setItem(STORAGE_KEY, String(zoom));
+
+      const label = document.getElementById("ceplogZoomLabel");
+      if (label) label.textContent = Math.round(zoom * 100) + "%";
+    }
+
+    function makeButton(text, title, onClick) {
+      const btn = document.createElement("button");
+      btn.textContent = text;
+      btn.title = title;
+      btn.type = "button";
+      btn.style.border = "0";
+      btn.style.borderRadius = "10px";
+      btn.style.background = "#071226";
+      btn.style.color = "#fff";
+      btn.style.fontWeight = "900";
+      btn.style.fontSize = "14px";
+      btn.style.height = "34px";
+      btn.style.minWidth = "34px";
+      btn.style.cursor = "pointer";
+      btn.style.boxShadow = "0 8px 18px rgba(7,18,38,.18)";
+      btn.onclick = onClick;
+      return btn;
+    }
+
+    function createZoomControl() {
+      if (document.getElementById("ceplogZoomControl")) return;
+
+      const wrap = document.createElement("div");
+      wrap.id = "ceplogZoomControl";
+      wrap.style.position = "fixed";
+      wrap.style.right = "14px";
+      wrap.style.bottom = "14px";
+      wrap.style.zIndex = "999999";
+      wrap.style.display = "flex";
+      wrap.style.alignItems = "center";
+      wrap.style.gap = "6px";
+      wrap.style.padding = "7px";
+      wrap.style.borderRadius = "16px";
+      wrap.style.background = "rgba(255,255,255,.92)";
+      wrap.style.border = "1px solid #dbe3ef";
+      wrap.style.boxShadow = "0 14px 35px rgba(15,23,42,.18)";
+      wrap.style.backdropFilter = "blur(12px)";
+
+      const minus = makeButton("−", "Ekranı küçült", function () {
+        applyZoom(getZoom() - STEP);
+      });
+
+      const label = document.createElement("button");
+      label.id = "ceplogZoomLabel";
+      label.type = "button";
+      label.title = "Ekranı 100% yap";
+      label.textContent = Math.round(getZoom() * 100) + "%";
+      label.style.border = "0";
+      label.style.borderRadius = "10px";
+      label.style.background = "#eff6ff";
+      label.style.color = "#1d4ed8";
+      label.style.fontWeight = "1000";
+      label.style.fontSize = "12px";
+      label.style.height = "34px";
+      label.style.minWidth = "52px";
+      label.style.cursor = "pointer";
+      label.onclick = function () {
+        applyZoom(1);
+      };
+
+      const plus = makeButton("+", "Ekranı büyüt", function () {
+        applyZoom(getZoom() + STEP);
+      });
+
+      wrap.appendChild(minus);
+      wrap.appendChild(label);
+      wrap.appendChild(plus);
+      document.body.appendChild(wrap);
+
+      applyZoom(getZoom());
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", createZoomControl);
+    } else {
+      createZoomControl();
+    }
+  })();
+</script>
+
 </body>
 </html>
