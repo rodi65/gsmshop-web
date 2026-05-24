@@ -12,9 +12,10 @@ import {
   createCashMovement,
   createContactPayment,
   createReceivablePayment,
-  findOrCreateContact,
   repairStockSideEffects,
   softDelete,
+  updateSaleRecord,
+  updateStockItem,
 } from "./services/dataService";
 
 import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText } from "lucide-react";
@@ -439,6 +440,7 @@ export default function App() {
   const [clockNow, setClockNow] = useState(new Date());
   const [dbReady, setDbReady] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState("");
   const [cashMovements, setCashMovements] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [kasaTab, setKasaTab] = useState("yeniSatis");
@@ -594,6 +596,7 @@ export default function App() {
     setBankMovements((data.bankMovements || []).map(fromDbBankMovement));
     setCashMovements((data.cashMovements || []).map(fromDbCashMovement));
     setContacts((data.contacts || []).map(fromDbContact));
+    setActiveWorkspaceId(data.workspaceId || data.profile?.workspace_id || "");
     setDbReady(true);
     setSyncMessage(repairMessage || "Veriler Supabase ile senkronize.");
   }
@@ -618,6 +621,7 @@ export default function App() {
   async function handleLogout() {
     await signOut();
     setCurrentUser(null);
+    setActiveWorkspaceId("");
     setDbReady(false);
   }
 
@@ -1110,13 +1114,33 @@ export default function App() {
     setSaleForm({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
   }
 
-  function updateSale() {
+  async function updateSale() {
     const fixed = calcSale(editingSale);
-    setSales(sales.map((sale) => sale.id === fixed.id ? fixed : sale));
-    setEditingSale(null);
+    try {
+      const savedSale = await updateSaleRecord(fixed.id, {
+        sale_group: saleGroupName(fixed.type),
+        sale_type: fixed.type,
+        product_name: fixed.productName,
+        customer_name: fixed.customer || "",
+        customer_phone: fixed.customerPhone || "",
+        cari_person: fixed.cariPerson || fixed.customer || "",
+        total_amount: parseMoneyInput(fixed.total),
+        cash_amount: parseMoneyInput(fixed.cash),
+        card_amount: parseMoneyInput(fixed.card),
+        remaining_amount: Number(fixed.remaining || 0),
+        buy_cost: parseMoneyInput(fixed.productBuyPrice || 0),
+        profit_amount: Number(fixed.profit || 0),
+        bank_name: fixed.bank || null,
+      });
+      setSales(sales.map((sale) => sale.id === fixed.id ? fromDbSale(savedSale) : sale));
+      setEditingSale(null);
+      setSyncMessage("Satış düzeltmesi aktif workspace içinde Supabase'e kaydedildi.");
+    } catch (error) {
+      alert(error.message || "Satış düzeltmesi Supabase'e yazılamadı.");
+    }
   }
 
-  function updateStock() {
+  async function updateStock() {
     const fixed = {
       ...editingStock,
       barcode: cleanBarcode(editingStock.barcode),
@@ -1124,8 +1148,35 @@ export default function App() {
       sell: formatMoneyInput(editingStock.sell),
       supplierPaid: formatMoneyInput(editingStock.supplierPaid),
     };
-    setStock(stock.map((product) => product.id === fixed.id ? fixed : product));
-    setEditingStock(null);
+    try {
+      const savedStock = await updateStockItem(fixed.id, {
+        module: fixed.module,
+        device_type: fixed.deviceType,
+        category: fixed.module === "Cihaz" ? fixed.condition : fixed.category,
+        sub_type: fixed.accessorySubType,
+        brand: fixed.brand,
+        model: fixed.model,
+        memory: fixed.memory,
+        product_name: productTitle(fixed) || fixed.name || fixed.model || "Ürün",
+        barcode: fixed.module === "Cihaz" ? "" : fixed.barcode,
+        imei: fixed.module === "Cihaz" ? fixed.barcode : "",
+        buy_price: parseMoneyInput(fixed.buy),
+        sell_price: parseMoneyInput(fixed.sell),
+        quantity: Number(fixed.qty || 0),
+        supplier_name: fixed.supplier || "",
+        seller_person: fixed.sellerPerson || "",
+        seller_phone: fixed.sellerPhone || "",
+        acquisition_type: fixed.acquisitionType || "Tedarikçi Firma",
+        supplier_paid: parseMoneyInput(fixed.supplierPaid),
+        seller_cari_remaining: Number(fixed.sellerCariRemaining || 0),
+        note: fixed.module === "Aksesuar" ? fixed.compatibleModel : fixed.note,
+      });
+      setStock(stock.map((product) => product.id === fixed.id ? fromDbStock(savedStock) : product));
+      setEditingStock(null);
+      setSyncMessage("Stok düzeltmesi aktif workspace içinde Supabase'e kaydedildi.");
+    } catch (error) {
+      alert(error.message || "Stok düzeltmesi Supabase'e yazılamadı.");
+    }
   }
 
   function revealKasaStat(key) {
@@ -1239,9 +1290,11 @@ export default function App() {
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   }
 
+  const accessoryShortcutStorageKey = activeWorkspaceId || currentUser?.id || "";
+
   useEffect(() => {
-    if (!currentUser?.id) return;
-    const saved = localStorage.getItem(`ceplog_accessory_shortcuts_${currentUser.id}`);
+    if (!accessoryShortcutStorageKey) return;
+    const saved = localStorage.getItem(`ceplog_accessory_shortcuts_${accessoryShortcutStorageKey}`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -1250,12 +1303,12 @@ export default function App() {
         setAccessoryShortcuts([]);
       }
     }
-  }, [currentUser?.id]);
+  }, [accessoryShortcutStorageKey]);
 
   useEffect(() => {
-    if (!currentUser?.id) return;
-    localStorage.setItem(`ceplog_accessory_shortcuts_${currentUser.id}`, JSON.stringify(accessoryShortcuts.slice(0, 20)));
-  }, [accessoryShortcuts, currentUser?.id]);
+    if (!accessoryShortcutStorageKey) return;
+    localStorage.setItem(`ceplog_accessory_shortcuts_${accessoryShortcutStorageKey}`, JSON.stringify(accessoryShortcuts.slice(0, 20)));
+  }, [accessoryShortcuts, accessoryShortcutStorageKey]);
 
   function addAccessoryShortcut() {
     const group = accessoryShortcutForm.group || "Kılıf";
@@ -1430,6 +1483,7 @@ export default function App() {
                 <div className="management-info-list">
                   <div><span>Program</span><b>CEPLOG</b></div>
                   <div><span>Lisans Sahibi</span><b>{currentUser?.email || "Kayıtlı Kullanıcı"}</b></div>
+                  <div><span>Aktif Workspace</span><b>{activeWorkspaceId || "-"}</b></div>
                   <div><span>Paket</span><b>Professional</b></div>
                   <div><span>Durum</span><b>Aktif</b></div>
                   <div><span>Son Yedek</span><b>Manuel Kontrol</b></div>

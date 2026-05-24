@@ -1,5 +1,12 @@
 import { supabase } from "../lib/supabase";
 
+const MAIN_ACCOUNT_EMAIL = "ahmetsenltd@gmail.com";
+let workspaceSession = {
+  userId: "",
+  profile: null,
+  workspaceId: "",
+};
+
 export async function getCurrentUser() {
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
@@ -15,8 +22,105 @@ export async function signInWithEmail(email, password) {
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
+  workspaceSession = { userId: "", profile: null, workspaceId: "" };
 }
 
+function normalizedEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function defaultWorkspaceIdForUser(user) {
+  if (!user?.id) return "";
+  return normalizedEmail(user.email) === MAIN_ACCOUNT_EMAIL ? "main" : user.id;
+}
+
+export function setCurrentWorkspaceId(workspaceId) {
+  const cleanWorkspaceId = String(workspaceId || "").trim();
+  workspaceSession = {
+    ...workspaceSession,
+    profile: workspaceSession.profile ? { ...workspaceSession.profile, workspace_id: cleanWorkspaceId } : null,
+    workspaceId: cleanWorkspaceId,
+  };
+}
+
+export async function ensureUserProfile(userArg) {
+  const user = userArg || await getCurrentUser();
+  if (!user?.id) return null;
+
+  if (workspaceSession.userId === user.id && workspaceSession.profile && workspaceSession.workspaceId) {
+    return workspaceSession.profile;
+  }
+
+  const defaultWorkspaceId = defaultWorkspaceIdForUser(user);
+  const isMainAccount = normalizedEmail(user.email) === MAIN_ACCOUNT_EMAIL;
+
+  const { data: existing, error: findError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (findError) throw findError;
+
+  if (!existing) {
+    const profilePayload = {
+      id: user.id,
+      email: user.email || "",
+      workspace_id: defaultWorkspaceId,
+      role: isMainAccount ? "owner" : "staff",
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .upsert([profilePayload], { onConflict: "id" })
+      .select()
+      .single();
+
+    if (error) throw error;
+    workspaceSession = { userId: user.id, profile: data, workspaceId: data.workspace_id || defaultWorkspaceId };
+    return data;
+  }
+
+  const workspaceId = isMainAccount ? "main" : existing.workspace_id || defaultWorkspaceId;
+  const shouldUpdate =
+    existing.workspace_id !== workspaceId ||
+    existing.email !== user.email ||
+    (!existing.role && isMainAccount);
+
+  if (shouldUpdate) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({
+        email: user.email || existing.email || "",
+        workspace_id: workspaceId,
+        role: existing.role || (isMainAccount ? "owner" : "staff"),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    workspaceSession = { userId: user.id, profile: data, workspaceId: data.workspace_id || workspaceId };
+    return data;
+  }
+
+  workspaceSession = { userId: user.id, profile: existing, workspaceId };
+  return existing;
+}
+
+export async function getCurrentProfile() {
+  return ensureUserProfile();
+}
+
+export async function getCurrentWorkspaceId() {
+  const profile = await ensureUserProfile();
+  const user = await getCurrentUser();
+  const workspaceId = profile?.workspace_id || defaultWorkspaceIdForUser(user);
+  setCurrentWorkspaceId(workspaceId);
+  return workspaceId;
+}
 
 function toDbNumber(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -54,14 +158,16 @@ function stockSellerName(item) {
 }
 
 export async function loadDashboardData() {
+  const profile = await getCurrentProfile();
+  const workspaceId = profile?.workspace_id || await getCurrentWorkspaceId();
   const [stock, sales, expenses, bank, closings, cash, contacts] = await Promise.all([
-    supabase.from("stock_items").select("*").neq("status", "deleted").order("created_at", { ascending: false }),
-    supabase.from("sales").select("*").neq("status", "deleted").order("created_at", { ascending: false }),
-    supabase.from("expenses").select("*").neq("status", "deleted").order("created_at", { ascending: false }),
-    supabase.from("bank_movements").select("*").neq("status", "deleted").order("created_at", { ascending: false }),
-    supabase.from("cash_closings").select("*").order("closing_date", { ascending: false }),
-    supabase.from("cash_movements").select("*").or("status.is.null,status.neq.deleted").order("created_at", { ascending: false }),
-    supabase.from("contacts").select("*").or("status.is.null,status.neq.deleted").order("created_at", { ascending: false }),
+    supabase.from("stock_items").select("*").eq("workspace_id", workspaceId).neq("status", "deleted").order("created_at", { ascending: false }),
+    supabase.from("sales").select("*").eq("workspace_id", workspaceId).neq("status", "deleted").order("created_at", { ascending: false }),
+    supabase.from("expenses").select("*").eq("workspace_id", workspaceId).neq("status", "deleted").order("created_at", { ascending: false }),
+    supabase.from("bank_movements").select("*").eq("workspace_id", workspaceId).neq("status", "deleted").order("created_at", { ascending: false }),
+    supabase.from("cash_closings").select("*").eq("workspace_id", workspaceId).order("closing_date", { ascending: false }),
+    supabase.from("cash_movements").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.neq.deleted").order("created_at", { ascending: false }),
+    supabase.from("contacts").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.neq.deleted").order("created_at", { ascending: false }),
   ]);
 
   for (const response of [stock, sales, expenses, bank, closings]) {
@@ -72,6 +178,8 @@ export async function loadDashboardData() {
   if (contacts.error && !isMissingRelationError(contacts.error)) throw contacts.error;
 
   return {
+    profile,
+    workspaceId,
     stock: stock.data || [],
     sales: sales.data || [],
     expenses: expenses.data || [],
@@ -84,12 +192,14 @@ export async function loadDashboardData() {
 
 export async function findOrCreateContact({ kind, name, phone = "", balance = 0, balanceType = "receivable", note = "" }) {
   const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
   const cleanName = String(name || "").trim();
   if (!cleanName) return null;
 
   const { data: existing, error: findError } = await supabase
     .from("contacts")
     .select("*")
+    .eq("workspace_id", workspaceId)
     .eq("kind", kind)
     .ilike("name", cleanName)
     .or("status.is.null,status.neq.deleted")
@@ -110,6 +220,7 @@ export async function findOrCreateContact({ kind, name, phone = "", balance = 0,
         updated_at: new Date().toISOString(),
       })
       .eq("id", existing.id)
+      .eq("workspace_id", workspaceId)
       .select()
       .single();
 
@@ -125,6 +236,7 @@ export async function findOrCreateContact({ kind, name, phone = "", balance = 0,
       phone,
       balance: toDbNumber(balance),
       balance_type: balanceType,
+      workspace_id: workspaceId,
       note,
       status: "active",
       created_by: user?.id,
@@ -139,6 +251,7 @@ export async function findOrCreateContact({ kind, name, phone = "", balance = 0,
 
 export async function createCashMovement(payload) {
   const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
 
   const { data, error } = await supabase
     .from("cash_movements")
@@ -149,6 +262,7 @@ export async function createCashMovement(payload) {
       note: payload.note || "",
       related_table: payload.related_table || null,
       related_id: payload.related_id || null,
+      workspace_id: workspaceId,
       status: "active",
       created_by: user?.id,
     }])
@@ -161,6 +275,7 @@ export async function createCashMovement(payload) {
 
 export async function createContactPayment({ kind, name, phone = "", amount, currentBalance = 0, notePrefix = "Cari ödeme" }) {
   const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
   const cleanName = String(name || "").trim();
   const paymentAmount = toDbNumber(amount);
 
@@ -170,6 +285,7 @@ export async function createContactPayment({ kind, name, phone = "", amount, cur
   const { data: existing, error: findError } = await supabase
     .from("contacts")
     .select("*")
+    .eq("workspace_id", workspaceId)
     .eq("kind", kind)
     .ilike("name", cleanName)
     .or("status.is.null,status.neq.deleted")
@@ -188,6 +304,7 @@ export async function createContactPayment({ kind, name, phone = "", amount, cur
         phone,
         balance: toDbNumber(currentBalance),
         balance_type: "payable",
+        workspace_id: workspaceId,
         note: "Ödeme sırasında cari kaydı oluşturuldu.",
         status: "active",
         created_by: user?.id,
@@ -219,6 +336,7 @@ export async function createContactPayment({ kind, name, phone = "", amount, cur
       updated_at: new Date().toISOString(),
     })
     .eq("id", contact.id)
+    .eq("workspace_id", workspaceId)
     .select()
     .single();
 
@@ -228,6 +346,7 @@ export async function createContactPayment({ kind, name, phone = "", amount, cur
 
 export async function createReceivablePayment({ saleId, customerName = "", amount, currentRemaining = 0 }) {
   const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
   const paymentAmount = toDbNumber(amount);
 
   if (!saleId) throw new Error("Alacak kaydı seçilemedi.");
@@ -250,6 +369,7 @@ export async function createReceivablePayment({ saleId, customerName = "", amoun
       updated_at: new Date().toISOString(),
     })
     .eq("id", saleId)
+    .eq("workspace_id", workspaceId)
     .select()
     .single();
 
@@ -316,6 +436,7 @@ export async function repairStockSideEffects(stockItems = [], cashMovements = []
 
 export async function createStockItem(payload) {
   const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
   const paid = toDbNumber(payload.supplier_paid);
   const buyTotal = toDbNumber(payload.buy_price) * Number(payload.quantity || 1);
   const remaining = Math.max(buyTotal - paid, 0);
@@ -335,7 +456,7 @@ export async function createStockItem(payload) {
 
   const { data, error } = await supabase
     .from("stock_items")
-    .insert([{ ...stockPayload, status: stockPayload.status || "active", created_by: user?.id, updated_by: user?.id }])
+    .insert([{ ...stockPayload, workspace_id: workspaceId, status: stockPayload.status || "active", created_by: user?.id, updated_by: user?.id }])
     .select()
     .single();
 
@@ -378,9 +499,11 @@ export async function createStockItem(payload) {
 
 export async function createSale(payload) {
   const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
 
   const salePayload = {
     ...payload,
+    workspace_id: workspaceId,
     total_amount: toDbNumber(payload.total_amount),
     cash_amount: toDbNumber(payload.cash_amount),
     card_amount: toDbNumber(payload.card_amount),
@@ -417,6 +540,7 @@ export async function createSale(payload) {
       amount: toDbNumber(salePayload.card_amount),
       note: `POSTAN Gelen - ${payload.bank_name} - ${payload.product_name}`,
       related_sale_id: sale.id,
+      workspace_id: workspaceId,
       created_by: user?.id,
     }]);
 
@@ -440,6 +564,7 @@ export async function createSale(payload) {
 
 export async function createExpense(payload) {
   const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
 
   if (payload.category === "Borç" && !String(payload.note || "").trim()) {
     throw new Error("Borç giderinde Not zorunludur.");
@@ -447,7 +572,7 @@ export async function createExpense(payload) {
 
   const { data, error } = await supabase
     .from("expenses")
-    .insert([{ ...payload, created_by: user?.id, updated_by: user?.id }])
+    .insert([{ ...payload, workspace_id: workspaceId, created_by: user?.id, updated_by: user?.id }])
     .select()
     .single();
 
@@ -467,6 +592,7 @@ export async function createExpense(payload) {
 
 export async function createBankWithdrawal(payload) {
   const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
 
   if (!payload.bank_name) {
     throw new Error("Banka seçmek zorunludur.");
@@ -479,6 +605,7 @@ export async function createBankWithdrawal(payload) {
       bank_name: payload.bank_name,
       amount: toDbNumber(payload.amount),
       note: payload.note || `Bankadan Nakit Gelen - ${payload.bank_name}`,
+      workspace_id: workspaceId,
       created_by: user?.id,
     }])
     .select()
@@ -498,8 +625,66 @@ export async function createBankWithdrawal(payload) {
   return data;
 }
 
+export async function updateSaleRecord(id, payload) {
+  const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
+  const numericFields = ["total_amount", "cash_amount", "card_amount", "remaining_amount", "buy_cost", "profit_amount"];
+  const updatePayload = {
+    ...payload,
+    updated_by: user?.id,
+    updated_at: new Date().toISOString(),
+  };
+
+  numericFields.forEach((field) => {
+    if (Object.prototype.hasOwnProperty.call(updatePayload, field)) {
+      updatePayload[field] = toDbNumber(updatePayload[field]);
+    }
+  });
+
+  const { data, error } = await supabase
+    .from("sales")
+    .update(updatePayload)
+    .eq("id", id)
+    .eq("workspace_id", workspaceId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateStockItem(id, payload) {
+  const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
+  const numericFields = ["buy_price", "sell_price", "supplier_paid", "seller_cari_remaining"];
+  const updatePayload = {
+    ...payload,
+    quantity: Number(payload.quantity || 0),
+    updated_by: user?.id,
+    updated_at: new Date().toISOString(),
+  };
+
+  numericFields.forEach((field) => {
+    if (Object.prototype.hasOwnProperty.call(updatePayload, field)) {
+      updatePayload[field] = toDbNumber(updatePayload[field]);
+    }
+  });
+
+  const { data, error } = await supabase
+    .from("stock_items")
+    .update(updatePayload)
+    .eq("id", id)
+    .eq("workspace_id", workspaceId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function softDelete(tableName, id) {
   const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
 
   const { data, error } = await supabase
     .from(tableName)
@@ -509,6 +694,7 @@ export async function softDelete(tableName, id) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
+    .eq("workspace_id", workspaceId)
     .select()
     .single();
 
@@ -518,6 +704,7 @@ export async function softDelete(tableName, id) {
 
 export async function cancelRecord(tableName, id) {
   const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
 
   const { data, error } = await supabase
     .from(tableName)
@@ -527,6 +714,7 @@ export async function cancelRecord(tableName, id) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
+    .eq("workspace_id", workspaceId)
     .select()
     .single();
 
@@ -541,19 +729,32 @@ export async function createDailyBackup() {
 }
 
 export async function closeCashDay(date, note) {
+  const workspaceId = await getCurrentWorkspaceId();
   const { data, error } = await supabase.rpc("close_cash_day", {
     target_date: date || new Date().toISOString().slice(0, 10),
     closing_note: note || null,
   });
 
   if (error) throw error;
+
+  if (data) {
+    const { error: updateError } = await supabase
+      .from("cash_closings")
+      .update({ workspace_id: workspaceId })
+      .eq("id", data);
+
+    if (updateError && !isMissingRelationError(updateError)) throw updateError;
+  }
+
   return data;
 }
 
 export async function loadAuditLogs(limit = 100) {
+  const workspaceId = await getCurrentWorkspaceId();
   const { data, error } = await supabase
     .from("audit_logs")
     .select("*")
+    .eq("workspace_id", workspaceId)
     .order("changed_at", { ascending: false })
     .limit(limit);
 
