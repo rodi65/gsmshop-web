@@ -252,7 +252,7 @@ const accessoryGroups = {
 const fixedAccessoryCategories = ["KILIF", "EKRAN Koruyucu", "USB", "ŞARJ", "KULAKLIK"];
 const brands = ["Apple", "Samsung", "Huawei", "Xiaomi", "Oppo", "Vivo", "Honor", "Realme", "Tecno", "Poco", "OnePlus", "TCL", "Infinix", "Alcatel", "Motorola"];
 const nonPhoneBrands = ["Apple", "Samsung", "Huawei", "Xiaomi", "Lenovo", "HP", "Casper", "Monster", "Asus", "Acer", "Sony", "LG", "Diğer"];
-const otherProductGroups = ["Saat", "Tablet", "PC", "Elektronik", "Diğerleri"];
+const otherProductGroups = ["Saat", "Tablet", "PC", "Bluetooth", "Elektronik", "Program", "Diğerleri"];
 
 const modelsByBrand = {
   Apple: ["iPhone 17 Pro Max", "iPhone 17 Pro", "iPhone Air", "iPhone 17", "iPhone 16 Pro Max", "iPhone 16 Pro", "iPhone 16", "iPhone 15 Pro Max", "iPhone 15 Pro", "iPhone 15", "Apple Watch Ultra 3", "Apple Watch Series 11", "Apple Watch SE 3"],
@@ -1375,7 +1375,12 @@ export default function App() {
                 <p>26 Yıllık Tecrübeyle Yapılan Profesyonel GSM Satış Teknik Servis Takip Sistemi</p>
               </div>
             </div>
-        {syncMessage && <div className="sync-message">{syncMessage}</div>}
+        {syncMessage && (
+          <div className="sync-message">
+            <span>{syncMessage}</span>
+            <button type="button" onClick={() => setSyncMessage("")} aria-label="Mesajı kapat">×</button>
+          </div>
+        )}
           </div>
           <div className="status-pill">WEB TEST</div>
         </header>
@@ -1980,6 +1985,66 @@ export default function App() {
           </section>
         )}
 
+        {active === "digerler" && (
+          <section className="section">
+            <section className="card">
+              <h2>DİĞERLERİ</h2>
+              <div className="other-product-tabs">
+                {otherProductGroups.map((group) => (
+                  <button
+                    key={group}
+                    type="button"
+                    className={(stockForm.deviceType || otherGroupName) === group ? "choice active" : "choice"}
+                    onClick={() => {
+                      setOtherGroupName(group);
+                      setStockForm({
+                        ...stockForm,
+                        module: "Diğer",
+                        deviceType: group,
+                        condition: stockForm.condition || "Sıfır Garantili",
+                        brand: stockForm.brand || "",
+                        model: stockForm.model || "",
+                        name: stockForm.name || "",
+                      });
+                    }}
+                  >
+                    {group}
+                  </button>
+                ))}
+              </div>
+
+              {(stockForm.deviceType || otherGroupName) === "Program" ? (
+                <div className="conditional-panel">
+                  <h3>Program Satışı</h3>
+                  <p className="mini-note">Program stoklu ürün gibi çalışmaz. Satış ekranında Program seçeneğiyle kayıt edilir; eksik ödeme mevcut alacak mantığına işlenir.</p>
+                  <button
+                    className="primary"
+                    type="button"
+                    onClick={() => {
+                      setSaleGroup("Program");
+                      setSaleForm({ type: "Program Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
+                      setKasaTab("yeniSatis");
+                      setActive("kasa");
+                    }}
+                  >
+                    Program Satışına Git
+                  </button>
+                </div>
+              ) : (
+                <OtherStockForm
+                  stockForm={stockForm}
+                  setStockForm={setStockForm}
+                  saveStock={saveStock}
+                  otherGroupName={otherGroupName}
+                  setOtherGroupName={setOtherGroupName}
+                  supplierOptions={supplierOptions}
+                  setSupplierModalOpen={setSupplierModalOpen}
+                />
+              )}
+            </section>
+          </section>
+        )}
+
         {active === "stok" && (
           <section className="section">
             <div className="stok-subtabs">
@@ -2500,17 +2565,24 @@ function AccessoryStockForm({
 
 
 function OtherStockForm({ stockForm, setStockForm, saveStock, otherGroupName, setOtherGroupName, supplierOptions, setSupplierModalOpen }) {
+  const selectedGroup = stockForm.deviceType || otherGroupName || "Saat";
   return (
     <>
       <div className="form-grid">
-        <select value={stockForm.deviceType || otherGroupName || "Saat"} onChange={(e) => {
+        <select value={selectedGroup} onChange={(e) => {
           setOtherGroupName(e.target.value);
           setStockForm({ ...stockForm, module: "Diğer", deviceType: e.target.value || "Diğerleri" });
         }}>
           {otherProductGroups.map((group) => <option key={group}>{group}</option>)}
         </select>
-        <input placeholder="Ürün adı" value={stockForm.name} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", name: e.target.value })} />
-        <input placeholder="Barkod numarası" inputMode="numeric" maxLength={15} value={stockForm.barcode} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", barcode: cleanBarcode(e.target.value) })} />
+        <select value={stockForm.condition || "Sıfır Garantili"} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", condition: e.target.value })}>
+          <option>Sıfır Garantili</option>
+          <option>İkinci El</option>
+          <option>Sıfır Spot</option>
+        </select>
+        <input placeholder="Marka" value={stockForm.brand || ""} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", brand: e.target.value })} />
+        <input placeholder="Model / Ürün adı" value={stockForm.model || stockForm.name || ""} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", model: e.target.value, name: e.target.value })} />
+        <input placeholder="Barkod / Seri No" inputMode="numeric" maxLength={15} value={stockForm.barcode} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", barcode: cleanBarcode(e.target.value) })} />
         <select value={stockForm.supplier} onChange={(e) => {
           if (e.target.value === "__add_supplier__") {
             setSupplierModalOpen(true);
@@ -2522,17 +2594,17 @@ function OtherStockForm({ stockForm, setStockForm, saveStock, otherGroupName, se
           <option value="__add_supplier__">+ Tedarikçi Ekle</option>
           {supplierOptions.map((supplier) => <option key={supplier} value={supplier}>{supplier}</option>)}
         </select>
-        <input type="text" inputMode="numeric" placeholder="Kaça aldın" value={stockForm.buy} onFocus={() => setStockForm({ ...stockForm, buy: stripMoneyForEdit(stockForm.buy) })} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", buy: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, buy: formatMoneyInput(stockForm.buy) })} />
-        <input type="text" inputMode="numeric" placeholder="Kaça satacaksın" value={stockForm.sell} onFocus={() => setStockForm({ ...stockForm, sell: stripMoneyForEdit(stockForm.sell) })} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", sell: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, sell: formatMoneyInput(stockForm.sell) })} />
-        <input type="number" placeholder="Kaç Adet aldın" value={stockForm.qty} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", qty: e.target.value })} />
+        <input type="text" inputMode="numeric" placeholder="Alış fiyatı" value={stockForm.buy} onFocus={() => setStockForm({ ...stockForm, buy: stripMoneyForEdit(stockForm.buy) })} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", buy: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, buy: formatMoneyInput(stockForm.buy) })} />
+        <input type="text" inputMode="numeric" placeholder="Satış fiyatı" value={stockForm.sell} onFocus={() => setStockForm({ ...stockForm, sell: stripMoneyForEdit(stockForm.sell) })} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", sell: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, sell: formatMoneyInput(stockForm.sell) })} />
+        <input type="number" placeholder="Stok adedi" value={stockForm.qty} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", qty: e.target.value })} />
         <div className="remaining-input">
-          <span>Toplam Aldığın</span>
-          <b>{money(parseMoneyInput(stockForm.buy) * Number(stockForm.qty || 0))}</b>
+          <span>Kalan cari</span>
+          <b>{money(Math.max(parseMoneyInput(stockForm.buy) * Number(stockForm.qty || 0) - parseMoneyInput(stockForm.supplierPaid), 0))}</b>
         </div>
-        <input type="text" inputMode="numeric" placeholder="Ödenen" value={stockForm.supplierPaid} onFocus={() => setStockForm({ ...stockForm, supplierPaid: stripMoneyForEdit(stockForm.supplierPaid) })} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", supplierPaid: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, supplierPaid: formatMoneyInput(stockForm.supplierPaid) })} />
+        <input type="text" inputMode="numeric" placeholder="Nakit ödeme" value={stockForm.supplierPaid} onFocus={() => setStockForm({ ...stockForm, supplierPaid: stripMoneyForEdit(stockForm.supplierPaid) })} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", supplierPaid: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, supplierPaid: formatMoneyInput(stockForm.supplierPaid) })} />
       </div>
 
-      <button className="primary" onClick={() => saveStock("Diğer")}><Plus size={16} /> Diğer Ürünü Stoka Kaydet</button>
+      <button className="primary" onClick={() => saveStock("Diğer")}><Plus size={16} /> {selectedGroup} Ürününü Stoka Kaydet</button>
     </>
   );
 }
