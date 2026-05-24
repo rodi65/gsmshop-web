@@ -237,7 +237,7 @@ const fromDbContact = (item) => ({
 
 
 const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik", "Diğer"];
-const banks = ["Ziraatbank", "İşbank", "Halkbank"];
+const defaultBanks = ["Ziraatbank", "İşbank", "Halkbank"];
 const memoryOptions = ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB"];
 const categories = ["KILIF", "EKRAN Koruyucu", "USB", "ŞARJ", "KULAKLIK"];
 const accessoryGroups = {
@@ -465,10 +465,12 @@ export default function App() {
   const [newSupplierName, setNewSupplierName] = useState("");
   const [bankCashForm, setBankCashForm] = useState({ amount: "", bank: "", note: "" });
   const [cashEntryForm, setCashEntryForm] = useState({ type: "Manuel Nakit Girişi", amount: "", note: "" });
+  const [customBanks, setCustomBanks] = useState([]);
   const [bankMovements, setBankMovements] = useState([
     { id: 1, type: "Bankaya Giden", amount: "40.000 TL", note: "POSTAN Gelen - Garantibank", bank: "Garantibank", date: new Date().toISOString() },
   ]);
   const [saleForm, setSaleForm] = useState({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
+  const bankOptions = useMemo(() => Array.from(new Set([...defaultBanks, ...customBanks])).filter(Boolean), [customBanks]);
   const [expenses, setExpenses] = useState([]);
   const [expenseForm, setExpenseForm] = useState({ category: "Yemek", amount: "", note: "" });
   const [stockForm, setStockForm] = useState(emptyStockForm);
@@ -644,7 +646,7 @@ export default function App() {
   };
   bankReport.remainingInBank = Math.max(bankReport.totalToBank - bankReport.withdrawnFromBank, 0);
 
-  const bankAccountRows = banks.map((bank) => {
+  const bankAccountRows = bankOptions.map((bank) => {
     const totalToBank = bankMovements
       .filter((item) => item.type === "Bankaya Giden" && item.bank === bank)
       .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
@@ -691,6 +693,8 @@ export default function App() {
   const cashMovementNetWithoutSaleCash = cashMovements
     .filter((item) => cashLedgerMovementTypes.includes(cashMovementType(item)) && cashMovementType(item) !== "Satış Nakit")
     .reduce((sum, item) => sum + (item.direction === "out" ? -cashMovementAmount(item) : cashMovementAmount(item)), 0);
+
+
   const carryOverCash = cashMovements
     .filter((item) => cashMovementType(item) === "Devir Nakit" && item.direction === "in")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
@@ -1609,7 +1613,7 @@ export default function App() {
 
                     <select value={saleForm.bank} onChange={(e) => handleBankSelect(e.target.value, (bank) => setSaleForm({ ...saleForm, bank }))}>
                       <option value="">Banka seç</option>
-                      {banks.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+                      {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
                       <option value="__add_bank__">+ Banka Ekle</option>
                     </select>
 
@@ -1869,12 +1873,7 @@ export default function App() {
               <section className="card">
                 <h2>Bankadan Nakit Gelen</h2>
                 <p>Bankadan kasaya para çekildiğinde nakit kasasına eklenir ve Kara Defter içindeki Bankadan Çekilen bölümüne otomatik işlenir.</p>
-
-                <div className="commission-info">
-                  
-                </div>
-
-                <div className="stats three">
+<div className="stats three">
                   <Stat title="Bankaya Toplam Giden" value={money(bankReport.totalToBank)} />
                   <Stat title="Bankadan Çekilen" value={money(bankReport.withdrawnFromBank)} />
                   <Stat title="Bankada Kalan" value={money(bankReport.remainingInBank)} />
@@ -1883,7 +1882,7 @@ export default function App() {
                 <div className="form-grid">
                   <select value={bankCashForm.bank} onChange={(e) => handleBankSelect(e.target.value, (bank) => setBankCashForm({ ...bankCashForm, bank }))}>
                     <option value="">Banka seçmek zorunlu</option>
-                    {banks.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+                    {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
                   </select>
                   <input type="text" inputMode="numeric" placeholder="Bankadan gelen tutar" value={bankCashForm.amount} onFocus={() => setBankCashForm({ ...bankCashForm, amount: stripMoneyForEdit(bankCashForm.amount) })} onChange={(e) => setBankCashForm({ ...bankCashForm, amount: cleanMoneyTyping(e.target.value) })} onBlur={() => setBankCashForm({ ...bankCashForm, amount: formatMoneyInput(bankCashForm.amount) })} />
                   <input placeholder="Açıklama / Not" value={bankCashForm.note} onChange={(e) => setBankCashForm({ ...bankCashForm, note: e.target.value })} />
@@ -2646,7 +2645,7 @@ function SaleEditModal({ sale, setSale, save }) {
           setSale({ ...sale, bank: e.target.value });
         }}>
           <option value="">Banka seç</option>
-          {banks.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+          {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
           <option value="__add_bank__">+ Banka Ekle</option>
         </select>
         <div className="remaining-box"><span>Yeni Kalan</span><b>{money(remaining)}</b></div>
