@@ -3245,3 +3245,268 @@ select {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* CEPLOG kasa panel okunabilirlik duzenlemesi */
+.summary-panel-row {
+  grid-template-columns: 1fr 1fr !important;
+}
+
+.cash-required-inside-summary {
+  margin-top: 9px !important;
+  padding: 13px 14px !important;
+  min-height: 88px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  text-align: center !important;
+  color: #ffffff !important;
+  background: #071226 !important;
+  border: 1px solid rgba(219, 234, 254, .18) !important;
+  border-radius: 15px !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06), 0 12px 24px rgba(7, 18, 38, .14) !important;
+}
+
+.cash-required-inside-summary.negative {
+  background: #7f1d1d !important;
+  border-color: rgba(254, 202, 202, .55) !important;
+}
+
+.cash-required-inside-summary .cash-required-title {
+  color: #ffffff !important;
+  font-size: 15px !important;
+  line-height: 1.12 !important;
+  font-weight: 1000 !important;
+  letter-spacing: 0 !important;
+}
+
+.cash-required-inside-summary .cash-required-value {
+  color: #ffffff !important;
+  font-size: 38px !important;
+  line-height: 1 !important;
+  font-weight: 1000 !important;
+}
+
+.large-sales-panel,
+.large-accessory-panel {
+  padding: 18px !important;
+}
+
+.sale-layout .large-sales-title,
+.sale-layout .large-accessory-title {
+  margin-bottom: 14px !important;
+  text-align: center !important;
+  font-size: 36px !important;
+  line-height: 1.02 !important;
+  font-weight: 1000 !important;
+  color: #020617 !important;
+}
+
+.large-sales-panel .big-sale-grid {
+  gap: 9px !important;
+}
+
+.large-sales-panel .big-sale-btn,
+.large-sales-button {
+  min-height: 62px !important;
+  height: 62px !important;
+  padding: 0 10px !important;
+  font-size: 23px !important;
+  line-height: 1.08 !important;
+  font-weight: 1000 !important;
+  white-space: normal !important;
+}
+
+.large-sales-panel input,
+.large-sales-panel select {
+  min-height: 58px !important;
+  height: 58px !important;
+  margin-top: 9px !important;
+  padding: 0 15px !important;
+  font-size: 22px !important;
+  line-height: 1.1 !important;
+  font-weight: 1000 !important;
+}
+
+.large-sales-panel input::placeholder,
+.large-accessory-panel input::placeholder {
+  color: #334155 !important;
+  opacity: 1 !important;
+  font-weight: 900 !important;
+}
+
+.large-sales-panel .two {
+  grid-template-columns: minmax(0, 1fr) 170px !important;
+  gap: 9px !important;
+}
+
+.large-sales-panel .remaining-box {
+  min-height: 58px !important;
+  margin-top: 9px !important;
+  padding: 8px 12px !important;
+}
+
+.large-sales-panel .remaining-box span {
+  font-size: 17px !important;
+  font-weight: 1000 !important;
+  color: #334155 !important;
+}
+
+.large-sales-panel .remaining-box b {
+  font-size: 26px !important;
+  font-weight: 1000 !important;
+}
+
+.large-sales-panel .warning {
+  margin-top: 10px !important;
+  padding: 12px !important;
+}
+
+.large-sales-panel .warning b {
+  font-size: 20px !important;
+  font-weight: 1000 !important;
+}
+
+.large-sales-panel .primary {
+  min-height: 60px !important;
+  height: 60px !important;
+  margin-top: 11px !important;
+  font-size: 22px !important;
+  font-weight: 1000 !important;
+}
+
+.large-accessory-panel p {
+  margin: 0 0 12px !important;
+  color: #1e293b !important;
+  font-size: 21px !important;
+  line-height: 1.22 !important;
+  font-weight: 900 !important;
+}
+
+.large-accessory-panel h3 {
+  margin: 12px 0 8px !important;
+  font-size: 23px !important;
+  line-height: 1.08 !important;
+  font-weight: 1000 !important;
+}
+
+.large-accessory-panel .accessory-select-tabs {
+  gap: 8px !important;
+}
+
+.large-accessory-panel .accessory-select-tabs .choice,
+.large-accessory-panel .accessory-sub-tabs .choice {
+  min-height: 56px !important;
+  height: auto !important;
+  padding: 8px 10px !important;
+  font-size: 20px !important;
+  line-height: 1.08 !important;
+  font-weight: 1000 !important;
+  white-space: normal !important;
+}
+
+.large-accessory-panel .accessory-shortcut-price-row {
+  grid-template-columns: minmax(0, 1fr) 210px !important;
+  gap: 9px !important;
+}
+
+.large-accessory-panel input,
+.large-accessory-panel .accessory-shortcut-price-row input {
+  min-height: 58px !important;
+  height: 58px !important;
+  margin-top: 9px !important;
+  padding: 0 15px !important;
+  font-size: 22px !important;
+  font-weight: 1000 !important;
+}
+
+.large-accessory-panel .primary,
+.large-accessory-panel .accessory-shortcut-price-row .primary {
+  min-height: 58px !important;
+  height: 58px !important;
+  margin-top: 9px !important;
+  font-size: 20px !important;
+  font-weight: 1000 !important;
+}
+
+.large-accessory-panel .shortcut-limit-info {
+  margin-top: 10px !important;
+  padding: 9px 11px !important;
+  font-size: 19px !important;
+  line-height: 1.12 !important;
+  font-weight: 1000 !important;
+}
+
+.large-accessory-panel .accessory-user-shortcuts {
+  max-height: 138px !important;
+  padding: 9px !important;
+  gap: 8px !important;
+}
+
+.large-accessory-panel .shortcut-chip > button:first-child {
+  min-height: 48px !important;
+  padding: 8px 11px !important;
+  font-size: 19px !important;
+  line-height: 1.1 !important;
+  font-weight: 1000 !important;
+}
+
+.large-accessory-panel .shortcut-chip small {
+  font-size: 16px !important;
+  font-weight: 1000 !important;
+}
+
+.large-accessory-panel .shortcut-delete {
+  min-width: 58px !important;
+  width: auto !important;
+  height: 44px !important;
+  padding: 0 10px !important;
+  font-size: 18px !important;
+  font-weight: 1000 !important;
+}
+
+.large-accessory-panel .empty-shortcut-note {
+  font-size: 18px !important;
+  line-height: 1.18 !important;
+  font-weight: 900 !important;
+}
+
+.large-accessory-panel .accessory-pick-summary.close-summary {
+  margin-top: 10px !important;
+  padding: 10px 12px !important;
+}
+
+.large-accessory-panel .accessory-pick-summary small {
+  font-size: 18px !important;
+  font-weight: 1000 !important;
+}
+
+.large-accessory-panel .accessory-pick-summary div {
+  font-size: 19px !important;
+  line-height: 1.12 !important;
+  font-weight: 900 !important;
+}
+
+.large-accessory-panel .accessory-pick-summary b {
+  font-weight: 1000 !important;
+}
+
+@media (max-width: 1200px) {
+  .summary-panel-row {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .large-sales-panel .big-sale-grid,
+  .large-accessory-panel .accessory-select-tabs,
+  .large-accessory-panel .accessory-sub-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .large-sales-panel .two,
+  .large-accessory-panel .accessory-shortcut-price-row {
+    grid-template-columns: 1fr !important;
+  }
+}

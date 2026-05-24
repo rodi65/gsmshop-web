@@ -1517,22 +1517,21 @@ export default function App() {
                     <div className="summary-line"><span className="summary-line-label">Gelen Alacak / Alacak Ödemesi</span><b className="summary-line-value">{money(receivablePayments)}</b></div>
                     <div className="summary-line"><span className="summary-line-label">Alım Ödemeleri</span><b className="summary-line-value">{money(stockPurchasePayments)}</b></div>
                     <div className="summary-line"><span className="summary-line-label">Giderler</span><b className="summary-line-value">{money(cashExpensePayments)}</b></div>
-                  </div>
-
-                  <div className={cashWithBankIncoming < 0 ? "cash-required-card negative" : "cash-required-card"}>
-                    <span className="cash-required-title">TOPLAM KASANDA OLMASI GEREKEN</span>
-                    <b className="cash-required-value">{money(cashWithBankIncoming)}</b>
+                    <div className={cashWithBankIncoming < 0 ? "cash-required-inside-summary negative" : "cash-required-inside-summary"}>
+                      <span className="cash-required-title">TOPLAM KASANDA OLMASI GEREKEN</span>
+                      <b className="cash-required-value">{money(cashWithBankIncoming)}</b>
+                    </div>
                   </div>
                 </div>
 
                 <div className="grid sale-layout">
-                  <div className="card">
-                    <h2>YENİ SATIŞ</h2>
+                  <div className="card large-sales-panel">
+                    <h2 className="large-sales-title">YENİ SATIŞ</h2>
                     <div className="big-sale-grid">
                       {mainSaleGroups.map((group) => (
                         <button
                           key={group}
-                          className={saleGroup === group ? "big-sale-btn active" : "big-sale-btn"}
+                          className={saleGroup === group ? "big-sale-btn large-sales-button active" : "big-sale-btn large-sales-button"}
                           onClick={() => {
                             setSaleGroup(group);
                             setSaleForm({
@@ -1633,8 +1632,8 @@ export default function App() {
                     <button className="primary" onClick={saveSale}><Plus size={16} /> SATIŞI KAYDET</button>
                   </div>
 
-                  <div className="card">
-                    <h2>AKSESUAR HIZLI SATIŞ</h2>
+                  <div className="card large-accessory-panel">
+                    <h2 className="large-accessory-title">AKSESUAR HIZLI SATIŞ</h2>
                     <p>Önce grup seç, sonra alt seçeneği seç, istersen fiyat yaz ve kısayol ekle. En fazla 20 kısayol eklenir.</p>
 
                     <h3>GRUP SEÇ</h3>
