@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CEPLOG</string>
+    <string name="title_activity_main">CEPLOG</string>
+    <string name="package_name">com.ceplog.app</string>
+    <string name="custom_url_scheme">com.ceplog.app</string>
+</resources>

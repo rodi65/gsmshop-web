@@ -5,14 +5,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@capacitor/android": "^8.3.4",
-    "@capacitor/cli": "^8.3.4",
-    "@capacitor/core": "^8.3.4",
-    "@supabase/supabase-js": "^2.106.1",
     "@vitejs/plugin-react": "latest",
-    "lucide-react": "latest",
+    "vite": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "vite": "latest"
-  }
+    "lucide-react": "latest"
+  },
+  "devDependencies": {}
 }

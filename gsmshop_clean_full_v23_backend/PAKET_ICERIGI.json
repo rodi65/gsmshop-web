@@ -1,0 +1,19 @@
+{
+  "version": "V23 Backend Foundation",
+  "includes": [
+    "Supabase schema",
+    "Auth client",
+    "Data service",
+    "Login component",
+    "Cash closing component",
+    "Daily backup SQL function",
+    "Audit log triggers",
+    "Soft delete support"
+  ],
+  "requires": [
+    "Supabase project",
+    "VITE_SUPABASE_URL",
+    "VITE_SUPABASE_ANON_KEY",
+    "npm install @supabase/supabase-js"
+  ]
+}
