@@ -383,7 +383,7 @@ export async function createSale(payload) {
     ...payload,
     total_amount: toDbNumber(payload.total_amount),
     cash_amount: toDbNumber(payload.cash_amount),
-    card_amount: toDbNumber(salePayload.card_amount),
+    card_amount: toDbNumber(payload.card_amount),
     remaining_amount: toDbNumber(payload.remaining_amount),
     buy_cost: toDbNumber(payload.buy_cost),
     profit_amount: toDbNumber(payload.profit_amount),
