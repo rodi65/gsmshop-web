@@ -17,7 +17,7 @@ import {
   softDelete,
 } from "./services/dataService";
 
-import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X } from "lucide-react";
+import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText } from "lucide-react";
 
 const parseMoneyInput = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, ""));
 const formatMoneyInput = (value) => {
@@ -1140,7 +1140,7 @@ export default function App() {
         cashMovements,
         contacts,
         suppliers,
-        cashClosings,
+        cashClosings: [],
         accessoryShortcuts,
       },
     };
