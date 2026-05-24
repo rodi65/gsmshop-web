@@ -874,3 +874,235 @@ th,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+/* CEPLOG başlık ve yüzde 100 ekran sıkı görünüm */
+body {
+  font-weight: 650;
+}
+
+button,
+input,
+select {
+  font-weight: 800;
+}
+
+.app {
+  padding: 12px !important;
+}
+
+.shell {
+  max-width: 1500px !important;
+  gap: 12px !important;
+}
+
+.hero {
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center !important;
+  gap: 8px !important;
+  margin-bottom: -2px;
+}
+
+.hero > div:first-child {
+  width: 100%;
+}
+
+.brand-title-row {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100%;
+}
+
+.brand-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.brand-main-line {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.hero h1 {
+  font-size: 48px !important;
+  font-weight: 1000 !important;
+  letter-spacing: -1.8px !important;
+  line-height: 1 !important;
+  text-align: center !important;
+}
+
+.since-badge {
+  transform: rotate(-10deg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #020617;
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 1000;
+  letter-spacing: .2px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, .16);
+  margin-left: -6px;
+}
+
+.live-clock {
+  font-weight: 1000 !important;
+  font-size: 15px !important;
+  color: #020617 !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 16px !important;
+  padding: 8px 13px !important;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06) !important;
+}
+
+.hero p {
+  margin: 6px 0 0 !important;
+  color: #334155 !important;
+  font-weight: 900 !important;
+  font-size: 15px !important;
+  letter-spacing: .1px;
+}
+
+.status-pill {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  padding: 9px 15px !important;
+  font-weight: 1000 !important;
+}
+
+/* Ekrana daha fazla sığdırma */
+.nav-grid {
+  gap: 8px !important;
+}
+
+.nav-btn {
+  min-height: 66px !important;
+  border-radius: 16px !important;
+  font-weight: 1000 !important;
+  gap: 2px !important;
+}
+
+.kasa-subtabs,
+.stok-subtabs {
+  gap: 7px !important;
+}
+
+.choice {
+  min-height: 36px !important;
+  padding: 6px 10px !important;
+  border-radius: 11px !important;
+  font-weight: 950 !important;
+}
+
+.card {
+  padding: 18px !important;
+  border-radius: 20px !important;
+}
+
+.card h2 {
+  font-weight: 1000 !important;
+  margin-bottom: 9px !important;
+}
+
+.card h3,
+.summary-title {
+  font-weight: 1000 !important;
+}
+
+.stat-card {
+  padding: 14px 16px !important;
+  border-radius: 18px !important;
+}
+
+.stat-title {
+  font-weight: 900 !important;
+  color: #475569 !important;
+}
+
+.stat-value {
+  font-size: 24px !important;
+  font-weight: 1000 !important;
+}
+
+.summary-row-single {
+  gap: 10px !important;
+}
+
+.cash-result {
+  padding: 17px 20px !important;
+  border-radius: 18px !important;
+}
+
+.cash-result span {
+  font-weight: 1000 !important;
+}
+
+.cash-result b {
+  font-size: 31px !important;
+  font-weight: 1000 !important;
+}
+
+.sale-layout {
+  grid-template-columns: 370px 1fr !important;
+  gap: 16px !important;
+}
+
+.big-sale-grid {
+  gap: 8px !important;
+}
+
+.big-sale-btn {
+  font-weight: 1000 !important;
+}
+
+input,
+select {
+  height: 38px !important;
+  margin-top: 6px !important;
+  font-weight: 800 !important;
+}
+
+.primary {
+  min-height: 42px !important;
+  font-weight: 1000 !important;
+}
+
+@media (max-width: 1100px) {
+  .status-pill {
+    position: static;
+  }
+
+  .sale-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 620px) {
+  .hero h1 {
+    font-size: 38px !important;
+  }
+
+  .brand-main-line {
+    gap: 8px;
+  }
+
+  .since-badge {
+    font-size: 12px;
+    padding: 5px 9px;
+  }
+
+  .live-clock {
+    font-size: 12px !important;
+  }
+}

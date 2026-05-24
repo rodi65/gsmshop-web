@@ -1186,10 +1186,15 @@ export default function App() {
         <header className="hero">
           <div>
             <div className="brand-title-row">
-              <h1>CEPLOG</h1>
-              <div className="live-clock">{clockNow.toLocaleString("tr-TR")}</div>
+              <div className="brand-center">
+                <div className="brand-main-line">
+                  <h1>CEPLOG</h1>
+                  <span className="since-badge">Since 1999</span>
+                  <div className="live-clock">{clockNow.toLocaleString("tr-TR")}</div>
+                </div>
+                <p>26 Yıllık Tecrübeyle Yapılan Profesyonel GSM Satış Teknik Hesap Takip Sistemi</p>
+              </div>
             </div>
-            <p>Cep telefonu, aksesuar, stok, kasa, cari ve kâr takip sistemi.</p>
         {syncMessage && <div className="sync-message">{syncMessage}</div>}
           </div>
           <div className="status-pill">WEB TEST</div>
