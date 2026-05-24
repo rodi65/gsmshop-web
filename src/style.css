@@ -493,3 +493,94 @@ small { color: #64748b; }
 .cash-result b {
   font-size: 34px;
 }
+
+
+/* CEPLOG UI düzeni */
+.nav-btn span {
+  text-transform: uppercase;
+}
+
+.choice,
+.primary,
+.big-sale-btn,
+.stat-title,
+.summary-title,
+.card h2,
+.card h3,
+.card h4,
+th,
+.status-pill,
+.close-summary small,
+.close-summary span {
+  text-transform: capitalize;
+}
+
+.summary-row-single {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(170px, 1fr);
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.summary-row-single .stat-card {
+  min-width: 170px;
+}
+
+.sales-summary-row .cash-result-inline {
+  min-width: 340px;
+  grid-column: auto / span 2;
+  min-height: 96px;
+}
+
+.cash-summary-row .stat-card {
+  min-width: 180px;
+}
+
+.product-shortcuts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.product-shortcuts .big-sale-btn {
+  min-height: 74px;
+  padding: 12px;
+  line-height: 1.25;
+}
+
+.empty-shortcut-note {
+  grid-column: 1 / -1;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  padding: 18px;
+  color: #64748b;
+  font-weight: 800;
+}
+
+@media (max-width: 1100px) {
+  .summary-row-single {
+    grid-auto-columns: minmax(220px, 1fr);
+  }
+
+  .sales-summary-row .cash-result-inline {
+    min-width: 360px;
+  }
+}
+
+@media (max-width: 620px) {
+  .summary-row-single {
+    grid-auto-flow: row;
+    grid-auto-columns: unset;
+    grid-template-columns: 1fr;
+  }
+
+  .sales-summary-row .cash-result-inline {
+    min-width: 0;
+    grid-column: auto;
+  }
+
+  .product-shortcuts {
+    grid-template-columns: 1fr;
+  }
+}

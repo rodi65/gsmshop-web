@@ -1111,7 +1111,7 @@ export default function App() {
   }, []);
 
   if (!authChecked) {
-    return <div className="app"><section className="card"><h2>GSMSHOP yükleniyor...</h2></section></div>;
+    return <div className="app"><section className="card"><h2>CEPLOG yükleniyor...</h2></section></div>;
   }
 
   if (!currentUser) {
@@ -1124,10 +1124,10 @@ export default function App() {
         <header className="hero">
           <div>
             <div className="brand-title-row">
-              <h1>GSMSHOP</h1>
+              <h1>CEPLOG</h1>
               <div className="live-clock">{clockNow.toLocaleString("tr-TR")}</div>
             </div>
-            <p>Web kasa, cihaz, aksesuar, stok, sorgulama, tamir ve kâr takip sistemi.</p>
+            <p>Cep telefonu, aksesuar, stok, kasa, cari ve kâr takip sistemi.</p>
         {syncMessage && <div className="sync-message">{syncMessage}</div>}
           </div>
           <div className="status-pill">WEB TEST</div>
@@ -1139,7 +1139,7 @@ export default function App() {
             onClick={() => setActive("kasa")}
           >
             <Wallet size={22} />
-            <span>Kasa</span>
+            <span>KASA</span>
           </button>
 
           <button
@@ -1159,7 +1159,7 @@ export default function App() {
             }}
           >
             <Smartphone size={22} />
-            <span>Telefon</span>
+            <span>TELEFON</span>
           </button>
 
           <button
@@ -1167,7 +1167,7 @@ export default function App() {
             onClick={() => setActive("aksesuar")}
           >
             <Headphones size={22} />
-            <span>Aksesuar</span>
+            <span>AKSESUAR</span>
           </button>
 
           <button
@@ -1175,7 +1175,7 @@ export default function App() {
             onClick={() => setActive("stok")}
           >
             <Package size={22} />
-            <span>Stok</span>
+            <span>STOK</span>
           </button>
 
           <button
@@ -1183,7 +1183,7 @@ export default function App() {
             disabled
           >
             <Wrench size={22} />
-            <span>Teknik</span>
+            <span>TEKNİK</span>
             <small>Yakında</small>
           </button>
 
@@ -1192,7 +1192,7 @@ export default function App() {
             onClick={openKaraDefter}
           >
             <TrendingUp size={22} />
-            <span>Kara Defter</span>
+            <span>KARA DEFTER</span>
           </button>
         </nav>
 
@@ -1209,29 +1209,28 @@ export default function App() {
 
             {kasaTab === "yeniSatis" && (
               <>
-                <h3 className="summary-title">SATIŞ ÖZETLERİ</h3>
-                <div className="stats five">
+                <h3 className="summary-title">Satış Özetleri</h3>
+                <div className="summary-row-single sales-summary-row">
                   <Stat title="Genel Satış Toplamı" value={money(report.total)} />
                   <Stat title="Telefon Satış" value={money(phoneSalesTotal)} />
                   <Stat title="Aksesuar Satış Tutarı" value={money(accessorySalesTotal)} />
                   <Stat title="Teknik Servis Geliri" value={money(technicalServiceTotal)} />
                   <Stat title="Diğer Satışlar" value={money(otherSalesTotal)} />
                   <Stat title="Kartla Yapılan Satış" value={money(cardSalesTotal)} />
+                  <div className={cashWithBankIncoming < 0 ? "cash-result cash-result-inline negative" : "cash-result cash-result-inline"}>
+                    <span>Toplam Kasanda Olması Gereken</span>
+                    <b>{money(cashWithBankIncoming)}</b>
+                  </div>
                 </div>
 
-                <h3 className="summary-title">NAKİT ÖZETLERİ</h3>
-                <div className="stats three">
+                <h3 className="summary-title">Nakit Özetleri</h3>
+                <div className="summary-row-single cash-summary-row">
                   <Stat title="Dünden Devir Nakit" value={money(carryOverCash)} />
                   <Stat title="Bugünkü Nakit Girişleri" value={money(todayCashIn)} />
                   <Stat title="Bugünkü Nakit Çıkışları" value={money(todayCashOut)} />
                   <Stat title="Gelen Alacak / Alacak Ödemesi" value={money(receivablePayments)} />
                   <Stat title="Alım Ödemeleri" value={money(stockPurchasePayments)} />
                   <Stat title="Giderler" value={money(cashExpensePayments)} />
-                </div>
-
-                <div className={cashWithBankIncoming < 0 ? "cash-result negative" : "cash-result"}>
-                  <span>TOPLAM KASANDA OLMASI GEREKEN</span>
-                  <b>{money(cashWithBankIncoming)}</b>
                 </div>
 
                 <div className="grid sale-layout">
@@ -1320,66 +1319,39 @@ export default function App() {
 
                   <div className="card">
                     <h2>Aksesuar Hızlı Seçim</h2>
-                    <p>Kasa satış ekranında aksesuar grubunu hızlı seç.</p>
+                    <p>Stokta kayıtlı aksesuar ürünlerinden en son eklenen 10 ürün kısayol olarak görünür.</p>
 
-                    <div className="quick-accessory-grid">
-                      {Object.keys(quickAccessoryGroups).map((group) => (
+                    <div className="quick-accessory-grid product-shortcuts">
+                      {accessoryStock.slice(0, 10).map((product) => (
                         <button
-                          key={group}
-                          className={quickAccessoryGroup === group ? "big-sale-btn active" : "big-sale-btn"}
+                          key={product.id}
+                          className={String(saleForm.productId) === String(product.id) ? "big-sale-btn active" : "big-sale-btn"}
                           onClick={() => {
-                            setQuickAccessoryGroup(group);
-                            setQuickAccessorySubType(quickAccessoryGroups[group][0]);
                             setSaleGroup("Aksesuar");
                             setSaleForm({
                               ...saleForm,
                               type: "Aksesuar Satışı",
-                              search: `${group} ${quickAccessoryGroups[group][0]}`,
-                              productId: "",
-                              total: "",
-                              cash: "",
+                              productId: String(product.id),
+                              search: product.barcode || product.imei || product.name || productTitle(product),
+                              total: product.sell || "",
+                              cash: product.sell || "",
                               card: "",
                             });
                           }}
                         >
-                          {group}
+                          {productTitle(product)}
                         </button>
                       ))}
+
+                      {!accessoryStock.length && (
+                        <div className="empty-shortcut-note">Aksesuar Stok Listesi’ne ürün ekledikçe burada kısayol oluşur.</div>
+                      )}
                     </div>
 
-                    {(quickAccessoryGroup === "Kılıf" || quickAccessoryGroup === "Ekran Koruyucu") && (
-                      <>
-                        <h3>{quickAccessoryGroup} Alt Seçenekleri</h3>
-                        <div className="button-grid">
-                          {quickAccessoryGroups[quickAccessoryGroup].map((subType) => (
-                            <button
-                              key={subType}
-                              className={quickAccessorySubType === subType ? "choice active" : "choice"}
-                              onClick={() => {
-                                setQuickAccessorySubType(subType);
-                                setSaleGroup("Aksesuar");
-                                setSaleForm({
-                                  ...saleForm,
-                                  type: "Aksesuar Satışı",
-                                  search: `${quickAccessoryGroup} ${subType}`,
-                                  productId: "",
-                                  total: "",
-                                  cash: "",
-                                  card: "",
-                                });
-                              }}
-                            >
-                              {subType}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
-
                     <div className="close-summary accessory-pick-summary">
-                      <small>SEÇİLEN AKSESUAR</small>
-                      <div><span>Grup</span><b>{quickAccessoryGroup}</b></div>
-                      <div><span>Alt</span><b>{quickAccessorySubType}</b></div>
+                      <small>Seçilen Aksesuar</small>
+                      <div><span>Ürün</span><b>{saleForm.type === "Aksesuar Satışı" && saleForm.productId ? productTitle(stock.find((item) => String(item.id) === String(saleForm.productId))) : "-"}</b></div>
+                      <div><span>Kısayol</span><b>{Math.min(accessoryStock.length, 10)} / 10</b></div>
                     </div>
                   </div>
 
