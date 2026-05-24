@@ -1488,17 +1488,17 @@ export default function App() {
         {active === "kasa" && (
           <section className="section">
             <div className="kasa-subtabs">
-              <button className={kasaTab === "yeniSatis" ? "choice active" : "choice"} onClick={() => setKasaTab("yeniSatis")}>Yeni Satış</button>
-              <button className={kasaTab === "satisListesi" ? "choice active" : "choice"} onClick={() => setKasaTab("satisListesi")}>Satış Listesi</button>
-              <button className={kasaTab === "giderler" ? "choice active" : "choice"} onClick={() => setKasaTab("giderler")}>Giderler</button>
-              <button className={kasaTab === "nakitGirisi" ? "choice active" : "choice"} onClick={() => setKasaTab("nakitGirisi")}>Nakit Girişi</button>
-              <button className={kasaTab === "kapanis" ? "choice active" : "choice"} onClick={() => setKasaTab("kapanis")}>Kasa Kapanış</button>
-              <button className={kasaTab === "bankadanNakit" ? "choice active" : "choice"} onClick={() => setKasaTab("bankadanNakit")}>Bankadan Nakit Gelen</button>
+              <button className={kasaTab === "yeniSatis" ? "choice active" : "choice"} onClick={() => setKasaTab("yeniSatis")}>YENİ SATIŞ</button>
+              <button className={kasaTab === "satisListesi" ? "choice active" : "choice"} onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
+              <button className={kasaTab === "giderler" ? "choice active" : "choice"} onClick={() => setKasaTab("giderler")}>GİDERLER</button>
+              <button className={kasaTab === "nakitGirisi" ? "choice active" : "choice"} onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
+              <button className={kasaTab === "kapanis" ? "choice active" : "choice"} onClick={() => setKasaTab("kapanis")}>KASA KAPANIŞ</button>
+              <button className={kasaTab === "bankadanNakit" ? "choice active" : "choice"} onClick={() => setKasaTab("bankadanNakit")}>BANKADAN NAKİT GELEN</button>
             </div>
 
             {kasaTab === "yeniSatis" && (
               <>
-                <h3 className="summary-title">Satış Özetleri</h3>
+                <h3 className="summary-title">SATIŞ ÖZETLERİ</h3>
                 <div className="summary-row-single sales-summary-row">
                   <Stat title="Genel Satış Toplamı" value={money(report.total)} />
                   <Stat title="Telefon Satış" value={money(phoneSalesTotal)} />
@@ -1507,12 +1507,12 @@ export default function App() {
                   <Stat title="Diğer Satışlar" value={money(otherSalesTotal)} />
                   <Stat title="Kartla Yapılan Satış" value={money(cardSalesTotal)} />
                   <div className={cashWithBankIncoming < 0 ? "cash-result cash-result-inline negative" : "cash-result cash-result-inline"}>
-                    <span>Toplam Kasanda Olması Gereken</span>
+                    <span>TOPLAM KASANDA OLMASI GEREKEN</span>
                     <b>{money(cashWithBankIncoming)}</b>
                   </div>
                 </div>
 
-                <h3 className="summary-title">Nakit Özetleri</h3>
+                <h3 className="summary-title">NAKİT ÖZETLERİ</h3>
                 <div className="summary-row-single cash-summary-row">
                   <Stat title="Dünden Devir Nakit" value={money(carryOverCash)} />
                   <Stat title="Bugünkü Nakit Girişleri" value={money(todayCashIn)} />
@@ -1524,7 +1524,7 @@ export default function App() {
 
                 <div className="grid sale-layout">
                   <div className="card">
-                    <h2>Yeni Satış</h2>
+                    <h2>YENİ SATIŞ</h2>
                     <div className="big-sale-grid">
                       {mainSaleGroups.map((group) => (
                         <button
@@ -1627,14 +1627,14 @@ export default function App() {
                       </div>
                     )}
 
-                    <button className="primary" onClick={saveSale}><Plus size={16} /> Satışı Kaydet</button>
+                    <button className="primary" onClick={saveSale}><Plus size={16} /> SATIŞI KAYDET</button>
                   </div>
 
                   <div className="card">
-                    <h2>Aksesuar Hızlı Seçim</h2>
+                    <h2>AKSESUAR HIZLI SATIŞ</h2>
                     <p>Önce grup seç, sonra alt seçeneği seç, istersen fiyat yaz ve kısayol ekle. En fazla 20 kısayol eklenir.</p>
 
-                    <h3>Grup Seç</h3>
+                    <h3>GRUP SEÇ</h3>
                     <div className="accessory-select-tabs">
                       {Object.keys(quickAccessoryGroups).map((group) => (
                         <button
@@ -1663,7 +1663,7 @@ export default function App() {
                       ))}
                     </div>
 
-                    <h3>Alt Seçenek Seç</h3>
+                    <h3>ALT SEÇENEK SEÇ</h3>
                     <div className="accessory-select-tabs accessory-sub-tabs">
                       {(quickAccessoryGroups[accessoryShortcutForm.group] || []).map((sub) => (
                         <button
@@ -1715,12 +1715,12 @@ export default function App() {
                       />
 
                       <button className="primary" type="button" onClick={addAccessoryShortcut}>
-                        <Plus size={16} /> Kısayol Ekle
+                        <Plus size={16} /> KISAYOL EKLE
                       </button>
                     </div>
 
                     <div className="shortcut-limit-info">
-                      Eklenen Kısayol: <b>{accessoryShortcuts.length} / 20</b>
+                      EKLENEN KISAYOL: <b>{accessoryShortcuts.length} / 20</b>
                     </div>
 
                     <div className="accessory-user-shortcuts compact-shortcuts">
@@ -1747,7 +1747,7 @@ export default function App() {
                             <span>{shortcut.label}</span>
                             {shortcut.price && <small>{shortcut.price}</small>}
                           </button>
-                          <button className="shortcut-delete" type="button" onClick={() => deleteAccessoryShortcut(shortcut.id)}>Sil</button>
+                          <button className="shortcut-delete" type="button" onClick={() => deleteAccessoryShortcut(shortcut.id)}>SİL</button>
                         </div>
                       ))}
 
@@ -1757,10 +1757,10 @@ export default function App() {
                     </div>
 
                     <div className="close-summary accessory-pick-summary">
-                      <small>Seçilen Aksesuar</small>
-                      <div><span>Grup</span><b>{accessoryShortcutForm.group || "-"}</b></div>
-                      <div><span>Alt Seçenek</span><b>{accessoryShortcutForm.sub || "-"}</b></div>
-                      <div><span>Ürün</span><b>{saleForm.type === "Aksesuar Satışı" ? saleForm.search || "Stoksuz Aksesuar Seçimi" : "-"}</b></div>
+                      <small>SEÇİLEN AKSESUAR</small>
+                      <div><span>GRUP</span><b>{accessoryShortcutForm.group || "-"}</b></div>
+                      <div><span>ALT SEÇENEK</span><b>{accessoryShortcutForm.sub || "-"}</b></div>
+                      <div><span>ÜRÜN</span><b>{saleForm.type === "Aksesuar Satışı" ? saleForm.search || "Stoksuz Aksesuar Seçimi" : "-"}</b></div>
                     </div>
                   </div>
 

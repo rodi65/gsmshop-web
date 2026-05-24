@@ -2716,3 +2716,408 @@ main,
     grid-template-columns: 1fr !important;
   }
 }
+
+/* CEPLOG ana kasa ekranı - kompakt ve okunaklı görünüm */
+body {
+  font-weight: 750 !important;
+}
+
+::placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
+  font-weight: 850 !important;
+}
+
+.app {
+  padding: 8px 12px !important;
+}
+
+.shell {
+  max-width: 1520px !important;
+  gap: 8px !important;
+}
+
+.hero {
+  min-height: 0 !important;
+  padding: 7px 12px !important;
+  border-radius: 16px !important;
+  gap: 6px !important;
+}
+
+.hero h1 {
+  font-size: 34px !important;
+  line-height: .92 !important;
+  letter-spacing: -2px !important;
+}
+
+.brand-main-line {
+  gap: 8px !important;
+}
+
+.since-badge,
+.live-clock {
+  padding: 5px 10px !important;
+  font-size: 11px !important;
+}
+
+.hero p {
+  margin-top: 2px !important;
+  font-size: 12px !important;
+  line-height: 1.15 !important;
+  color: #334155 !important;
+}
+
+.sync-message {
+  margin-top: 4px !important;
+  padding: 4px 10px !important;
+  font-size: 11px !important;
+}
+
+.status-pill {
+  top: 10px !important;
+  right: 12px !important;
+  padding: 6px 10px !important;
+  font-size: 11px !important;
+}
+
+.nav-grid {
+  grid-template-columns: repeat(8, minmax(66px, 1fr)) !important;
+  gap: 6px !important;
+}
+
+.nav-btn {
+  min-height: 50px !important;
+  border-radius: 13px !important;
+  padding: 5px 6px !important;
+  gap: 2px !important;
+}
+
+.nav-btn svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+.nav-btn span {
+  display: block !important;
+  color: inherit !important;
+  font-size: 12px !important;
+  line-height: 1.05 !important;
+  font-weight: 1000 !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+}
+
+.nav-btn small {
+  font-size: 9px !important;
+  color: inherit !important;
+  opacity: .85 !important;
+}
+
+.nav-mini-y {
+  max-width: none !important;
+  width: auto !important;
+}
+
+.nav-mini-y span {
+  font-size: 17px !important;
+}
+
+.section {
+  gap: 7px !important;
+}
+
+.kasa-subtabs {
+  display: grid !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  gap: 5px !important;
+  padding: 5px !important;
+  margin-bottom: 0 !important;
+  border-radius: 15px !important;
+}
+
+.kasa-subtabs .choice {
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 6px !important;
+  border-radius: 11px !important;
+  font-size: 11.5px !important;
+  line-height: 1.05 !important;
+  font-weight: 1000 !important;
+  white-space: nowrap !important;
+}
+
+.summary-title {
+  margin: 1px 0 -4px !important;
+  font-size: 15px !important;
+  line-height: 1.05 !important;
+  font-weight: 1000 !important;
+  color: #0f172a !important;
+}
+
+.sales-summary-row {
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+}
+
+.cash-summary-row {
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+}
+
+.stat-card {
+  min-height: 54px !important;
+  height: 54px !important;
+  max-height: 56px !important;
+  padding: 8px 10px !important;
+  border-radius: 13px !important;
+}
+
+.stat-title {
+  font-size: 11px !important;
+  line-height: 1.05 !important;
+  font-weight: 1000 !important;
+  color: #334155 !important;
+}
+
+.stat-value {
+  font-size: 19px !important;
+  line-height: 1.05 !important;
+  margin-top: 4px !important;
+  font-weight: 1000 !important;
+}
+
+.cash-result,
+.cash-result-inline {
+  min-width: 0 !important;
+  min-height: 54px !important;
+  height: 54px !important;
+  padding: 8px 11px !important;
+  border-radius: 13px !important;
+}
+
+.cash-result span,
+.cash-result-inline span {
+  font-size: 10.5px !important;
+  line-height: 1.05 !important;
+  font-weight: 1000 !important;
+}
+
+.cash-result b,
+.cash-result-inline b {
+  font-size: 20px !important;
+  line-height: 1.05 !important;
+  font-weight: 1000 !important;
+}
+
+.sale-layout {
+  grid-template-columns: minmax(360px, .95fr) minmax(560px, 1.55fr) !important;
+  gap: 10px !important;
+  align-items: start !important;
+}
+
+.sale-layout > .card {
+  min-height: 0 !important;
+}
+
+.sale-layout .card {
+  padding: 12px 14px !important;
+  border-radius: 18px !important;
+}
+
+.sale-layout .card h2 {
+  margin: 0 0 8px !important;
+  font-size: 22px !important;
+  line-height: 1.05 !important;
+  letter-spacing: 0 !important;
+  font-weight: 1000 !important;
+}
+
+.sale-layout .card h3 {
+  margin: 7px 0 5px !important;
+  font-size: 13px !important;
+  line-height: 1.1 !important;
+  font-weight: 1000 !important;
+  color: #0f172a !important;
+}
+
+.sale-layout .card p {
+  margin: -2px 0 6px !important;
+  font-size: 11.5px !important;
+  line-height: 1.25 !important;
+  color: #475569 !important;
+  font-weight: 850 !important;
+}
+
+.big-sale-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+}
+
+.big-sale-btn {
+  height: 38px !important;
+  min-height: 38px !important;
+  border-radius: 12px !important;
+  padding: 0 6px !important;
+  font-size: 13px !important;
+  line-height: 1.05 !important;
+  font-weight: 1000 !important;
+}
+
+input,
+select {
+  height: 37px !important;
+  margin-top: 5px !important;
+  border-radius: 12px !important;
+  padding: 0 10px !important;
+  font-size: 13.5px !important;
+  font-weight: 850 !important;
+  color: #0f172a !important;
+}
+
+.two {
+  grid-template-columns: 1fr 128px !important;
+  gap: 6px !important;
+}
+
+.remaining-box,
+.remaining-input,
+.seller-cari-preview {
+  min-height: 37px !important;
+  margin-top: 5px !important;
+  padding: 5px 8px !important;
+  border-radius: 11px !important;
+}
+
+.remaining-box span,
+.remaining-input span,
+.seller-cari-preview span {
+  font-size: 11px !important;
+  color: #475569 !important;
+  font-weight: 850 !important;
+}
+
+.remaining-box b,
+.remaining-input b,
+.seller-cari-preview b {
+  font-size: 15px !important;
+  font-weight: 1000 !important;
+}
+
+.warning {
+  margin-top: 6px !important;
+  padding: 8px 10px !important;
+  border-radius: 12px !important;
+}
+
+.primary {
+  min-height: 38px !important;
+  height: 38px !important;
+  margin-top: 7px !important;
+  border-radius: 12px !important;
+  font-size: 13px !important;
+  font-weight: 1000 !important;
+}
+
+.accessory-select-tabs {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 5px !important;
+}
+
+.accessory-sub-tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.accessory-select-tabs .choice,
+.accessory-sub-tabs .choice {
+  min-height: 30px !important;
+  height: 30px !important;
+  padding: 3px 6px !important;
+  font-size: 11.5px !important;
+  line-height: 1.05 !important;
+  font-weight: 1000 !important;
+}
+
+.accessory-shortcut-price-row {
+  grid-template-columns: 1fr 150px !important;
+  gap: 6px !important;
+}
+
+.accessory-shortcut-price-row input,
+.accessory-shortcut-price-row .primary {
+  height: 36px !important;
+  min-height: 36px !important;
+}
+
+.shortcut-limit-info {
+  padding: 5px 8px !important;
+  margin-top: 6px !important;
+  font-size: 11.5px !important;
+  font-weight: 900 !important;
+}
+
+.accessory-user-shortcuts {
+  padding: 6px !important;
+  gap: 5px !important;
+  max-height: 92px !important;
+  overflow: auto !important;
+}
+
+.shortcut-chip > button:first-child {
+  min-height: 28px !important;
+  padding: 5px 8px !important;
+  font-size: 11.5px !important;
+  font-weight: 1000 !important;
+}
+
+.shortcut-chip small {
+  font-size: 10px !important;
+  font-weight: 1000 !important;
+}
+
+.shortcut-delete {
+  min-width: 28px !important;
+  width: 28px !important;
+  height: 25px !important;
+  font-size: 10px !important;
+  font-weight: 1000 !important;
+}
+
+.accessory-pick-summary.close-summary {
+  margin-top: 6px !important;
+  padding: 6px 9px !important;
+  border-radius: 12px !important;
+  gap: 3px 10px !important;
+}
+
+.accessory-pick-summary small {
+  font-size: 10.5px !important;
+  font-weight: 1000 !important;
+}
+
+.accessory-pick-summary div {
+  font-size: 11.5px !important;
+  padding: 1px 0 !important;
+}
+
+.accessory-pick-summary b {
+  font-weight: 1000 !important;
+}
+
+@media (max-width: 1200px) {
+  .nav-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .kasa-subtabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .sales-summary-row,
+  .cash-summary-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .sale-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
