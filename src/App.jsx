@@ -1688,7 +1688,7 @@ function StockEditModal({ item, setItem, save }) {
         {item.module === "Aksesuar" ? (
           <input placeholder="Ürün adı" value={item.name || ""} onChange={(e) => setItem({ ...item, name: e.target.value })} />
         ) : (
-          <input placeholder="Model" value={item.model || ""} onChange={(e) => setItem({ ...item, model: e.target.value })} />
+          <input placeholder="Model / Model Ekle" value={item.model || ""} onChange={(e) => setItem({ ...item, model: e.target.value })} />
         )}
         <input placeholder="Barkod / IMEI" inputMode="numeric" maxLength={15} value={item.barcode || ""} onChange={(e) => setItem({ ...item, barcode: cleanBarcode(e.target.value) })} />
         <input type="number" placeholder="Stok" value={item.qty} onChange={(e) => setItem({ ...item, qty: e.target.value })} />
