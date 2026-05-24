@@ -71,7 +71,7 @@ const stockSellerDebt = (product) => {
 };
 
 const saleTypes = ["Telefon Satışı", "Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı", "Aksesuar Satışı"];
-const mainSaleGroups = ["Telefon", "Teknik", "Saat", "Tablet", "PC", "Elektronik"];
+const mainSaleGroups = ["Telefon", "Teknik", "Saat", "Tablet", "PC", "Elektronik", "Program"];
 const otherSaleTypes = ["Saat Satışı", "PC Satışı", "Elektronik Satışı"];
 const expenseCategories = ["Yemek", "Kargo", "Borç", "İade", "Ivır Zıvır"];
 const quickAccessoryGroups = {
@@ -478,9 +478,10 @@ export default function App() {
   }, [suppliers, stock]);
 
   const isAccessorySale = saleForm.type === "Aksesuar Satışı";
+  const isProgramSale = saleForm.type === "Program Satışı";
   const saleDeviceType = saleForm.type.replace(" Satışı", "");
 
-  const saleProducts = stock
+  const saleProducts = isProgramSale ? [] : stock
     .filter((product) => isAccessorySale ? product.module === "Aksesuar" : product.module === "Cihaz" && product.deviceType === saleDeviceType)
     .filter((product) => !saleForm.search || has(productTitle(product), saleForm.search) || has(product.barcode, saleForm.search))
     .filter((product) => Number(product.qty || 0) > 0);
@@ -995,11 +996,13 @@ export default function App() {
   }
 
   async function saveSale() {
-    if (!selectedProduct) return alert("Ürün seç");
-    if (Number(selectedProduct.qty || 0) <= 0) return alert("Stok yok");
+    if (!isProgramSale && !selectedProduct) return alert("Ürün seç");
+    if (!isProgramSale && Number(selectedProduct.qty || 0) <= 0) return alert("Stok yok");
+    if (isProgramSale && !saleForm.search.trim()) return alert("Ne programı olduğunu yaz");
     if (!isAccessorySale && !saleForm.customer.trim()) return alert("Müşteri adı soyadı / telefon yaz");
-    if (!isAccessorySale && saleRemaining > 0 && !saleForm.cariPerson.trim()) return alert("Kalan varsa cari kişi seçilmelidir");
+    if (!isAccessorySale && saleRemaining > 0 && !saleForm.cariPerson.trim()) return alert("Kalan varsa Cari Ekle zorunludur");
     if (saleCard > 0 && !saleForm.bank) return alert("Kart ödeme varsa banka seç");
+    if (!saleTotal) return alert(isProgramSale ? "Ne kadar olduğunu yaz" : "Satış fiyatını yaz");
 
     const sale = calcSale({
       id: Date.now(),
@@ -1007,11 +1010,11 @@ export default function App() {
       customer: isAccessorySale ? "" : saleForm.customer.trim(),
       cariPerson: isAccessorySale ? "" : saleForm.cariPerson.trim(),
       bank: saleForm.bank,
-      productName: productTitle(selectedProduct),
-      productId: selectedProduct.id,
-      productBuyPrice: selectedProduct.buy,
-      productBarcode: selectedProduct.barcode,
-      total: saleForm.total || selectedProduct.sell,
+      productName: isProgramSale ? saleForm.search.trim() : productTitle(selectedProduct),
+      productId: isProgramSale ? null : selectedProduct.id,
+      productBuyPrice: isProgramSale ? 0 : selectedProduct.buy,
+      productBarcode: isProgramSale ? "" : selectedProduct.barcode,
+      total: saleForm.total || (isProgramSale ? "" : selectedProduct.sell),
       cash: saleForm.cash,
       card: saleForm.card,
       date: new Date().toISOString(),
@@ -1021,7 +1024,7 @@ export default function App() {
       const savedSale = await createSale({
         sale_group: saleGroupName(sale.type),
         sale_type: sale.type,
-        stock_item_id: selectedProduct.id,
+        stock_item_id: isProgramSale ? null : selectedProduct.id,
         product_name: sale.productName,
         customer_name: sale.customer,
         customer_phone: "",
@@ -1035,7 +1038,9 @@ export default function App() {
         bank_name: sale.bank || null,
       });
 
-      setStock(stock.map((product) => product.id === selectedProduct.id ? { ...product, qty: Math.max(Number(product.qty || 0) - 1, 0) } : product));
+      if (!isProgramSale) {
+        setStock(stock.map((product) => product.id === selectedProduct.id ? { ...product, qty: Math.max(Number(product.qty || 0) - 1, 0) } : product));
+      }
       setSales([fromDbSale(savedSale), ...sales]);
 
       if (parseMoneyInput(sale.card) > 0) {
@@ -1252,6 +1257,7 @@ export default function App() {
                                 group === "Tablet" ? "Tablet Satışı" :
                                 group === "PC" ? "PC Satışı" :
                                 group === "Elektronik" ? "Elektronik Satışı" :
+                                group === "Program" ? "Program Satışı" :
                                 "Telefon Satışı",
                               productId: "",
                               search: "",
@@ -1272,30 +1278,40 @@ export default function App() {
                       <input placeholder="Müşteri adı soyadı / telefon 0 (5xx) xxx xx xx" value={saleForm.customer} onChange={(e) => setSaleForm({ ...saleForm, customer: e.target.value, cariPerson: saleForm.cariPerson || e.target.value })} />
                     )}
 
-                    <input placeholder={isAccessorySale ? "Barkod veya ürün adı" : "Barkod / IMEI veya model"} value={saleForm.search} onChange={(e) => setSaleForm({ ...saleForm, search: e.target.value })} />
+                    {isProgramSale ? (
+                      <input
+                        placeholder="Ne Programı"
+                        value={saleForm.search}
+                        onChange={(e) => setSaleForm({ ...saleForm, search: e.target.value })}
+                      />
+                    ) : (
+                      <>
+                        <input placeholder={isAccessorySale ? "Barkod veya ürün adı" : "Barkod / IMEI veya model"} value={saleForm.search} onChange={(e) => setSaleForm({ ...saleForm, search: e.target.value })} />
 
-                    <select value={saleForm.productId} onChange={(e) => {
-                      const product = stock.find((item) => String(item.id) === e.target.value);
-                      setSaleForm({
-                        ...saleForm,
-                        productId: e.target.value,
-                        search: product?.barcode || product?.imei || "",
-                        total: product?.sell || "",
-                        cash: product?.sell || "",
-                        card: ""
-                      });
-                    }}>
-                      <option value="">Ürün seç</option>
-                      {saleProducts.map((product) => (
-                        <option key={product.id} value={product.id}>{productTitle(product)} | IMEI: {getLastSixBarcode(product)}</option>
-                      ))}
-                    </select>
+                        <select value={saleForm.productId} onChange={(e) => {
+                          const product = stock.find((item) => String(item.id) === e.target.value);
+                          setSaleForm({
+                            ...saleForm,
+                            productId: e.target.value,
+                            search: product?.barcode || product?.imei || "",
+                            total: product?.sell || "",
+                            cash: product?.sell || "",
+                            card: ""
+                          });
+                        }}>
+                          <option value="">Ürün seç</option>
+                          {saleProducts.map((product) => (
+                            <option key={product.id} value={product.id}>{productTitle(product)} | IMEI: {getLastSixBarcode(product)}</option>
+                          ))}
+                        </select>
+                      </>
+                    )}
 
-                    <input type="text" inputMode="numeric" placeholder="Satış fiyatı" value={saleForm.total} onFocus={() => setSaleForm({ ...saleForm, total: stripMoneyForEdit(saleForm.total) })} onChange={(e) => setSaleForm({ ...saleForm, total: cleanMoneyTyping(e.target.value) })} onBlur={() => setSaleForm({ ...saleForm, total: formatMoneyInput(saleForm.total) })} />
-                    <input type="text" inputMode="numeric" placeholder="Nakit" value={saleForm.cash} onFocus={() => setSaleForm({ ...saleForm, cash: stripMoneyForEdit(saleForm.cash) })} onChange={(e) => setSaleForm({ ...saleForm, cash: cleanMoneyTyping(e.target.value) })} onBlur={() => setSaleForm({ ...saleForm, cash: formatMoneyInput(saleForm.cash) })} />
+                    <input type="text" inputMode="numeric" placeholder={isProgramSale ? "Ne Kadar" : "Satış fiyatı"} value={saleForm.total} onFocus={() => setSaleForm({ ...saleForm, total: stripMoneyForEdit(saleForm.total) })} onChange={(e) => setSaleForm({ ...saleForm, total: cleanMoneyTyping(e.target.value) })} onBlur={() => setSaleForm({ ...saleForm, total: formatMoneyInput(saleForm.total) })} />
+                    <input type="text" inputMode="numeric" placeholder={isProgramSale ? "Nakit Ödenen" : "Nakit"} value={saleForm.cash} onFocus={() => setSaleForm({ ...saleForm, cash: stripMoneyForEdit(saleForm.cash) })} onChange={(e) => setSaleForm({ ...saleForm, cash: cleanMoneyTyping(e.target.value) })} onBlur={() => setSaleForm({ ...saleForm, cash: formatMoneyInput(saleForm.cash) })} />
 
                     <div className="two">
-                      <input type="text" inputMode="numeric" placeholder="Kart" value={saleForm.card} onFocus={() => setSaleForm({ ...saleForm, card: stripMoneyForEdit(saleForm.card) })} onChange={(e) => setSaleForm({ ...saleForm, card: cleanMoneyTyping(e.target.value) })} onBlur={() => setSaleForm({ ...saleForm, card: formatMoneyInput(saleForm.card) })} />
+                      <input type="text" inputMode="numeric" placeholder={isProgramSale ? "Kartla Ödenen" : "Kart"} value={saleForm.card} onFocus={() => setSaleForm({ ...saleForm, card: stripMoneyForEdit(saleForm.card) })} onChange={(e) => setSaleForm({ ...saleForm, card: cleanMoneyTyping(e.target.value) })} onBlur={() => setSaleForm({ ...saleForm, card: formatMoneyInput(saleForm.card) })} />
                       <div className="remaining-box"><span>Kalan</span><b>{money(saleRemaining)}</b></div>
                     </div>
 
@@ -1306,8 +1322,8 @@ export default function App() {
 
                     {!isAccessorySale && saleRemaining > 0 && (
                       <div className="warning">
-                        <b>Kalan cari kişi</b>
-                        <input list="cari-list" placeholder="Cari kişi seç veya yaz" value={saleForm.cariPerson} onChange={(e) => setSaleForm({ ...saleForm, cariPerson: e.target.value })} />
+                        <b>{isProgramSale ? "Cari Ekle" : "Kalan cari kişi"}</b>
+                        <input list="cari-list" placeholder={isProgramSale ? "Cari Ekle - müşteri adı" : "Cari kişi seç veya yaz"} value={saleForm.cariPerson} onChange={(e) => setSaleForm({ ...saleForm, cariPerson: e.target.value })} />
                         <datalist id="cari-list">
                           {alacaklarim.map((sale) => <option key={sale.id} value={sale.cariPerson || sale.customer} />)}
                         </datalist>
