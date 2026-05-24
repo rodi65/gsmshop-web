@@ -1619,3 +1619,534 @@ select:focus {
     gap: 8px !important;
   }
 }
+
+
+/* CEPLOG Fast Sales Premium görünüm */
+body {
+  background:
+    radial-gradient(circle at top left, rgba(147,197,253,.28), transparent 28%),
+    radial-gradient(circle at top right, rgba(196,181,253,.24), transparent 30%),
+    #eef3f8 !important;
+  color: #071226 !important;
+  font-weight: 750 !important;
+}
+
+.app {
+  padding: 10px 18px !important;
+}
+
+.shell {
+  max-width: 1520px !important;
+  gap: 13px !important;
+}
+
+/* Üst başlık */
+.hero {
+  position: relative !important;
+  overflow: hidden !important;
+  background: rgba(255,255,255,.86) !important;
+  border: 1px solid rgba(255,255,255,.95) !important;
+  border-radius: 28px !important;
+  padding: 13px 22px !important;
+  box-shadow: 0 14px 45px rgba(15,23,42,.07) !important;
+  backdrop-filter: blur(16px);
+  text-align: center !important;
+  justify-content: center !important;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  left: -90px;
+  top: -110px;
+  width: 220px;
+  height: 220px;
+  border-radius: 999px;
+  background: rgba(147,197,253,.55);
+  filter: blur(42px);
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  right: -70px;
+  top: -90px;
+  width: 210px;
+  height: 210px;
+  border-radius: 999px;
+  background: rgba(196,181,253,.42);
+  filter: blur(44px);
+}
+
+.brand-title-row,
+.brand-center {
+  position: relative;
+  z-index: 2;
+}
+
+.hero h1 {
+  font-size: 40px !important;
+  line-height: .95 !important;
+  font-weight: 1000 !important;
+  letter-spacing: -3px !important;
+  color: #071226 !important;
+}
+
+.brand-log {
+  color: #2563eb !important;
+}
+
+.since-badge {
+  transform: none !important;
+  background: #071226 !important;
+  color: #fff !important;
+  border-radius: 999px !important;
+  padding: 6px 13px !important;
+  font-size: 10px !important;
+  font-weight: 1000 !important;
+  box-shadow: 0 10px 24px rgba(7,18,38,.18) !important;
+}
+
+.live-clock {
+  background: #fff !important;
+  color: #334155 !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 999px !important;
+  padding: 6px 13px !important;
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+  box-shadow: 0 7px 20px rgba(15,23,42,.10) !important;
+}
+
+.hero p {
+  margin-top: 5px !important;
+  color: #334155 !important;
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+}
+
+.sync-message {
+  margin-top: 6px !important;
+  display: inline-flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  background: #ecfdf5 !important;
+  border: 1px solid #bbf7d0 !important;
+  color: #047857 !important;
+  border-radius: 999px !important;
+  padding: 5px 14px !important;
+  font-size: 11px !important;
+  font-weight: 1000 !important;
+}
+
+.status-pill {
+  position: absolute !important;
+  right: 18px !important;
+  top: 18px !important;
+  z-index: 3 !important;
+  background: #071226 !important;
+  color: #fff !important;
+  border-radius: 999px !important;
+  padding: 9px 16px !important;
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+}
+
+/* Ana menü: demo koddaki soft tonlar */
+.nav-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.nav-btn {
+  min-height: 60px !important;
+  border-radius: 18px !important;
+  border: 1px solid transparent !important;
+  box-shadow: 0 10px 24px rgba(15,23,42,.08) !important;
+  font-weight: 1000 !important;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.nav-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 32px rgba(15,23,42,.12) !important;
+}
+
+.nav-grid .nav-btn:nth-child(1) {
+  background: #071226 !important;
+  color: #fff !important;
+}
+
+.nav-grid .nav-btn:nth-child(2) {
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border-color: #dbeafe !important;
+}
+
+.nav-grid .nav-btn:nth-child(3) {
+  background: #fdf4ff !important;
+  color: #a21caf !important;
+  border-color: #fae8ff !important;
+}
+
+.nav-grid .nav-btn:nth-child(4) {
+  background: #fff7ed !important;
+  color: #c2410c !important;
+  border-color: #ffedd5 !important;
+}
+
+.nav-grid .nav-btn:nth-child(5) {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+  border-color: #d1fae5 !important;
+}
+
+.nav-grid .nav-btn:nth-child(6) {
+  background: #f5f3ff !important;
+  color: #6d28d9 !important;
+  border-color: #ede9fe !important;
+}
+
+.nav-btn.active {
+  background: #071226 !important;
+  color: #fff !important;
+}
+
+.nav-btn span {
+  font-size: 14px !important;
+  letter-spacing: .1px;
+}
+
+/* Kasa alt tablar */
+.kasa-subtabs {
+  background: rgba(255,255,255,.70);
+  border: 1px solid rgba(255,255,255,.90);
+  border-radius: 22px;
+  padding: 8px;
+  gap: 8px !important;
+  box-shadow: 0 8px 22px rgba(15,23,42,.05);
+}
+
+.kasa-subtabs .choice {
+  height: 40px !important;
+  min-height: 40px !important;
+  border-radius: 16px !important;
+  padding: 0 16px !important;
+  background: #fff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #334155 !important;
+  box-shadow: 0 6px 16px rgba(15,23,42,.05) !important;
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+}
+
+.kasa-subtabs .choice.active {
+  background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+
+/* Başlıklar */
+.summary-title {
+  color: #334155 !important;
+  font-size: 13px !important;
+  font-weight: 1000 !important;
+  margin-bottom: -4px !important;
+}
+
+/* Özet kartları daha kompakt */
+.summary-row-single {
+  gap: 8px !important;
+}
+
+.stat-card {
+  position: relative !important;
+  overflow: hidden !important;
+  min-height: 78px !important;
+  padding: 13px 13px 12px !important;
+  border-radius: 18px !important;
+  background: rgba(255,255,255,.96) !important;
+  border: 1px solid rgba(226,232,240,.85) !important;
+  box-shadow: 0 8px 22px rgba(15,23,42,.06) !important;
+}
+
+.stat-card::before {
+  height: 3px !important;
+}
+
+.stat-title {
+  font-size: 11px !important;
+  font-weight: 1000 !important;
+  color: #64748b !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-value {
+  font-size: 20px !important;
+  line-height: 1.05 !important;
+  font-weight: 1000 !important;
+  color: #020617 !important;
+  margin-top: 5px !important;
+}
+
+.cash-result,
+.cash-result-inline {
+  min-width: 245px !important;
+  background: #071226 !important;
+  color: #fff !important;
+  border-radius: 22px !important;
+  padding: 18px 18px !important;
+  box-shadow: 0 20px 45px rgba(30,64,175,.25) !important;
+}
+
+.cash-result span {
+  color: #dbeafe !important;
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+}
+
+.cash-result b {
+  color: #fff !important;
+  font-size: 30px !important;
+  font-weight: 1000 !important;
+}
+
+/* Yeni satış ve aksesuar alanı */
+.sale-layout {
+  grid-template-columns: 1.15fr 1.25fr !important;
+  gap: 16px !important;
+}
+
+.card {
+  background: rgba(255,255,255,.96) !important;
+  border: 1px solid #fff !important;
+  border-radius: 28px !important;
+  box-shadow: 0 18px 55px rgba(15,23,42,.08) !important;
+}
+
+.card h2 {
+  font-size: 30px !important;
+  font-weight: 1000 !important;
+  letter-spacing: -.8px !important;
+  color: #071226 !important;
+}
+
+.card p {
+  color: #64748b !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+.big-sale-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.big-sale-grid .big-sale-btn:nth-child(n) {
+  grid-column: auto !important;
+}
+
+.big-sale-btn {
+  height: 48px !important;
+  min-height: 48px !important;
+  border-radius: 16px !important;
+  border: 0 !important;
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+  box-shadow: none !important;
+}
+
+.big-sale-btn:nth-child(2) {
+  background: #fdf4ff !important;
+  color: #a21caf !important;
+}
+
+.big-sale-btn:nth-child(3) {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+}
+
+.big-sale-btn:nth-child(5) {
+  background: #f5f3ff !important;
+  color: #6d28d9 !important;
+}
+
+.big-sale-btn:nth-child(6) {
+  background: #fff7ed !important;
+  color: #c2410c !important;
+}
+
+.big-sale-btn:nth-child(7) {
+  background: #ecfeff !important;
+  color: #0e7490 !important;
+}
+
+.big-sale-btn.active {
+  background: #071226 !important;
+  color: #fff !important;
+  box-shadow: 0 12px 26px rgba(7,18,38,.16) !important;
+}
+
+/* Formlar */
+input,
+select {
+  height: 48px !important;
+  border-radius: 16px !important;
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #334155 !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+}
+
+input:focus,
+select:focus {
+  background: #fff !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 4px rgba(59,130,246,.12) !important;
+  outline: none !important;
+}
+
+.two {
+  gap: 8px !important;
+}
+
+.remaining-box {
+  border-radius: 16px !important;
+  border: 1px solid #dbeafe !important;
+  background: linear-gradient(135deg, #eff6ff, #eef2ff) !important;
+  text-align: center;
+}
+
+.remaining-box span {
+  color: #2563eb !important;
+  font-weight: 1000 !important;
+}
+
+.remaining-box b {
+  color: #071226 !important;
+  font-size: 20px !important;
+  font-weight: 1000 !important;
+}
+
+.primary {
+  height: 52px !important;
+  min-height: 52px !important;
+  border-radius: 16px !important;
+  background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+  color: #fff !important;
+  font-size: 15px !important;
+  font-weight: 1000 !important;
+  box-shadow: 0 18px 35px rgba(37,99,235,.22) !important;
+}
+
+/* Aksesuar seçim */
+.accessory-select-tabs {
+  gap: 8px !important;
+}
+
+.accessory-select-tabs .choice {
+  height: 40px !important;
+  min-height: 40px !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+  color: #334155 !important;
+  border: 1px solid #e2e8f0 !important;
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+}
+
+.accessory-select-tabs .choice.active {
+  background: #2563eb !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: 0 10px 22px rgba(37,99,235,.16) !important;
+}
+
+.accessory-sub-tabs .choice.active {
+  background: #7c3aed !important;
+  color: #fff !important;
+}
+
+.accessory-shortcut-price-row {
+  gap: 12px !important;
+}
+
+.shortcut-limit-info {
+  border-radius: 20px !important;
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  padding: 12px !important;
+  font-weight: 1000 !important;
+}
+
+.accessory-user-shortcuts {
+  border-radius: 24px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+  padding: 12px !important;
+}
+
+.shortcut-chip > button:first-child {
+  background: #fff !important;
+  border: 0 !important;
+  border-radius: 16px !important;
+  color: #071226 !important;
+  box-shadow: 0 8px 18px rgba(15,23,42,.06) !important;
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+}
+
+.shortcut-delete {
+  background: #ffe4e6 !important;
+  color: #e11d48 !important;
+  border-radius: 999px !important;
+  font-size: 10px !important;
+  font-weight: 1000 !important;
+}
+
+.close-summary {
+  border-radius: 24px !important;
+  background: #071226 !important;
+  color: #fff !important;
+  overflow: hidden !important;
+}
+
+.close-summary small,
+.close-summary span {
+  color: #bfdbfe !important;
+  font-weight: 1000 !important;
+}
+
+.close-summary b {
+  color: #fff !important;
+  font-weight: 1000 !important;
+}
+
+@media (max-width: 1200px) {
+  .sale-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .nav-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .big-sale-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .nav-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .hero h1 {
+    font-size: 34px !important;
+  }
+}
