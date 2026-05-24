@@ -1010,7 +1010,7 @@ export default function App() {
       id: Date.now(),
       type: saleForm.type,
       customer: isAccessorySale ? "" : saleForm.customer.trim(),
-      cariPerson: isAccessorySale ? "" : saleForm.cariPerson.trim(),
+      cariPerson: isAccessorySale ? "" : (saleForm.cariPerson.trim() || saleForm.customer.trim()),
       bank: saleForm.bank,
       productName: isProgramSale ? saleForm.search.trim() : (selectedProduct ? productTitle(selectedProduct) : saleForm.search.trim()),
       productId: isProgramSale || !selectedProduct ? null : selectedProduct.id,
@@ -1030,7 +1030,7 @@ export default function App() {
         product_name: sale.productName,
         customer_name: sale.customer,
         customer_phone: "",
-        cari_person: sale.cariPerson,
+        cari_person: sale.cariPerson || sale.customer,
         total_amount: parseMoneyInput(sale.total),
         cash_amount: parseMoneyInput(sale.cash),
         card_amount: parseMoneyInput(sale.card),
@@ -1338,7 +1338,18 @@ export default function App() {
 
 
                     {!isAccessorySale && (
-                      <input placeholder="Müşteri adı soyadı / telefon 0 (5xx) xxx xx xx" value={saleForm.customer} onChange={(e) => setSaleForm({ ...saleForm, customer: e.target.value, cariPerson: saleForm.cariPerson || e.target.value })} />
+                      <input
+                        placeholder="Müşteri adı soyadı / telefon 0 (5xx) xxx xx xx"
+                        value={saleForm.customer}
+                        onChange={(e) => {
+                          const customerName = e.target.value;
+                          setSaleForm({
+                            ...saleForm,
+                            customer: customerName,
+                            cariPerson: customerName,
+                          });
+                        }}
+                      />
                     )}
 
                     {isProgramSale ? (
