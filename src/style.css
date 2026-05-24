@@ -584,3 +584,84 @@ th,
     grid-template-columns: 1fr;
   }
 }
+
+
+.accessory-shortcut-form {
+  display: grid;
+  grid-template-columns: 1.4fr 1.2fr 1fr auto;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0 12px;
+}
+
+.shortcut-limit-info {
+  background: #f8fafc;
+  border: 1px solid #dbe6f3;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 800;
+  margin-bottom: 14px;
+}
+
+.accessory-user-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0 18px;
+}
+
+.shortcut-chip {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.shortcut-chip > button:first-child {
+  border: 1px solid #d8e1ee;
+  background: #fff;
+  border-radius: 16px;
+  padding: 12px;
+  font-weight: 900;
+  color: #070b1d;
+  cursor: pointer;
+  text-align: left;
+}
+
+.shortcut-chip.active > button:first-child {
+  background: #070b1d;
+  color: #fff;
+}
+
+.shortcut-chip small {
+  display: block;
+  margin-top: 4px;
+  opacity: .75;
+}
+
+.shortcut-delete {
+  border: 0;
+  border-radius: 14px;
+  padding: 0 10px;
+  background: #ffe1e1;
+  color: #9f1239;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+@media (max-width: 1100px) {
+  .accessory-shortcut-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .accessory-user-shortcuts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .accessory-shortcut-form,
+  .accessory-user-shortcuts {
+    grid-template-columns: 1fr;
+  }
+}
