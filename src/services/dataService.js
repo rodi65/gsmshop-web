@@ -213,6 +213,37 @@ export async function createContactPayment({ kind, name, phone = "", amount, cur
   return { contact: updatedContact, movement };
 }
 
+export async function createReceivablePayment({ saleId, customerName = "", amount, currentRemaining = 0 }) {
+  const user = await getCurrentUser();
+  const paymentAmount = Number(amount || 0);
+
+  if (!saleId) throw new Error("Alacak kaydı seçilemedi.");
+  if (!paymentAmount) throw new Error("Tahsilat tutarını yaz.");
+
+  const movement = await createCashMovement({
+    movement_type: "Alacak Ödemesi",
+    direction: "in",
+    amount: paymentAmount,
+    note: `Alacak ödemesi - ${customerName || "Müşteri"}`,
+    related_table: "sales",
+    related_id: saleId,
+  });
+
+  const { data: sale, error } = await supabase
+    .from("sales")
+    .update({
+      remaining_amount: Math.max(Number(currentRemaining || 0) - paymentAmount, 0),
+      updated_by: user?.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", saleId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { sale, movement };
+}
+
 export async function repairStockSideEffects(stockItems = [], cashMovements = [], contacts = []) {
   let changed = false;
 

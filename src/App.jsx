@@ -11,6 +11,7 @@ import {
   createBankWithdrawal,
   createCashMovement,
   createContactPayment,
+  createReceivablePayment,
   findOrCreateContact,
   repairStockSideEffects,
   softDelete,
@@ -74,7 +75,8 @@ const quickAccessoryGroups = {
   "Kulaklık": ["Kulaklık"],
 };
 const cashEntryTypes = ["Manuel Nakit Girişi", "Devir Nakit"];
-const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Devir Nakit", "Stok Ödemesi", "Cari Ödeme", "Gider", "Düzeltme"];
+const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Devir Nakit", "Gelen Alacak", "Alacak Ödemesi", "Stok Ödemesi", "Cari Ödeme", "Gider", "Bankaya Yatırılan Nakit", "Düzeltme"];
+const receivablePaymentTypes = ["Gelen Alacak", "Alacak Ödemesi"];
 
 const saleGroupRank = (type) => {
   if (type === "Telefon Satışı") return 1;
@@ -108,6 +110,10 @@ const stockPurchasePaymentAmount = (product) => {
   const totalBuy = parseMoneyInput(product.buy) * Number(product.qty || 1);
   const sellerDebt = stockSellerDebt(product);
   return sellerDebt > 0 ? Math.max(totalBuy - sellerDebt, 0) : 0;
+};
+const getLastSixBarcode = (product) => {
+  const code = String(product?.barcode || product?.imei || "").replace(/\s/g, "");
+  return code ? code.slice(-6) : "-";
 };
 const sellerRemainingFromDb = (item) => {
   const explicitDebt = Number(item.seller_cari_remaining || 0);
@@ -604,6 +610,13 @@ export default function App() {
     remaining: sales.reduce((sum, sale) => sum + Number(sale.remaining || 0), 0),
     profit: sales.reduce((sum, sale) => sum + Number(sale.profit || 0), 0),
   };
+  const saleTotalByType = (predicate) => sales
+    .filter(predicate)
+    .reduce((sum, sale) => sum + parseMoneyInput(sale.total), 0);
+  const phoneSalesTotal = saleTotalByType((sale) => sale.type === "Telefon Satışı");
+  const accessorySalesTotal = saleTotalByType((sale) => sale.type === "Aksesuar Satışı");
+  const technicalServiceTotal = saleTotalByType((sale) => sale.type === "Teknik Servis");
+  const otherSalesTotal = saleTotalByType((sale) => !["Telefon Satışı", "Aksesuar Satışı", "Teknik Servis"].includes(sale.type));
 
   const expenseReport = {
     total: expenses.reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
@@ -645,14 +658,11 @@ export default function App() {
   const carryOverCash = cashMovements
     .filter((item) => cashMovementType(item) === "Devir Nakit" && item.direction === "in")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
-  const todayCashSales = sales
-    .filter((sale) => !cashSaleMovementIds.has(String(sale.id)) && isTodayRecord(sale, todayKey))
-    .reduce((sum, sale) => sum + parseMoneyInput(sale.cash), 0);
   const todayBankCashIncoming = bankMovements
     .filter((item) => item.type === "Bankadan Çekilen" && !cashBankMovementIds.has(String(item.id)) && isTodayRecord(item, todayKey))
     .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
   const todayCashMovementIn = cashMovements
-    .filter((item) => item.direction === "in" && cashMovementType(item) !== "Devir Nakit" && cashLedgerMovementTypes.includes(cashMovementType(item)) && isTodayRecord(item, todayKey))
+    .filter((item) => item.direction === "in" && !["Devir Nakit", "Satış Nakit"].includes(cashMovementType(item)) && cashLedgerMovementTypes.includes(cashMovementType(item)) && isTodayRecord(item, todayKey))
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
   const todayExpenseOut = expenses
     .filter((item) => !cashExpenseMovementIds.has(String(item.id)) && isTodayRecord(item, todayKey))
@@ -663,11 +673,17 @@ export default function App() {
   const todayCashMovementOut = cashMovements
     .filter((item) => item.direction === "out" && cashLedgerMovementTypes.includes(cashMovementType(item)) && isTodayRecord(item, todayKey))
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
-  const todayCashIn = todayCashSales + todayBankCashIncoming + todayCashMovementIn;
+  const todayCashIn = todayBankCashIncoming + todayCashMovementIn;
   const todayCashOut = todayExpenseOut + todayLegacyStockPaymentOut + todayCashMovementOut;
   const stockPurchasePayments = cashMovements
     .filter((item) => cashMovementType(item) === "Stok Ödemesi" && item.direction === "out")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0) + legacyStockPaymentOut;
+  const receivablePayments = cashMovements
+    .filter((item) => receivablePaymentTypes.includes(cashMovementType(item)) && item.direction === "in")
+    .reduce((sum, item) => sum + cashMovementAmount(item), 0);
+  const cashExpensePayments = cashMovements
+    .filter((item) => cashMovementType(item) === "Gider" && item.direction === "out")
+    .reduce((sum, item) => sum + cashMovementAmount(item), 0) + legacyExpenseOut;
   const cashWithBankIncoming = cashMovementNet + legacyCashSales + legacyBankCashIncoming - legacyExpenseOut - legacyStockPaymentOut;
   const cashAfterExpenses = cashWithBankIncoming;
 
@@ -863,6 +879,30 @@ export default function App() {
       return true;
     } catch (error) {
       alert(error.message || "Cari ödeme Supabase'e yazılamadı.");
+      return false;
+    }
+  }
+
+  async function saveReceivablePayment(sale, amountValue) {
+    const amount = parseMoneyInput(amountValue);
+    if (!sale?.id) return false;
+    if (!amount) {
+      alert("Tahsilat tutarını yaz");
+      return false;
+    }
+
+    try {
+      await createReceivablePayment({
+        saleId: sale.id,
+        customerName: sale.cariPerson || sale.customer,
+        amount,
+        currentRemaining: Number(sale.remaining || 0),
+      });
+      await refreshFromDatabase();
+      setSyncMessage(`${sale.cariPerson || sale.customer || "Müşteri"} alacak tahsilatı kasaya giriş olarak işlendi.`);
+      return true;
+    } catch (error) {
+      alert(error.message || "Alacak tahsilatı Supabase'e yazılamadı.");
       return false;
     }
   }
@@ -1152,24 +1192,28 @@ export default function App() {
 
             {kasaTab === "yeniSatis" && (
               <>
-                <div className="stats four">
-                  <button className="stat-button" onClick={() => revealKasaStat("total")}>
-                    <Stat title="Toplam Satış" value={maskedValue("total", money(report.total))} />
-                  </button>
-                  <button className="stat-button" onClick={() => revealKasaStat("cash")}>
-                    <Stat title="Nakit Kasa" value={maskedValue("cash", money(cashWithBankIncoming))} negative={cashWithBankIncoming < 0} />
-                  </button>
-                  <button className="stat-button" onClick={() => revealKasaStat("card")}>
-                    <Stat title="Kart" value={maskedValue("card", money(report.card))} />
-                  </button>
-                  <button className="stat-button" onClick={() => revealKasaStat("remaining")}>
-                    <Stat title="Alacak" value={maskedValue("remaining", money(report.remaining))} />
-                  </button>
+                <h3 className="summary-title">SATIŞ ÖZETLERİ</h3>
+                <div className="stats five">
+                  <Stat title="Genel Satış Toplamı" value={money(report.total)} />
+                  <Stat title="Telefon Satış" value={money(phoneSalesTotal)} />
+                  <Stat title="Aksesuar Satış Tutarı" value={money(accessorySalesTotal)} />
+                  <Stat title="Teknik Servis Geliri" value={money(technicalServiceTotal)} />
+                  <Stat title="Diğer Satışlar" value={money(otherSalesTotal)} />
                 </div>
+
+                <h3 className="summary-title">NAKİT ÖZETLERİ</h3>
                 <div className="stats three">
                   <Stat title="Dünden Devir Nakit" value={money(carryOverCash)} />
                   <Stat title="Bugünkü Nakit Girişleri" value={money(todayCashIn)} />
                   <Stat title="Bugünkü Nakit Çıkışları" value={money(todayCashOut)} />
+                  <Stat title="Gelen Alacak / Alacak Ödemesi" value={money(receivablePayments)} />
+                  <Stat title="Alım Ödemeleri" value={money(stockPurchasePayments)} />
+                  <Stat title="Giderler" value={money(cashExpensePayments)} />
+                </div>
+
+                <div className={cashWithBankIncoming < 0 ? "cash-result negative" : "cash-result"}>
+                  <span>TOPLAM KASANDA OLMASI GEREKEN</span>
+                  <b>{money(cashWithBankIncoming)}</b>
                 </div>
 
                 <div className="grid sale-layout">
@@ -1219,7 +1263,7 @@ export default function App() {
                     }}>
                       <option value="">Ürün seç</option>
                       {saleProducts.map((product) => (
-                        <option key={product.id} value={product.id}>{productTitle(product)} | Stok {product.qty} | {money(product.sell)}</option>
+                        <option key={product.id} value={product.id}>{productTitle(product)} | IMEI: {getLastSixBarcode(product)}</option>
                       ))}
                     </select>
 
@@ -1245,17 +1289,6 @@ export default function App() {
                         </datalist>
                       </div>
                     )}
-
-                    <div className="close-summary">
-                      <small>KAPANIŞ ÖZETİ</small>
-                      <div><span>Toplam Satış</span><b>{money(report.total)}</b></div>
-                      <div><span>Nakit Satış</span><b>{money(report.cash)}</b></div>
-                      <div><span>Kart</span><b>{money(report.card)}</b></div>
-                      <div><span>Alacak</span><b>{money(report.remaining)}</b></div>
-                      <div><span>Gider</span><b>{money(expenseReport.total)}</b></div>
-                      <div><span>Alım Ödemeleri</span><b>{money(stockPurchasePayments)}</b></div>
-                      <div><span>Net Kasa</span><b className={cashAfterExpenses < 0 ? "money-negative" : ""}>{money(cashAfterExpenses)}</b></div>
-                    </div>
 
                     <button className="primary" onClick={saveSale}><Plus size={16} /> Satışı Kaydet</button>
                   </div>
@@ -1594,6 +1627,7 @@ export default function App() {
                   <ReceivableMovementPage
                     sale={selectedReceivableMovement}
                     stock={stock}
+                    saveReceivablePayment={saveReceivablePayment}
                     setSelectedReceivableMovement={setSelectedReceivableMovement}
                   />
                 )}
@@ -2089,8 +2123,18 @@ function SupplierAccountPage({ account, stock, saveCariPayment, setSelectedSuppl
   );
 }
 
-function ReceivableMovementPage({ sale, stock, setSelectedReceivableMovement }) {
+function ReceivableMovementPage({ sale, stock, saveReceivablePayment, setSelectedReceivableMovement }) {
+  const [paymentAmount, setPaymentAmount] = useState("");
   const product = stock.find((item) => String(item.id) === String(sale.productId));
+
+  async function handlePayment() {
+    const saved = await saveReceivablePayment(sale, paymentAmount);
+    if (saved) {
+      setPaymentAmount("");
+      setSelectedReceivableMovement(null);
+    }
+  }
+
   return (
     <div className="movement-page">
       <button className="choice" onClick={() => setSelectedReceivableMovement(null)}>Geri</button>
@@ -2111,6 +2155,17 @@ function ReceivableMovementPage({ sale, stock, setSelectedReceivableMovement }) 
         ["Kart", sale.card],
         ["Ürün", product ? productTitle(product) : sale.productName],
       ]} />
+      <div className="conditional-panel">
+        <h3>Alacak Tahsilatı</h3>
+        <div className="form-grid">
+          <input type="text" inputMode="numeric" placeholder="Tahsil edilen tutar" value={paymentAmount} onFocus={() => setPaymentAmount(stripMoneyForEdit(paymentAmount))} onChange={(e) => setPaymentAmount(cleanMoneyTyping(e.target.value))} onBlur={() => setPaymentAmount(formatMoneyInput(paymentAmount))} />
+          <div className="remaining-input">
+            <span>Tahsilat Sonrası</span>
+            <b>{money(Math.max(Number(sale.remaining || 0) - parseMoneyInput(paymentAmount), 0))}</b>
+          </div>
+        </div>
+        <button className="primary" onClick={handlePayment}>Alacak Ödemesini Kasaya Al</button>
+      </div>
     </div>
   );
 }

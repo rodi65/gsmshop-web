@@ -79,6 +79,9 @@ check (movement_type in (
   'Gider',
   'Satış Nakit',
   'Bankadan Nakit Gelen',
+  'Gelen Alacak',
+  'Alacak Ödemesi',
+  'Bankaya Yatırılan Nakit',
   'Düzeltme'
 ));
 

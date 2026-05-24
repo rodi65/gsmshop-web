@@ -64,6 +64,20 @@ small { color: #64748b; }
 .stat-title { color: #64748b; font-size: 13px; }
 .stat-value { font-size: 26px; font-weight: 1000; margin-top: 4px; }
 .money-negative { color: #b91c1c !important; }
+.summary-title { margin: 4px 0 -6px; font-size: 13px; color: #475569; letter-spacing: 0; }
+.cash-result {
+  background: #020617;
+  color: white;
+  border-radius: 22px;
+  padding: 20px 22px;
+  border: 1px solid #020617;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cash-result span { font-size: 13px; color: #cbd5e1; font-weight: 900; }
+.cash-result b { font-size: 34px; line-height: 1.05; }
+.cash-result.negative { background: #7f1d1d; border-color: #fecaca; }
 
 .button-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
 .kasa-subtabs, .stok-subtabs { display: flex; flex-wrap: wrap; gap: 10px; }
