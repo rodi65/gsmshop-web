@@ -1020,9 +1020,9 @@ export default function App() {
         total_amount: parseMoneyInput(sale.total),
         cash_amount: parseMoneyInput(sale.cash),
         card_amount: parseMoneyInput(sale.card),
-        remaining_amount: sale.remaining,
-        buy_cost: sale.productBuyPrice,
-        profit_amount: sale.profit,
+        remaining_amount: parseMoneyInput(sale.remaining),
+        buy_cost: parseMoneyInput(sale.productBuyPrice),
+        profit_amount: parseMoneyInput(sale.profit),
         bank_name: sale.bank || null,
       });
 
