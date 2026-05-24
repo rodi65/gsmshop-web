@@ -3510,3 +3510,132 @@ select {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* CEPLOG header ve kasa alt menu yerlesim duzenlemesi */
+.hero {
+  padding: 6px 12px !important;
+  gap: 6px !important;
+}
+
+.brand-main-line {
+  gap: 12px !important;
+}
+
+.hero h1 {
+  font-size: 68px !important;
+  line-height: .86 !important;
+  font-weight: 1000 !important;
+  letter-spacing: -2px !important;
+}
+
+.since-badge,
+.live-clock {
+  min-height: 34px !important;
+  height: auto !important;
+  padding: 7px 14px !important;
+  font-size: 22px !important;
+  line-height: 1 !important;
+  font-weight: 1000 !important;
+}
+
+.live-clock {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.hero p {
+  margin-top: 2px !important;
+}
+
+.kasa-subtabs {
+  grid-template-columns: repeat(6, minmax(0, .82fr)) minmax(238px, 1.36fr) !important;
+  gap: 5px !important;
+  align-items: stretch !important;
+  padding: 4px !important;
+}
+
+.kasa-subtabs .choice {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 5px !important;
+  font-size: 14px !important;
+  line-height: 1.05 !important;
+  font-weight: 1000 !important;
+}
+
+.kasa-cash-total {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 3px 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 2px !important;
+  border-radius: 11px !important;
+  background: #071226 !important;
+  color: #ffffff !important;
+  text-align: center !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08), 0 8px 18px rgba(7, 18, 38, .12) !important;
+}
+
+.kasa-cash-total.negative {
+  background: #7f1d1d !important;
+}
+
+.kasa-cash-total span {
+  color: #ffffff !important;
+  font-size: 8.4px !important;
+  line-height: 1 !important;
+  font-weight: 1000 !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+}
+
+.kasa-cash-total b {
+  color: #ffffff !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  font-weight: 1000 !important;
+  white-space: nowrap !important;
+}
+
+.summary-panel {
+  min-height: 0 !important;
+}
+
+@media (max-width: 1200px) {
+  .hero h1 {
+    font-size: 56px !important;
+  }
+
+  .since-badge,
+  .live-clock {
+    font-size: 18px !important;
+  }
+
+  .kasa-subtabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .kasa-cash-total {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero h1 {
+    font-size: 44px !important;
+  }
+
+  .since-badge,
+  .live-clock {
+    font-size: 15px !important;
+    padding: 6px 10px !important;
+  }
+
+  .kasa-subtabs {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}

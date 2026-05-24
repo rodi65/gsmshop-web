@@ -1494,6 +1494,10 @@ export default function App() {
               <button className={kasaTab === "nakitGirisi" ? "choice active" : "choice"} onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
               <button className={kasaTab === "kapanis" ? "choice active" : "choice"} onClick={() => setKasaTab("kapanis")}>KASA KAPANIŞ</button>
               <button className={kasaTab === "bankadanNakit" ? "choice active" : "choice"} onClick={() => setKasaTab("bankadanNakit")}>BANKADAN NAKİT GELEN</button>
+              <div className={cashWithBankIncoming < 0 ? "kasa-cash-total negative" : "kasa-cash-total"}>
+                <span>TOPLAM KASANDA OLMASI GEREKEN</span>
+                <b>{money(cashWithBankIncoming)}</b>
+              </div>
             </div>
 
             {kasaTab === "yeniSatis" && (
@@ -1517,10 +1521,6 @@ export default function App() {
                     <div className="summary-line"><span className="summary-line-label">Gelen Alacak / Alacak Ödemesi</span><b className="summary-line-value">{money(receivablePayments)}</b></div>
                     <div className="summary-line"><span className="summary-line-label">Alım Ödemeleri</span><b className="summary-line-value">{money(stockPurchasePayments)}</b></div>
                     <div className="summary-line"><span className="summary-line-label">Giderler</span><b className="summary-line-value">{money(cashExpensePayments)}</b></div>
-                    <div className={cashWithBankIncoming < 0 ? "cash-required-inside-summary negative" : "cash-required-inside-summary"}>
-                      <span className="cash-required-title">TOPLAM KASANDA OLMASI GEREKEN</span>
-                      <b className="cash-required-value">{money(cashWithBankIncoming)}</b>
-                    </div>
                   </div>
                 </div>
 
