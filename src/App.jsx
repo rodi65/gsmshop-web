@@ -1,4 +1,17 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import Login from "./components/Login";
+import CashClosingPanel from "./components/CashClosingPanel";
+import {
+  getCurrentUser,
+  signOut,
+  loadDashboardData,
+  createStockItem,
+  createSale,
+  createExpense,
+  createBankWithdrawal,
+  softDelete,
+} from "./services/dataService";
+
 import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X } from "lucide-react";
 
 const parseMoneyInput = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, ""));
@@ -51,6 +64,70 @@ const sortSalesForList = (items) =>
     if (rankDiff !== 0) return rankDiff;
     return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
+
+
+const toNumber = (value) => Number(String(value || "0").replace(/[^\d]/g, "")) || 0;
+
+const fromDbStock = (item) => ({
+  id: item.id,
+  module: item.module,
+  deviceType: item.device_type || item.deviceType || "Telefon",
+  category: item.category || "KILIF",
+  accessorySubType: item.sub_type || item.accessorySubType || "",
+  brand: item.brand || "",
+  model: item.model || "",
+  memory: item.memory || "",
+  name: item.product_name || "",
+  compatibleModel: item.note || "",
+  barcode: item.imei || item.barcode || "",
+  buy: money(Number(item.buy_price || 0)),
+  sell: money(Number(item.sell_price || 0)),
+  qty: Number(item.quantity || 0),
+  supplier: item.supplier_name || "",
+  sellerPerson: item.seller_person || "",
+  sellerPhone: item.seller_phone || "",
+  saleDate: item.created_at || new Date().toISOString(),
+  supplierPaid: money(0),
+  sellerCariRemaining: 0,
+});
+
+const fromDbSale = (sale) => ({
+  id: sale.id,
+  type: sale.sale_type,
+  productId: sale.stock_item_id,
+  productName: sale.product_name,
+  productBarcode: "",
+  productBuyPrice: Number(sale.buy_cost || 0),
+  customer: sale.customer_name || "",
+  customerPhone: sale.customer_phone || "",
+  cariPerson: sale.cari_person || "",
+  total: money(Number(sale.total_amount || 0)),
+  cash: money(Number(sale.cash_amount || 0)),
+  card: money(Number(sale.card_amount || 0)),
+  bank: sale.bank_name || "",
+  remaining: Number(sale.remaining_amount || 0),
+  profit: Number(sale.profit_amount || 0),
+  date: sale.created_at || new Date().toISOString(),
+});
+
+const fromDbExpense = (item) => ({
+  id: item.id,
+  category: item.category,
+  amount: money(Number(item.amount || 0)),
+  note: item.note || "",
+  date: item.created_at || new Date().toISOString(),
+});
+
+const fromDbBankMovement = (item) => ({
+  id: item.id,
+  type: item.movement_type,
+  bank: item.bank_name,
+  amount: money(Number(item.amount || 0)),
+  note: item.note || "",
+  date: item.created_at || new Date().toISOString(),
+});
+
+
 const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik"];
 const banks = ["Ziraatbank", "İşbank", "Garantibank", "Halkbank", "Qnbbank", "Vakıfbank", "Yapıkredi"];
 const memoryOptions = ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB"];
@@ -247,6 +324,10 @@ function Table({ headers, rows }) {
 
 export default function App() {
   const [active, setActive] = useState("kasa");
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [dbReady, setDbReady] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
   const [kasaTab, setKasaTab] = useState("yeniSatis");
   const [saleGroup, setSaleGroup] = useState("Telefon");
   const [quickAccessoryGroup, setQuickAccessoryGroup] = useState("Kılıf");
@@ -314,6 +395,41 @@ export default function App() {
     });
     return Array.from(map.values());
   }, [stock]);
+
+
+  async function refreshFromDatabase() {
+    setSyncMessage("Veriler Supabase'ten yükleniyor...");
+    const data = await loadDashboardData();
+    setStock((data.stock || []).map(fromDbStock));
+    setSales((data.sales || []).map(fromDbSale));
+    setExpenses((data.expenses || []).map(fromDbExpense));
+    setBankMovements((data.bankMovements || []).map(fromDbBankMovement));
+    setDbReady(true);
+    setSyncMessage("Veriler Supabase ile senkronize.");
+  }
+
+  async function checkAuthAndLoad() {
+    try {
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+      if (user) await refreshFromDatabase();
+    } catch (error) {
+      console.error(error);
+      setSyncMessage(error.message || "Supabase bağlantısı kontrol edilemedi.");
+    } finally {
+      setAuthChecked(true);
+    }
+  }
+
+  useEffect(() => {
+    checkAuthAndLoad();
+  }, []);
+
+  async function handleLogout() {
+    await signOut();
+    setCurrentUser(null);
+    setDbReady(false);
+  }
 
   const report = {
     total: sales.reduce((sum, sale) => sum + parseMoneyInput(sale.total), 0),
@@ -409,14 +525,26 @@ export default function App() {
     return password === "1";
   }
 
-  function deleteSale(id) {
+  async function deleteSale(id) {
     if (!askDeletePassword()) return alert("Şifre yanlış. Silme işlemi iptal edildi.");
-    setSales(sales.filter((sale) => sale.id !== id));
+    try {
+      await softDelete("sales", id);
+      setSales(sales.filter((sale) => sale.id !== id));
+      setSyncMessage("Satış Supabase'de silindi olarak işaretlendi.");
+    } catch (error) {
+      alert(error.message || "Satış silinemedi.");
+    }
   }
 
-  function deleteStock(id) {
+  async function deleteStock(id) {
     if (!askDeletePassword()) return alert("Şifre yanlış. Silme işlemi iptal edildi.");
-    setStock(stock.filter((product) => product.id !== id));
+    try {
+      await softDelete("stock_items", id);
+      setStock(stock.filter((product) => product.id !== id));
+      setSyncMessage("Stok Supabase'de silindi olarak işaretlendi.");
+    } catch (error) {
+      alert(error.message || "Stok silinemedi.");
+    }
   }
 
   function deleteSupplierDebt(supplierName) {
@@ -424,47 +552,56 @@ export default function App() {
     setStock(stock.filter((product) => product.supplier !== supplierName));
   }
 
-  function saveExpense() {
+  async function saveExpense() {
     const amount = parseMoneyInput(expenseForm.amount);
     if (!amount) return alert("Gider tutarını yaz");
     if (expenseForm.category === "Borç" && !expenseForm.note.trim()) return alert("Borç giderinde Not zorunludur");
 
-    setExpenses([
-      {
-        id: Date.now(),
+    try {
+      const savedExpense = await createExpense({
         category: expenseForm.category,
-        amount: money(amount),
+        amount,
         note: expenseForm.note.trim(),
-        date: new Date().toISOString(),
-      },
-      ...expenses,
-    ]);
+      });
+      setExpenses([fromDbExpense(savedExpense), ...expenses]);
+      setSyncMessage("Gider Supabase'e kaydedildi.");
+    } catch (error) {
+      alert(error.message || "Gider Supabase'e yazılamadı.");
+      return;
+    }
 
     setExpenseForm({ category: "Yemek", amount: "", note: "" });
   }
 
-  function deleteExpense(id) {
+  async function deleteExpense(id) {
     if (!askDeletePassword()) return alert("Şifre yanlış. Silme işlemi iptal edildi.");
-    setExpenses(expenses.filter((item) => item.id !== id));
+    try {
+      await softDelete("expenses", id);
+      setExpenses(expenses.filter((item) => item.id !== id));
+      setSyncMessage("Gider Supabase'de silindi olarak işaretlendi.");
+    } catch (error) {
+      alert(error.message || "Gider silinemedi.");
+    }
   }
 
-  function saveBankCashIncoming() {
+  async function saveBankCashIncoming() {
     const amount = parseMoneyInput(bankCashForm.amount);
     if (!bankCashForm.bank) return alert("Banka ismi seçmek zorunludur");
     if (!amount) return alert("Bankadan gelen nakit tutarını yaz");
     if (amount > bankReport.remainingInBank) return alert("Bankada kalan tutardan fazla çekim yapılamaz");
 
-    setBankMovements([
-      {
-        id: Date.now(),
-        type: "Bankadan Çekilen",
-        amount: money(amount),
-        bank: bankCashForm.bank,
+    try {
+      const savedMovement = await createBankWithdrawal({
+        bank_name: bankCashForm.bank,
+        amount,
         note: bankCashForm.note || `Bankadan Nakit Gelen - ${bankCashForm.bank}`,
-        date: new Date().toISOString(),
-      },
-      ...bankMovements,
-    ]);
+      });
+      setBankMovements([fromDbBankMovement(savedMovement), ...bankMovements]);
+      setSyncMessage("Bankadan nakit gelen Supabase'e kaydedildi.");
+    } catch (error) {
+      alert(error.message || "Banka hareketi Supabase'e yazılamadı.");
+      return;
+    }
 
     setBankCashForm({ amount: "", bank: "", note: "" });
     alert("Bankadan gelen para nakit kasasına eklendi ve Bankadan Çekilen bölümüne işlendi.");
@@ -516,7 +653,7 @@ export default function App() {
     setStockTab("liste");
   }
 
-  function saveSale() {
+  async function saveSale() {
     if (!selectedProduct) return alert("Ürün seç");
     if (Number(selectedProduct.qty || 0) <= 0) return alert("Stok yok");
     if (!isAccessorySale && !saleForm.customer.trim()) return alert("Müşteri adı soyadı / telefon yaz");
@@ -539,21 +676,45 @@ export default function App() {
       date: new Date().toISOString(),
     });
 
-    setStock(stock.map((product) => product.id === selectedProduct.id ? { ...product, qty: Math.max(Number(product.qty || 0) - 1, 0) } : product));
-    setSales([sale, ...sales]);
+    try {
+      const savedSale = await createSale({
+        sale_group: saleGroupName(sale.type),
+        sale_type: sale.type,
+        stock_item_id: selectedProduct.id,
+        product_name: sale.productName,
+        customer_name: sale.customer,
+        customer_phone: "",
+        cari_person: sale.cariPerson,
+        total_amount: parseMoneyInput(sale.total),
+        cash_amount: parseMoneyInput(sale.cash),
+        card_amount: parseMoneyInput(sale.card),
+        remaining_amount: sale.remaining,
+        buy_cost: sale.productBuyPrice,
+        profit_amount: sale.profit,
+        bank_name: sale.bank || null,
+      });
 
-    if (parseMoneyInput(sale.card) > 0) {
-      setBankMovements([
-        {
-          id: Date.now() + 1,
-          type: "Bankaya Giden",
-          amount: sale.card,
-          note: `POSTAN Gelen - ${sale.bank || "Banka"} - ${sale.productName}`,
-          bank: sale.bank || "",
-          date: new Date().toISOString(),
-        },
-        ...bankMovements,
-      ]);
+      setStock(stock.map((product) => product.id === selectedProduct.id ? { ...product, qty: Math.max(Number(product.qty || 0) - 1, 0) } : product));
+      setSales([fromDbSale(savedSale), ...sales]);
+
+      if (parseMoneyInput(sale.card) > 0) {
+        setBankMovements([
+          {
+            id: Date.now() + 1,
+            type: "Bankaya Giden",
+            amount: sale.card,
+            note: `POSTAN Gelen - ${sale.bank || "Banka"} - ${sale.productName}`,
+            bank: sale.bank || "",
+            date: new Date().toISOString(),
+          },
+          ...bankMovements,
+        ]);
+      }
+
+      setSyncMessage("Satış Supabase'e kaydedildi.");
+    } catch (error) {
+      alert(error.message || "Satış Supabase'e yazılamadı.");
+      return;
     }
 
     setSaleForm({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
@@ -603,6 +764,14 @@ export default function App() {
     }
   }
 
+  if (!authChecked) {
+    return <div className="app"><section className="card"><h2>GSMSHOP yükleniyor...</h2></section></div>;
+  }
+
+  if (!currentUser) {
+    return <Login onLogin={checkAuthAndLoad} />;
+  }
+
   return (
     <div className="app">
       <div className="shell">
@@ -610,6 +779,7 @@ export default function App() {
           <div>
             <h1>GSMSHOP</h1>
             <p>Web kasa, cihaz, aksesuar, stok, sorgulama, tamir ve kâr takip sistemi.</p>
+        {syncMessage && <div className="sync-message">{syncMessage}</div>}
           </div>
           <div className="status-pill">WEB TEST</div>
         </header>
@@ -674,6 +844,7 @@ export default function App() {
               <button className={kasaTab === "yeniSatis" ? "choice active" : "choice"} onClick={() => setKasaTab("yeniSatis")}>Yeni Satış</button>
               <button className={kasaTab === "satisListesi" ? "choice active" : "choice"} onClick={() => setKasaTab("satisListesi")}>Satış Listesi</button>
               <button className={kasaTab === "giderler" ? "choice active" : "choice"} onClick={() => setKasaTab("giderler")}>Giderler</button>
+              <button className={kasaTab === "kapanis" ? "choice active" : "choice"} onClick={() => setKasaTab("kapanis")}>Kasa Kapanış</button>
               <button className={kasaTab === "bankadanNakit" ? "choice active" : "choice"} onClick={() => setKasaTab("bankadanNakit")}>Bankadan Nakit Gelen</button>
             </div>
 
@@ -908,6 +1079,10 @@ export default function App() {
                   <button className="delete-btn" onClick={() => deleteExpense(item.id)}>Sil</button>,
                 ])} />
               </section>
+            )}
+
+            {kasaTab === "kapanis" && (
+              <CashClosingPanel />
             )}
 
             {kasaTab === "bankadanNakit" && (
