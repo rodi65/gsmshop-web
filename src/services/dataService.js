@@ -272,14 +272,6 @@ export async function repairStockSideEffects(stockItems = [], cashMovements = []
 
 export async function createStockItem(payload) {
   const user = await getCurrentUser();
-  const { data, error } = await supabase
-    .from("stock_items")
-    .insert([{ ...payload, status: payload.status || "active", created_by: user?.id, updated_by: user?.id }])
-    .select()
-    .single();
-
-  if (error) throw error;
-
   const paid = Number(payload.supplier_paid || 0);
   const buyTotal = Number(payload.buy_price || 0) * Number(payload.quantity || 1);
   const remaining = Math.max(buyTotal - paid, 0);
@@ -292,6 +284,18 @@ export async function createStockItem(payload) {
     Boolean(sellerName);
   const sellerRemaining = Number(payload.seller_cari_remaining || 0);
   const isSellerPurchase = payload.acquisition_type === "Müşteri" || isSecondHandPhoneSeller || (sellerRemaining > 0 && Boolean(sellerName));
+  const stockPayload = { ...payload };
+  if (remaining > 0 && isSellerPurchase && !sellerRemaining) {
+    stockPayload.seller_cari_remaining = remaining;
+  }
+
+  const { data, error } = await supabase
+    .from("stock_items")
+    .insert([{ ...stockPayload, status: stockPayload.status || "active", created_by: user?.id, updated_by: user?.id }])
+    .select()
+    .single();
+
+  if (error) throw error;
 
   if (paid > 0) {
     await createCashMovement({
@@ -309,7 +313,7 @@ export async function createStockItem(payload) {
       kind: "seller",
       name: sellerName,
       phone: payload.seller_phone || "",
-      balance: sellerRemaining || remaining,
+      balance: Number(stockPayload.seller_cari_remaining || 0) || remaining,
       balanceType: "payable",
       note: `${payload.product_name || "Cihaz"} alımından kalan borç`,
     });

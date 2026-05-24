@@ -11,6 +11,7 @@ import {
   createBankWithdrawal,
   createCashMovement,
   createContactPayment,
+  findOrCreateContact,
   repairStockSideEffects,
   softDelete,
 } from "./services/dataService";
@@ -108,6 +109,20 @@ const stockPurchasePaymentAmount = (product) => {
   const sellerDebt = stockSellerDebt(product);
   return sellerDebt > 0 ? Math.max(totalBuy - sellerDebt, 0) : 0;
 };
+const sellerRemainingFromDb = (item) => {
+  const explicitDebt = Number(item.seller_cari_remaining || 0);
+  if (explicitDebt > 0) return explicitDebt;
+
+  const isCustomerPurchase =
+    item.acquisition_type === "Müşteri" ||
+    (item.module === "Cihaz" && item.category === "İkinci El");
+  const hasSeller = item.seller_person || item.seller_cari_name || isSellerLabel(item.supplier_name);
+  if (!isCustomerPurchase || !hasSeller) return 0;
+
+  const totalBuy = Number(item.buy_price || 0) * Number(item.quantity || 1);
+  const paid = Number(item.supplier_paid || 0);
+  return Math.max(totalBuy - paid, 0);
+};
 
 const sortSalesForList = (items) =>
   [...items].sort((a, b) => {
@@ -119,31 +134,35 @@ const sortSalesForList = (items) =>
 
 const toNumber = (value) => Number(String(value || "0").replace(/[^\d]/g, "")) || 0;
 
-const fromDbStock = (item) => ({
-  id: item.id,
-  module: item.module,
-  deviceType: item.device_type || item.deviceType || "Telefon",
-  condition: item.module === "Cihaz" ? item.category || "Sıfır Garantili" : "Sıfır Garantili",
-  category: item.module === "Aksesuar" ? item.category || "KILIF" : item.category || "",
-  accessorySubType: item.sub_type || item.accessorySubType || "",
-  brand: item.brand || "",
-  model: item.model || "",
-  memory: item.memory || "",
-  name: item.product_name || "",
-  compatibleModel: item.note || "",
-  barcode: item.imei || item.barcode || "",
-  buy: money(Number(item.buy_price || 0)),
-  sell: money(Number(item.sell_price || 0)),
-  qty: Number(item.quantity || 0),
-  supplier: item.supplier_name || "",
-  sellerPerson: item.seller_person || "",
-  sellerPhone: item.seller_phone || "",
-  saleDate: item.created_at || new Date().toISOString(),
-  supplierPaid: money(Number(item.supplier_paid || 0)),
-  sellerCariRemaining: Number(item.seller_cari_remaining || 0),
-  sellerCariName: Number(item.seller_cari_remaining || 0) > 0 ? sellerNameFromProduct(item) : "",
-  acquisitionType: item.acquisition_type || "Tedarikçi Firma",
-});
+const fromDbStock = (item) => {
+  const sellerRemaining = sellerRemainingFromDb(item);
+
+  return {
+    id: item.id,
+    module: item.module,
+    deviceType: item.device_type || item.deviceType || "Telefon",
+    condition: item.module === "Cihaz" ? item.category || "Sıfır Garantili" : "Sıfır Garantili",
+    category: item.module === "Aksesuar" ? item.category || "KILIF" : item.category || "",
+    accessorySubType: item.sub_type || item.accessorySubType || "",
+    brand: item.brand || "",
+    model: item.model || "",
+    memory: item.memory || "",
+    name: item.product_name || "",
+    compatibleModel: item.note || "",
+    barcode: item.imei || item.barcode || "",
+    buy: money(Number(item.buy_price || 0)),
+    sell: money(Number(item.sell_price || 0)),
+    qty: Number(item.quantity || 0),
+    supplier: item.supplier_name || "",
+    sellerPerson: item.seller_person || "",
+    sellerPhone: item.seller_phone || "",
+    saleDate: item.created_at || new Date().toISOString(),
+    supplierPaid: money(Number(item.supplier_paid || 0)),
+    sellerCariRemaining: sellerRemaining,
+    sellerCariName: sellerRemaining > 0 ? sellerNameFromProduct(item) : "",
+    acquisitionType: item.acquisition_type || "Tedarikçi Firma",
+  };
+};
 
 const fromDbSale = (sale) => ({
   id: sale.id,
