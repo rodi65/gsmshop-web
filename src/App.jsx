@@ -237,7 +237,7 @@ const fromDbContact = (item) => ({
 
 
 const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik", "Diğer"];
-const banks = ["Ziraatbank", "İşbank", "Garantibank", "Halkbank", "Qnbbank", "Vakıfbank", "Yapıkredi"];
+const banks = ["Ziraatbank", "İşbank", "Halkbank"];
 const memoryOptions = ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB"];
 const categories = ["KILIF", "EKRAN Koruyucu", "USB", "ŞARJ", "KULAKLIK"];
 const accessoryGroups = {
@@ -251,6 +251,7 @@ const accessoryGroups = {
 const fixedAccessoryCategories = ["KILIF", "EKRAN Koruyucu", "USB", "ŞARJ", "KULAKLIK"];
 const brands = ["Apple", "Samsung", "Huawei", "Xiaomi", "Oppo", "Vivo", "Honor", "Realme", "Tecno", "Poco", "OnePlus", "TCL", "Infinix", "Alcatel", "Motorola"];
 const nonPhoneBrands = ["Apple", "Samsung", "Huawei", "Xiaomi", "Lenovo", "HP", "Casper", "Monster", "Asus", "Acer", "Sony", "LG", "Diğer"];
+const otherProductGroups = ["Saat", "Tablet", "PC", "Elektronik", "Diğerleri"];
 
 const modelsByBrand = {
   Apple: ["iPhone 17 Pro Max", "iPhone 17 Pro", "iPhone Air", "iPhone 17", "iPhone 16 Pro Max", "iPhone 16 Pro", "iPhone 16", "iPhone 15 Pro Max", "iPhone 15 Pro", "iPhone 15", "Apple Watch Ultra 3", "Apple Watch Series 11", "Apple Watch SE 3"],
@@ -484,7 +485,11 @@ export default function App() {
   const saleDeviceType = saleForm.type.replace(" Satışı", "");
 
   const saleProducts = isProgramSale ? [] : stock
-    .filter((product) => isAccessorySale ? product.module === "Aksesuar" : product.module === "Cihaz" && product.deviceType === saleDeviceType)
+    .filter((product) => {
+      if (isAccessorySale) return product.module === "Aksesuar";
+      if (saleDeviceType === "Telefon") return product.module === "Cihaz" && product.deviceType === "Telefon";
+      return product.deviceType === saleDeviceType || product.deviceType === saleGroup;
+    })
     .filter((product) => !saleForm.search || has(productTitle(product), saleForm.search) || has(product.barcode, saleForm.search))
     .filter((product) => Number(product.qty || 0) > 0);
 
@@ -639,6 +644,22 @@ export default function App() {
   };
   bankReport.remainingInBank = Math.max(bankReport.totalToBank - bankReport.withdrawnFromBank, 0);
 
+  const bankAccountRows = banks.map((bank) => {
+    const totalToBank = bankMovements
+      .filter((item) => item.type === "Bankaya Giden" && item.bank === bank)
+      .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
+    const withdrawnFromBank = bankMovements
+      .filter((item) => item.type === "Bankadan Çekilen" && item.bank === bank)
+      .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
+    return {
+      bank,
+      totalToBank,
+      withdrawnFromBank,
+      remaining: Math.max(totalToBank - withdrawnFromBank, 0),
+      commission: (Math.max(totalToBank - withdrawnFromBank, 0) / 100) * 3.5,
+    };
+  });
+
   const currentMonthKey = new Date().toISOString().slice(0, 7);
   const monthlyPosTotal = bankMovements
     .filter((item) => item.type === "Bankaya Giden" && item.date && item.date.slice(0, 7) === currentMonthKey)
@@ -665,6 +686,10 @@ export default function App() {
     .reduce((sum, product) => sum + stockPurchasePaymentAmount(product), 0);
   const cashMovementNet = cashMovements
     .filter((item) => cashLedgerMovementTypes.includes(cashMovementType(item)))
+    .reduce((sum, item) => sum + (item.direction === "out" ? -cashMovementAmount(item) : cashMovementAmount(item)), 0);
+
+  const cashMovementNetWithoutSaleCash = cashMovements
+    .filter((item) => cashLedgerMovementTypes.includes(cashMovementType(item)) && cashMovementType(item) !== "Satış Nakit")
     .reduce((sum, item) => sum + (item.direction === "out" ? -cashMovementAmount(item) : cashMovementAmount(item)), 0);
   const carryOverCash = cashMovements
     .filter((item) => cashMovementType(item) === "Devir Nakit" && item.direction === "in")
@@ -696,7 +721,7 @@ export default function App() {
   const cashExpensePayments = cashMovements
     .filter((item) => cashMovementType(item) === "Gider" && item.direction === "out")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0) + legacyExpenseOut;
-  const cashWithBankIncoming = cashMovementNet + legacyCashSales + legacyBankCashIncoming - legacyExpenseOut - legacyStockPaymentOut;
+  const cashWithBankIncoming = cashMovementNetWithoutSaleCash + report.cash + legacyBankCashIncoming - legacyExpenseOut - legacyStockPaymentOut;
   const cashAfterExpenses = cashWithBankIncoming;
 
   const dayProfit = sales
@@ -749,6 +774,19 @@ export default function App() {
 
   const sortedSales = sortSalesForList(sales);
   const sortedFilteredSales = sortSalesForList(filteredSales);
+
+  function handleBankSelect(value, setter) {
+    if (value !== "__add_bank__") {
+      setter(value);
+      return;
+    }
+
+    const name = window.prompt("Yeni banka adı yaz");
+    if (!name) return;
+    const clean = name.trim();
+    if (!clean) return;
+    alert(`${clean} banka ekleme isteği alındı. Kalıcı banka listesi için Yönetim > Banka Ayarları bölümünde Supabase kaydı yapılacak. Şimdilik ana bankalar: Ziraatbank, İşbank, Halkbank.`);
+  }
 
   function addSupplier() {
     const name = newSupplierName.trim().toUpperCase();
@@ -1323,6 +1361,19 @@ export default function App() {
           </button>
 
           <button
+            className={active === "digerler" ? "nav-btn active" : "nav-btn"}
+            onClick={() => {
+              const group = otherProductGroups.includes(stockForm.deviceType) && stockForm.deviceType !== "Telefon" ? stockForm.deviceType : "Saat";
+              setOtherGroupName(group);
+              setStockForm({ ...stockForm, module: "Diğer", deviceType: group, condition: "Sıfır Garantili", brand: "", model: "", memory: "", name: stockForm.name || "" });
+              setActive("digerler");
+            }}
+          >
+            <Package size={22} />
+            <span>DİĞERLERİ</span>
+          </button>
+
+          <button
             className={active === "stok" ? "nav-btn active" : "nav-btn"}
             onClick={() => setActive("stok")}
           >
@@ -1348,11 +1399,11 @@ export default function App() {
           </button>
 
           <button
-            className={active === "yonetim" ? "nav-btn active" : "nav-btn"}
+            className={active === "yonetim" ? "nav-btn nav-mini-y active" : "nav-btn nav-mini-y"}
             onClick={() => setActive("yonetim")}
+            title="Yönetim"
           >
-            <ShieldCheck size={22} />
-            <span>YÖNETİM</span>
+            <span>Y</span>
           </button>
         </nav>
 
@@ -1556,9 +1607,10 @@ export default function App() {
                       <div className="remaining-box"><span>Kalan</span><b>{money(saleRemaining)}</b></div>
                     </div>
 
-                    <select value={saleForm.bank} onChange={(e) => setSaleForm({ ...saleForm, bank: e.target.value })}>
+                    <select value={saleForm.bank} onChange={(e) => handleBankSelect(e.target.value, (bank) => setSaleForm({ ...saleForm, bank }))}>
                       <option value="">Banka seç</option>
-                      {banks.map((bank) => <option key={bank}>{bank}</option>)}
+                      {banks.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+                      <option value="__add_bank__">+ Banka Ekle</option>
                     </select>
 
                     {!isAccessorySale && saleRemaining > 0 && (
@@ -1819,9 +1871,7 @@ export default function App() {
                 <p>Bankadan kasaya para çekildiğinde nakit kasasına eklenir ve Kara Defter içindeki Bankadan Çekilen bölümüne otomatik işlenir.</p>
 
                 <div className="commission-info">
-                  <strong>Banka Bu Ay Bu Kadar Paranı Komisyon Olarak Aldı</strong>
-                  <span>{money(monthlyPosCommission)}</span>
-                  <small>Hesap: Bankada kalan rakam / 100 × 3,5. Bankada kalan: {money(bankReport.remainingInBank)}</small>
+                  
                 </div>
 
                 <div className="stats three">
@@ -1831,7 +1881,7 @@ export default function App() {
                 </div>
 
                 <div className="form-grid">
-                  <select value={bankCashForm.bank} onChange={(e) => setBankCashForm({ ...bankCashForm, bank: e.target.value })}>
+                  <select value={bankCashForm.bank} onChange={(e) => handleBankSelect(e.target.value, (bank) => setBankCashForm({ ...bankCashForm, bank }))}>
                     <option value="">Banka seçmek zorunlu</option>
                     {banks.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
                   </select>
@@ -1856,6 +1906,7 @@ export default function App() {
               setSupplierModalOpen={setSupplierModalOpen}
               customAccessoryCategories={customAccessoryCategories}
               setCustomAccessoryCategories={setCustomAccessoryCategories}
+              phoneOnly={true}
             />
           </section>
         )}
@@ -1952,7 +2003,7 @@ export default function App() {
             <div className="kasa-subtabs">
               <button className={karaTab === "alacak" ? "choice active" : "choice"} onClick={() => setKaraTab("alacak")}>Alacaklarım</button>
               <button className={karaTab === "borc" ? "choice active" : "choice"} onClick={() => setKaraTab("borc")}>Tedarikçi/Firma</button>
-              <button className={karaTab === "banka" ? "choice active" : "choice"} onClick={() => setKaraTab("banka")}>Bankadan Alacağım</button>
+              <button className={karaTab === "banka" ? "choice active" : "choice"} onClick={() => setKaraTab("banka")}>Banka Hesap</button>
               <button className={karaTab === "kar" ? "choice active" : "choice"} onClick={openProfitTab}>Kâr</button>
               <button className={karaTab === "sorgu" ? "choice active" : "choice"} onClick={() => setKaraTab("sorgu")}>Sorgula</button>
             </div>
@@ -2010,14 +2061,25 @@ export default function App() {
                 )}
               </section>
             )}
-
             {karaTab === "banka" && (
               <section className="card">
-                <h2>Kara Defter / Bankadan Alacağım</h2>
+                <h2>Kara Defter / Banka Hesap</h2>
                 <div className="stats three">
                   <Stat title="Bankaya Toplam Giden" value={money(bankReport.totalToBank)} />
                   <Stat title="Bankadan Çekilen" value={money(bankReport.withdrawnFromBank)} />
                   <Stat title="Bankada Kalan" value={money(bankReport.remainingInBank)} />
+                </div>
+
+                <div className="bank-account-grid">
+                  {bankAccountRows.map((row) => (
+                    <div key={row.bank} className="bank-account-card">
+                      <h3>{row.bank}</h3>
+                      <div><span>Bankaya Giden</span><b>{money(row.totalToBank)}</b></div>
+                      <div><span>Bankadan Çekilen</span><b>{money(row.withdrawnFromBank)}</b></div>
+                      <div><span>Bankada Kalan</span><b>{money(row.remaining)}</b></div>
+                      <div><span>Komisyon Tahmini %3,5</span><b>{money(row.commission)}</b></div>
+                    </div>
+                  ))}
                 </div>
 
                 <Table headers={["Tarih", "İşlem", "Banka/POS", "Tutar", "Not"]} rows={bankMovements.map((item) => [
@@ -2115,8 +2177,8 @@ export default function App() {
   );
 }
 
-function DeviceStockForm({ stockForm, setStockForm, saveStock, supplierOptions, setSupplierModalOpen }) {
-  const isPhone = stockForm.deviceType === "Telefon";
+function DeviceStockForm({ stockForm, setStockForm, saveStock, supplierOptions, setSupplierModalOpen, phoneOnly = false }) {
+  const isPhone = phoneOnly || stockForm.deviceType === "Telefon";
   const isSecondHandPhone = isSecondHandPhonePurchase(stockForm, "Cihaz");
   const brandOptions = isPhone ? brands : nonPhoneBrands;
   const phoneModels = modelsByBrand[stockForm.brand] || [];
@@ -2166,9 +2228,11 @@ function DeviceStockForm({ stockForm, setStockForm, saveStock, supplierOptions, 
   return (
     <>
       <div className="form-grid">
-        <select value={stockForm.deviceType} onChange={(e) => changeDeviceType(e.target.value)}>
-          {deviceTypes.map((item) => <option key={item}>{item}</option>)}
-        </select>
+        {!phoneOnly && (
+          <select value={stockForm.deviceType} onChange={(e) => changeDeviceType(e.target.value)}>
+            {deviceTypes.map((item) => <option key={item}>{item}</option>)}
+          </select>
+        )}
 
         <select value={stockForm.condition} onChange={(e) => changeCondition(e.target.value)}>
           <option>Sıfır Garantili</option>
@@ -2245,7 +2309,7 @@ function DeviceStockForm({ stockForm, setStockForm, saveStock, supplierOptions, 
       )}
 
       <input placeholder="Not" value={stockForm.note} onChange={(e) => setStockForm({ ...stockForm, module: "Cihaz", note: e.target.value })} />
-      <button className="primary" onClick={() => saveStock("Cihaz")}><Plus size={16} /> Cihazı Stoka Kaydet</button>
+      <button className="primary" onClick={() => { if (phoneOnly) setStockForm({ ...stockForm, module: "Cihaz", deviceType: "Telefon" }); saveStock("Cihaz"); }}><Plus size={16} /> Cihazı Stoka Kaydet</button>
     </>
   );
 }
@@ -2384,10 +2448,12 @@ function OtherStockForm({ stockForm, setStockForm, saveStock, otherGroupName, se
   return (
     <>
       <div className="form-grid">
-        <input placeholder="Grup adı" value={otherGroupName} onChange={(e) => {
+        <select value={stockForm.deviceType || otherGroupName || "Saat"} onChange={(e) => {
           setOtherGroupName(e.target.value);
-          setStockForm({ ...stockForm, module: "Diğer", deviceType: e.target.value || "Diğer" });
-        }} />
+          setStockForm({ ...stockForm, module: "Diğer", deviceType: e.target.value || "Diğerleri" });
+        }}>
+          {otherProductGroups.map((group) => <option key={group}>{group}</option>)}
+        </select>
         <input placeholder="Ürün adı" value={stockForm.name} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", name: e.target.value })} />
         <input placeholder="Barkod numarası" inputMode="numeric" maxLength={15} value={stockForm.barcode} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", barcode: cleanBarcode(e.target.value) })} />
         <select value={stockForm.supplier} onChange={(e) => {
@@ -2572,9 +2638,16 @@ function SaleEditModal({ sale, setSale, save }) {
         <input type="text" inputMode="numeric" placeholder="Satış fiyatı" value={sale.total} onFocus={() => setSale({ ...sale, total: stripMoneyForEdit(sale.total) })} onChange={(e) => setSale({ ...sale, total: cleanMoneyTyping(e.target.value) })} onBlur={() => setSale({ ...sale, total: formatMoneyInput(sale.total) })} />
         <input type="text" inputMode="numeric" placeholder="Nakit" value={sale.cash} onFocus={() => setSale({ ...sale, cash: stripMoneyForEdit(sale.cash) })} onChange={(e) => setSale({ ...sale, cash: cleanMoneyTyping(e.target.value) })} onBlur={() => setSale({ ...sale, cash: formatMoneyInput(sale.cash) })} />
         <input type="text" inputMode="numeric" placeholder="Kart" value={sale.card} onFocus={() => setSale({ ...sale, card: stripMoneyForEdit(sale.card) })} onChange={(e) => setSale({ ...sale, card: cleanMoneyTyping(e.target.value) })} onBlur={() => setSale({ ...sale, card: formatMoneyInput(sale.card) })} />
-        <select value={sale.bank || ""} onChange={(e) => setSale({ ...sale, bank: e.target.value })}>
+        <select value={sale.bank || ""} onChange={(e) => {
+          if (e.target.value === "__add_bank__") {
+            alert("Banka ekleme ana satış ekranından yapılacak. Ana bankalar: Ziraatbank, İşbank, Halkbank.");
+            return;
+          }
+          setSale({ ...sale, bank: e.target.value });
+        }}>
           <option value="">Banka seç</option>
-          {banks.map((bank) => <option key={bank}>{bank}</option>)}
+          {banks.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+          <option value="__add_bank__">+ Banka Ekle</option>
         </select>
         <div className="remaining-box"><span>Yeni Kalan</span><b>{money(remaining)}</b></div>
         <div className="modal-actions">
