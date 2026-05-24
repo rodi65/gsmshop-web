@@ -29,6 +29,13 @@ const formatMoneyInput = (value) => {
 const cleanMoneyTyping = (value) => String(value || "").replace(/\D/g, "");
 const stripMoneyForEdit = (value) => String(value || "").replace(/\D/g, "");
 const cleanPhone = (value) => String(value || "").replace(/\D/g, "").slice(0, 11);
+const formatPhoneDisplay = (value, masked = false) => {
+  const digits = cleanPhone(value);
+  if (!digits) return "";
+  if (masked) return digits.length >= 2 ? `0 (5**) *** ** **` : digits;
+  const padded = digits.padEnd(11, "_");
+  return `${padded.slice(0, 1)} (${padded.slice(1, 4)}) ${padded.slice(4, 7)} ${padded.slice(7, 9)} ${padded.slice(9, 11)}`.replace(/_/g, "");
+};
 const money = (value) => `${new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 0 }).format(parseMoneyInput(value))} TL`;
 const has = (a, b) => String(a || "").toLowerCase().includes(String(b || "").toLowerCase());
 const stockRemainingAmount = (form) => Math.max(parseMoneyInput(form.buy) - parseMoneyInput(form.supplierPaid), 0);
@@ -428,6 +435,7 @@ export default function App() {
   const [active, setActive] = useState("kasa");
   const [currentUser, setCurrentUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [clockNow, setClockNow] = useState(new Date());
   const [dbReady, setDbReady] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
   const [cashMovements, setCashMovements] = useState([]);
@@ -632,7 +640,7 @@ export default function App() {
   const monthlyPosTotal = bankMovements
     .filter((item) => item.type === "Bankaya Giden" && item.date && item.date.slice(0, 7) === currentMonthKey)
     .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
-  const monthlyPosCommission = monthlyPosTotal * 0.035;
+  const monthlyPosCommission = (bankReport.remainingInBank / 100) * 3.5;
 
   const todayKey = new Date().toISOString().slice(0, 10);
   const monthKey = new Date().toISOString().slice(0, 7);
@@ -681,6 +689,7 @@ export default function App() {
   const receivablePayments = cashMovements
     .filter((item) => receivablePaymentTypes.includes(cashMovementType(item)) && item.direction === "in")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
+  const cardSalesTotal = sales.reduce((sum, sale) => sum + parseMoneyInput(sale.card || sale.card_amount || 0), 0);
   const cashExpensePayments = cashMovements
     .filter((item) => cashMovementType(item) === "Gider" && item.direction === "out")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0) + legacyExpenseOut;
@@ -1096,6 +1105,11 @@ export default function App() {
     }
   }
 
+  useEffect(() => {
+    const timer = setInterval(() => setClockNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   if (!authChecked) {
     return <div className="app"><section className="card"><h2>GSMSHOP yükleniyor...</h2></section></div>;
   }
@@ -1109,7 +1123,10 @@ export default function App() {
       <div className="shell">
         <header className="hero">
           <div>
-            <h1>GSMSHOP</h1>
+            <div className="brand-title-row">
+              <h1>GSMSHOP</h1>
+              <div className="live-clock">{clockNow.toLocaleString("tr-TR")}</div>
+            </div>
             <p>Web kasa, cihaz, aksesuar, stok, sorgulama, tamir ve kâr takip sistemi.</p>
         {syncMessage && <div className="sync-message">{syncMessage}</div>}
           </div>
@@ -1199,6 +1216,7 @@ export default function App() {
                   <Stat title="Aksesuar Satış Tutarı" value={money(accessorySalesTotal)} />
                   <Stat title="Teknik Servis Geliri" value={money(technicalServiceTotal)} />
                   <Stat title="Diğer Satışlar" value={money(otherSalesTotal)} />
+                  <Stat title="Kartla Yapılan Satış" value={money(cardSalesTotal)} />
                 </div>
 
                 <h3 className="summary-title">NAKİT ÖZETLERİ</h3>
@@ -1252,14 +1270,21 @@ export default function App() {
 
 
                     {!isAccessorySale && (
-                      <input placeholder="Müşteri adı soyadı / telefon" value={saleForm.customer} onChange={(e) => setSaleForm({ ...saleForm, customer: e.target.value, cariPerson: saleForm.cariPerson || e.target.value })} />
+                      <input placeholder="Müşteri adı soyadı / telefon 0 (5xx) xxx xx xx" value={saleForm.customer} onChange={(e) => setSaleForm({ ...saleForm, customer: e.target.value, cariPerson: saleForm.cariPerson || e.target.value })} />
                     )}
 
                     <input placeholder={isAccessorySale ? "Barkod veya ürün adı" : "Barkod / IMEI veya model"} value={saleForm.search} onChange={(e) => setSaleForm({ ...saleForm, search: e.target.value })} />
 
                     <select value={saleForm.productId} onChange={(e) => {
                       const product = stock.find((item) => String(item.id) === e.target.value);
-                      setSaleForm({ ...saleForm, productId: e.target.value, total: product?.sell || "", cash: product?.sell || "", card: "" });
+                      setSaleForm({
+                        ...saleForm,
+                        productId: e.target.value,
+                        search: product?.barcode || product?.imei || "",
+                        total: product?.sell || "",
+                        cash: product?.sell || "",
+                        card: ""
+                      });
                     }}>
                       <option value="">Ürün seç</option>
                       {saleProducts.map((product) => (
@@ -1471,7 +1496,7 @@ export default function App() {
                 <div className="commission-info">
                   <strong>Banka Bu Ay Bu Kadar Paranı Komisyon Olarak Aldı</strong>
                   <span>{money(monthlyPosCommission)}</span>
-                  <small>Hesap: Bu ay POS’a giden paranın %3,5’i. Bu ay POS’a giden toplam: {money(monthlyPosTotal)}</small>
+                  <small>Hesap: Bankada kalan rakam / 100 × 3,5. Bankada kalan: {money(bankReport.remainingInBank)}</small>
                 </div>
 
                 <div className="stats three">

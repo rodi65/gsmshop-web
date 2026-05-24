@@ -379,9 +379,21 @@ export async function createStockItem(payload) {
 export async function createSale(payload) {
   const user = await getCurrentUser();
 
+  const salePayload = {
+    ...payload,
+    total_amount: toDbNumber(payload.total_amount),
+    cash_amount: toDbNumber(payload.cash_amount),
+    card_amount: toDbNumber(salePayload.card_amount),
+    remaining_amount: toDbNumber(payload.remaining_amount),
+    buy_cost: toDbNumber(payload.buy_cost),
+    profit_amount: toDbNumber(payload.profit_amount),
+    created_by: user?.id,
+    updated_by: user?.id,
+  };
+
   const { data: sale, error } = await supabase
     .from("sales")
-    .insert([{ ...payload, created_by: user?.id, updated_by: user?.id }])
+    .insert([salePayload])
     .select()
     .single();
 
@@ -402,13 +414,25 @@ export async function createSale(payload) {
     const { error: bankError } = await supabase.from("bank_movements").insert([{
       movement_type: "Bankaya Giden",
       bank_name: payload.bank_name,
-      amount: toDbNumber(payload.card_amount),
+      amount: toDbNumber(salePayload.card_amount),
       note: `POSTAN Gelen - ${payload.bank_name} - ${payload.product_name}`,
       related_sale_id: sale.id,
       created_by: user?.id,
     }]);
 
     if (bankError) throw bankError;
+  }
+
+
+  if (toDbNumber(salePayload.remaining_amount) > 0 && (payload.cari_person || payload.customer_name)) {
+    await findOrCreateContact({
+      kind: "customer",
+      name: payload.cari_person || payload.customer_name,
+      phone: payload.customer_phone || "",
+      balance: toDbNumber(salePayload.remaining_amount),
+      balanceType: "receivable",
+      note: `${payload.product_name || "Satış"} satışından kalan alacak`,
+    });
   }
 
   return sale;
