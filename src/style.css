@@ -587,7 +587,7 @@ th,
 
 
 .accessory-shortcut-form {
-  display: grid;
+  display: none;
   grid-template-columns: 1.4fr 1.2fr 1fr auto;
   gap: 10px;
   align-items: center;
@@ -688,7 +688,7 @@ th,
 
 /* Kullanıcı aksesuar kısayolları */
 .accessory-shortcut-form {
-  display: grid;
+  display: none;
   grid-template-columns: 1.4fr 1.2fr 1fr auto;
   gap: 10px;
   align-items: center;
@@ -772,6 +772,54 @@ th,
   .big-sale-grid,
   .accessory-shortcut-form,
   .accessory-user-shortcuts {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* Aksesuar seçmeli sekme düzeni */
+.accessory-select-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 10px 0 18px;
+}
+
+.accessory-select-tabs .choice {
+  min-height: 54px;
+}
+
+.accessory-sub-tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.accessory-shortcut-price-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0;
+}
+
+.compact-shortcuts {
+  margin-top: 12px;
+}
+
+.compact-shortcuts + .accessory-pick-summary {
+  margin-top: 14px;
+}
+
+@media (max-width: 1100px) {
+  .accessory-select-tabs,
+  .accessory-sub-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .accessory-select-tabs,
+  .accessory-sub-tabs,
+  .accessory-shortcut-price-row {
     grid-template-columns: 1fr;
   }
 }

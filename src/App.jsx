@@ -445,7 +445,7 @@ export default function App() {
   const [quickAccessoryGroup, setQuickAccessoryGroup] = useState("Kılıf");
   const [quickAccessorySubType, setQuickAccessorySubType] = useState("A Kılıf");
   const [accessoryShortcuts, setAccessoryShortcuts] = useState([]);
-  const [accessoryShortcutForm, setAccessoryShortcutForm] = useState({ group: "", sub: "", price: "" });
+  const [accessoryShortcutForm, setAccessoryShortcutForm] = useState({ group: "Kılıf", sub: "A Kılıf", price: "" });
   const [visibleKasaStats, setVisibleKasaStats] = useState({});
   const [profitUnlocked, setProfitUnlocked] = useState(false);
   const [profitDateFrom, setProfitDateFrom] = useState("");
@@ -1131,26 +1131,31 @@ export default function App() {
   }, [accessoryShortcuts, currentUser?.id]);
 
   function addAccessoryShortcut() {
-    const group = accessoryShortcutForm.group.trim();
-    const sub = accessoryShortcutForm.sub.trim();
+    const group = accessoryShortcutForm.group || "Kılıf";
+    const subOptions = quickAccessoryGroups[group] || [group];
+    const sub = accessoryShortcutForm.sub || subOptions[0] || group;
     const price = accessoryShortcutForm.price ? formatMoneyInput(accessoryShortcutForm.price) : "";
-    if (!group) return alert("Kısayol adı / grup yaz");
+
+    if (!group) return alert("Grup seç");
+    if (!sub) return alert("Alt seçenek seç");
     if (accessoryShortcuts.length >= 20) return alert("En fazla 20 aksesuar kısayolu eklenebilir.");
 
-    const label = sub ? `${group} - ${sub}` : group;
+    const label = `${group} - ${sub}`;
     const exists = accessoryShortcuts.some((item) => item.label.toLocaleLowerCase("tr-TR") === label.toLocaleLowerCase("tr-TR"));
     if (exists) return alert("Bu kısayol zaten var.");
 
-    const next = {
-      id: Date.now(),
-      group,
-      sub,
-      label,
-      price,
-    };
+    setAccessoryShortcuts([
+      ...accessoryShortcuts,
+      {
+        id: Date.now(),
+        group,
+        sub,
+        label,
+        price,
+      },
+    ].slice(0, 20));
 
-    setAccessoryShortcuts([...accessoryShortcuts, next].slice(0, 20));
-    setAccessoryShortcutForm({ group: "", sub: "", price: "" });
+    setAccessoryShortcutForm({ group, sub, price: "" });
   }
 
   function deleteAccessoryShortcut(id) {
@@ -1384,29 +1389,88 @@ export default function App() {
 
                   <div className="card">
                     <h2>Aksesuar Hızlı Seçim</h2>
-                    <p>Kendi aksesuar kısayollarını ekle. En fazla 20 adet kısayol bu kullanıcının ekranında kalıcı olarak görünür.</p>
+                    <p>Önce grup seç, sonra alt seçeneği seç, istersen fiyat yaz ve kısayol ekle. En fazla 20 kısayol eklenir.</p>
 
-                    <h3>Kısayol Ekle</h3>
-                    <div className="accessory-shortcut-form">
-                      <input
-                        placeholder="Kısayol adı / grup örn: Kılıf"
-                        value={accessoryShortcutForm.group}
-                        onChange={(e) => setAccessoryShortcutForm({ ...accessoryShortcutForm, group: e.target.value })}
-                      />
-                      <input
-                        placeholder="Alt seçenek örn: A Kılıf"
-                        value={accessoryShortcutForm.sub}
-                        onChange={(e) => setAccessoryShortcutForm({ ...accessoryShortcutForm, sub: e.target.value })}
-                      />
+                    <h3>Grup Seç</h3>
+                    <div className="accessory-select-tabs">
+                      {Object.keys(quickAccessoryGroups).map((group) => (
+                        <button
+                          key={group}
+                          type="button"
+                          className={accessoryShortcutForm.group === group ? "choice active" : "choice"}
+                          onClick={() => {
+                            const firstSub = quickAccessoryGroups[group]?.[0] || group;
+                            setAccessoryShortcutForm({ ...accessoryShortcutForm, group, sub: firstSub });
+                            setQuickAccessoryGroup(group);
+                            setQuickAccessorySubType(firstSub);
+                            setSaleGroup("Aksesuar");
+                            setSaleForm({
+                              ...saleForm,
+                              type: "Aksesuar Satışı",
+                              productId: "",
+                              search: `${group} - ${firstSub}`,
+                              total: accessoryShortcutForm.price || "",
+                              cash: accessoryShortcutForm.price || "",
+                              card: "",
+                            });
+                          }}
+                        >
+                          {group}
+                        </button>
+                      ))}
+                    </div>
+
+                    <h3>Alt Seçenek Seç</h3>
+                    <div className="accessory-select-tabs accessory-sub-tabs">
+                      {(quickAccessoryGroups[accessoryShortcutForm.group] || []).map((sub) => (
+                        <button
+                          key={sub}
+                          type="button"
+                          className={accessoryShortcutForm.sub === sub ? "choice active" : "choice"}
+                          onClick={() => {
+                            setAccessoryShortcutForm({ ...accessoryShortcutForm, sub });
+                            setQuickAccessoryGroup(accessoryShortcutForm.group);
+                            setQuickAccessorySubType(sub);
+                            setSaleGroup("Aksesuar");
+                            setSaleForm({
+                              ...saleForm,
+                              type: "Aksesuar Satışı",
+                              productId: "",
+                              search: `${accessoryShortcutForm.group} - ${sub}`,
+                              total: accessoryShortcutForm.price || "",
+                              cash: accessoryShortcutForm.price || "",
+                              card: "",
+                            });
+                          }}
+                        >
+                          {sub}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="accessory-shortcut-price-row">
                       <input
                         type="text"
                         inputMode="numeric"
                         placeholder="Varsayılan fiyat"
                         value={accessoryShortcutForm.price}
                         onFocus={() => setAccessoryShortcutForm({ ...accessoryShortcutForm, price: stripMoneyForEdit(accessoryShortcutForm.price) })}
-                        onChange={(e) => setAccessoryShortcutForm({ ...accessoryShortcutForm, price: cleanMoneyTyping(e.target.value) })}
-                        onBlur={() => setAccessoryShortcutForm({ ...accessoryShortcutForm, price: formatMoneyInput(accessoryShortcutForm.price) })}
+                        onChange={(e) => {
+                          const price = cleanMoneyTyping(e.target.value);
+                          setAccessoryShortcutForm({ ...accessoryShortcutForm, price });
+                          if (saleForm.type === "Aksesuar Satışı" && saleForm.search === `${accessoryShortcutForm.group} - ${accessoryShortcutForm.sub}`) {
+                            setSaleForm({ ...saleForm, total: price, cash: price });
+                          }
+                        }}
+                        onBlur={() => {
+                          const price = formatMoneyInput(accessoryShortcutForm.price);
+                          setAccessoryShortcutForm({ ...accessoryShortcutForm, price });
+                          if (saleForm.type === "Aksesuar Satışı" && saleForm.search === `${accessoryShortcutForm.group} - ${accessoryShortcutForm.sub}`) {
+                            setSaleForm({ ...saleForm, total: price, cash: price });
+                          }
+                        }}
                       />
+
                       <button className="primary" type="button" onClick={addAccessoryShortcut}>
                         <Plus size={16} /> Kısayol Ekle
                       </button>
@@ -1416,8 +1480,7 @@ export default function App() {
                       Eklenen Kısayol: <b>{accessoryShortcuts.length} / 20</b>
                     </div>
 
-                    <h3>Kayıtlı Kısayollar</h3>
-                    <div className="accessory-user-shortcuts">
+                    <div className="accessory-user-shortcuts compact-shortcuts">
                       {accessoryShortcuts.map((shortcut) => (
                         <div key={shortcut.id} className={saleForm.type === "Aksesuar Satışı" && saleForm.search === shortcut.label ? "shortcut-chip active" : "shortcut-chip"}>
                           <button
@@ -1425,6 +1488,7 @@ export default function App() {
                             onClick={() => {
                               setQuickAccessoryGroup(shortcut.group);
                               setQuickAccessorySubType(shortcut.sub || shortcut.group);
+                              setAccessoryShortcutForm({ group: shortcut.group, sub: shortcut.sub || shortcut.group, price: shortcut.price || "" });
                               setSaleGroup("Aksesuar");
                               setSaleForm({
                                 ...saleForm,
@@ -1445,43 +1509,15 @@ export default function App() {
                       ))}
 
                       {!accessoryShortcuts.length && (
-                        <div className="empty-shortcut-note">Henüz kısayol eklenmedi. Yukarıdan ekledikçe burada sekme olarak kalır.</div>
-                      )}
-                    </div>
-
-                    <h3>Stoktaki Aksesuar Kısayolları</h3>
-                    <div className="quick-accessory-grid product-shortcuts">
-                      {accessoryStock.slice(0, 10).map((product) => (
-                        <button
-                          key={product.id}
-                          className={String(saleForm.productId) === String(product.id) ? "big-sale-btn active" : "big-sale-btn"}
-                          onClick={() => {
-                            setSaleGroup("Aksesuar");
-                            setSaleForm({
-                              ...saleForm,
-                              type: "Aksesuar Satışı",
-                              productId: String(product.id),
-                              search: product.barcode || product.imei || product.name || productTitle(product),
-                              total: product.sell || "",
-                              cash: product.sell || "",
-                              card: "",
-                            });
-                          }}
-                        >
-                          {productTitle(product)}
-                        </button>
-                      ))}
-
-                      {!accessoryStock.length && (
-                        <div className="empty-shortcut-note">Stokta kayıtlı aksesuar yok. Kayıtlı kısayollarla stoksuz aksesuar satışı yapabilirsin.</div>
+                        <div className="empty-shortcut-note">Henüz kısayol eklenmedi. Grup ve alt seçenek seçip Kısayol Ekle dediğinde burada kalır.</div>
                       )}
                     </div>
 
                     <div className="close-summary accessory-pick-summary">
                       <small>Seçilen Aksesuar</small>
-                      <div><span>Grup</span><b>{quickAccessoryGroup || "-"}</b></div>
-                      <div><span>Alt Seçenek</span><b>{quickAccessorySubType || "-"}</b></div>
-                      <div><span>Ürün</span><b>{saleForm.type === "Aksesuar Satışı" && saleForm.productId ? productTitle(stock.find((item) => String(item.id) === String(saleForm.productId))) : (saleForm.type === "Aksesuar Satışı" ? saleForm.search || "Stoksuz Aksesuar Seçimi" : "-")}</b></div>
+                      <div><span>Grup</span><b>{accessoryShortcutForm.group || "-"}</b></div>
+                      <div><span>Alt Seçenek</span><b>{accessoryShortcutForm.sub || "-"}</b></div>
+                      <div><span>Ürün</span><b>{saleForm.type === "Aksesuar Satışı" ? saleForm.search || "Stoksuz Aksesuar Seçimi" : "-"}</b></div>
                     </div>
                   </div>
 
