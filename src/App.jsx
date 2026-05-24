@@ -1498,28 +1498,31 @@ export default function App() {
 
             {kasaTab === "yeniSatis" && (
               <>
-                <h3 className="summary-title">SATIŞ ÖZETLERİ</h3>
-                <div className="summary-row-single sales-summary-row">
-                  <Stat title="Genel Satış Toplamı" value={money(report.total)} />
-                  <Stat title="Telefon Satış" value={money(phoneSalesTotal)} />
-                  <Stat title="Aksesuar Satış Tutarı" value={money(accessorySalesTotal)} />
-                  <Stat title="Teknik Servis Geliri" value={money(technicalServiceTotal)} />
-                  <Stat title="Diğer Satışlar" value={money(otherSalesTotal)} />
-                  <Stat title="Kartla Yapılan Satış" value={money(cardSalesTotal)} />
-                  <div className={cashWithBankIncoming < 0 ? "cash-result cash-result-inline negative" : "cash-result cash-result-inline"}>
-                    <span>TOPLAM KASANDA OLMASI GEREKEN</span>
-                    <b>{money(cashWithBankIncoming)}</b>
+                <div className="summary-panel-row">
+                  <div className="summary-panel">
+                    <h3 className="summary-panel-title">SATIŞ ÖZETLERİ</h3>
+                    <div className="summary-line"><span className="summary-line-label">Genel Satış Toplamı</span><b className="summary-line-value">{money(report.total)}</b></div>
+                    <div className="summary-line"><span className="summary-line-label">Telefon Satış</span><b className="summary-line-value">{money(phoneSalesTotal)}</b></div>
+                    <div className="summary-line"><span className="summary-line-label">Aksesuar Satış Tutarı</span><b className="summary-line-value">{money(accessorySalesTotal)}</b></div>
+                    <div className="summary-line"><span className="summary-line-label">Teknik Servis Geliri</span><b className="summary-line-value">{money(technicalServiceTotal)}</b></div>
+                    <div className="summary-line"><span className="summary-line-label">Diğer Satışlar</span><b className="summary-line-value">{money(otherSalesTotal)}</b></div>
+                    <div className="summary-line"><span className="summary-line-label">Kartla Yapılan Satış</span><b className="summary-line-value">{money(cardSalesTotal)}</b></div>
                   </div>
-                </div>
 
-                <h3 className="summary-title">NAKİT ÖZETLERİ</h3>
-                <div className="summary-row-single cash-summary-row">
-                  <Stat title="Dünden Devir Nakit" value={money(carryOverCash)} />
-                  <Stat title="Bugünkü Nakit Girişleri" value={money(todayCashIn)} />
-                  <Stat title="Bugünkü Nakit Çıkışları" value={money(todayCashOut)} />
-                  <Stat title="Gelen Alacak / Alacak Ödemesi" value={money(receivablePayments)} />
-                  <Stat title="Alım Ödemeleri" value={money(stockPurchasePayments)} />
-                  <Stat title="Giderler" value={money(cashExpensePayments)} />
+                  <div className="summary-panel">
+                    <h3 className="summary-panel-title">NAKİT ÖZETLERİ</h3>
+                    <div className="summary-line"><span className="summary-line-label">Dünden Devir Nakit</span><b className="summary-line-value">{money(carryOverCash)}</b></div>
+                    <div className="summary-line"><span className="summary-line-label">Bugünkü Nakit Girişleri</span><b className="summary-line-value">{money(todayCashIn)}</b></div>
+                    <div className="summary-line"><span className="summary-line-label">Bugünkü Nakit Çıkışları</span><b className="summary-line-value">{money(todayCashOut)}</b></div>
+                    <div className="summary-line"><span className="summary-line-label">Gelen Alacak / Alacak Ödemesi</span><b className="summary-line-value">{money(receivablePayments)}</b></div>
+                    <div className="summary-line"><span className="summary-line-label">Alım Ödemeleri</span><b className="summary-line-value">{money(stockPurchasePayments)}</b></div>
+                    <div className="summary-line"><span className="summary-line-label">Giderler</span><b className="summary-line-value">{money(cashExpensePayments)}</b></div>
+                  </div>
+
+                  <div className={cashWithBankIncoming < 0 ? "cash-required-card negative" : "cash-required-card"}>
+                    <span className="cash-required-title">TOPLAM KASANDA OLMASI GEREKEN</span>
+                    <b className="cash-required-value">{money(cashWithBankIncoming)}</b>
+                  </div>
                 </div>
 
                 <div className="grid sale-layout">
