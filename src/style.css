@@ -3701,3 +3701,46 @@ select {
   font-weight: 1000 !important;
   cursor: pointer !important;
 }
+
+/* CEPLOG ana menu aktif/pasif kesin gorunurluk duzeltmesi */
+.nav-grid .nav-btn:not(.active):not(.disabled) {
+  background: #ffffff !important;
+  color: #071226 !important;
+  border: 1px solid #dbe3ef !important;
+  opacity: 1 !important;
+}
+
+.nav-grid .nav-btn:not(.active):not(.disabled) span,
+.nav-grid .nav-btn:not(.active):not(.disabled) svg {
+  color: #071226 !important;
+  stroke: currentColor !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.nav-grid .nav-btn.active {
+  background: #071226 !important;
+  color: #ffffff !important;
+  border-color: #071226 !important;
+  opacity: 1 !important;
+}
+
+.nav-grid .nav-btn.active span,
+.nav-grid .nav-btn.active svg {
+  color: #ffffff !important;
+  stroke: currentColor !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.nav-grid .nav-btn span {
+  display: block !important;
+  color: inherit !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.live-clock {
+  white-space: nowrap !important;
+  font-variant-numeric: tabular-nums !important;
+}
