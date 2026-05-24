@@ -1159,7 +1159,11 @@ export default function App() {
   }
 
   function deleteAccessoryShortcut(id) {
-    if (!window.confirm("Bu aksesuar kısayolu silinsin mi?")) return;
+    const password = window.prompt("Kısayolu silmek için şifre gir");
+    if (password !== "1") {
+      alert("Şifre yanlış. Silme işlemi iptal edildi.");
+      return;
+    }
     setAccessoryShortcuts(accessoryShortcuts.filter((item) => item.id !== id));
   }
 
