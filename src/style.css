@@ -2231,6 +2231,44 @@ select:focus {
   font-weight: 1000;
 }
 
+.logout-panel {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #fecaca;
+  border-radius: 16px;
+  background: #fff1f2;
+  display: grid;
+  gap: 10px;
+}
+
+.logout-panel span {
+  color: #7f1d1d;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.logout-panel b {
+  color: #450a0a;
+  font-weight: 1000;
+}
+
+.logout-btn {
+  min-height: 52px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #991b1b, #dc2626);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 1000;
+  letter-spacing: 0;
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(153, 27, 27, .22);
+}
+
+.logout-btn:active {
+  transform: translateY(1px);
+}
+
 .backup-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

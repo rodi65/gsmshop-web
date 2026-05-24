@@ -619,10 +619,18 @@ export default function App() {
   }, []);
 
   async function handleLogout() {
-    await signOut();
-    setCurrentUser(null);
-    setActiveWorkspaceId("");
-    setDbReady(false);
+    const ok = window.confirm("Çıkış yapmak istiyor musun?");
+    if (!ok) return;
+
+    try {
+      await signOut();
+      setCurrentUser(null);
+      setActiveWorkspaceId("");
+      setDbReady(false);
+      setSyncMessage("");
+    } catch (error) {
+      alert(error.message || "Çıkış yapılamadı.");
+    }
   }
 
   const report = {
@@ -1494,6 +1502,10 @@ export default function App() {
                   <div><span>Paket</span><b>Professional</b></div>
                   <div><span>Durum</span><b>Aktif</b></div>
                   <div><span>Son Yedek</span><b>Manuel Kontrol</b></div>
+                </div>
+                <div className="logout-panel">
+                  <span>Giriş yapan kullanıcı: <b>{currentUser?.email || "Kayıtlı Kullanıcı"}</b></span>
+                  <button className="logout-btn" type="button" onClick={handleLogout}>ÇIKIŞ YAP</button>
                 </div>
               </div>
 
