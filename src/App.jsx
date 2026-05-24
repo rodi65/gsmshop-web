@@ -1112,6 +1112,91 @@ export default function App() {
     }
   }
 
+  function createBackupPayload() {
+    return {
+      app: "CEPLOG",
+      version: "professional-backup-v1",
+      exportedAt: new Date().toISOString(),
+      exportedBy: currentUser?.email || currentUser?.id || "unknown",
+      company: {
+        name: "CEPLOG",
+        since: 1999,
+        description: "26 Yıllık Tecrübeyle Yapılan Profesyonel GSM Satış Teknik Servis Takip Sistemi",
+      },
+      counts: {
+        stock: stock.length,
+        sales: sales.length,
+        expenses: expenses.length,
+        bankMovements: bankMovements.length,
+        cashMovements: cashMovements.length,
+        contacts: contacts.length,
+        suppliers: suppliers.length,
+      },
+      data: {
+        stock,
+        sales,
+        expenses,
+        bankMovements,
+        cashMovements,
+        contacts,
+        suppliers,
+        cashClosings,
+        accessoryShortcuts,
+      },
+    };
+  }
+
+  function backupFileName() {
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    return `ceplog-yedek-${stamp}.json`;
+  }
+
+  function downloadBackupFile() {
+    const payload = createBackupPayload();
+    const fileName = backupFileName();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setSyncMessage(`Yedek dosyası hazırlandı: ${fileName}`);
+  }
+
+  async function shareBackupFile() {
+    const payload = createBackupPayload();
+    const fileName = backupFileName();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+    const file = new File([blob], fileName, { type: "application/json" });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      try {
+        await navigator.share({
+          title: "CEPLOG Yedek Dosyası",
+          text: "CEPLOG yedek dosyası",
+          files: [file],
+        });
+        setSyncMessage("Yedek paylaşım menüsüne gönderildi.");
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+      }
+    }
+
+    downloadBackupFile();
+    alert("Bu cihazda doğrudan paylaşım desteklenmiyor. Yedek dosyası indirildi. Google Drive'a veya Mail'e manuel yükleyebilirsin.");
+  }
+
+  function prepareEmailBackup() {
+    downloadBackupFile();
+    const subject = encodeURIComponent("CEPLOG Yedek Dosyası");
+    const body = encodeURIComponent("CEPLOG yedek dosyasını oluşturdum. İndirilen JSON dosyasını bu mail'e ekleyerek gönderebilirsin.");
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  }
+
   useEffect(() => {
     if (!currentUser?.id) return;
     const saved = localStorage.getItem(`ceplog_accessory_shortcuts_${currentUser.id}`);
@@ -1261,7 +1346,89 @@ export default function App() {
             <TrendingUp size={22} />
             <span>KARA DEFTER</span>
           </button>
+
+          <button
+            className={active === "yonetim" ? "nav-btn active" : "nav-btn"}
+            onClick={() => setActive("yonetim")}
+          >
+            <ShieldCheck size={22} />
+            <span>YÖNETİM</span>
+          </button>
         </nav>
+
+        {active === "yonetim" && (
+          <section className="section management-section">
+            <div className="management-hero card">
+              <div>
+                <h2>Yönetim Paneli</h2>
+                <p>Program sahibi, lisans, güvenlik, kullanıcı yetkileri, yedekleme ve log işlemleri buradan yönetilir.</p>
+              </div>
+              <div className="management-badge">
+                <span>CEPLOG PRO</span>
+                <b>Since 1999</b>
+              </div>
+            </div>
+
+            <div className="management-grid">
+              <div className="card management-card">
+                <h2>Firma / Lisans Özeti</h2>
+                <div className="management-info-list">
+                  <div><span>Program</span><b>CEPLOG</b></div>
+                  <div><span>Lisans Sahibi</span><b>{currentUser?.email || "Kayıtlı Kullanıcı"}</b></div>
+                  <div><span>Paket</span><b>Professional</b></div>
+                  <div><span>Durum</span><b>Aktif</b></div>
+                  <div><span>Son Yedek</span><b>Manuel Kontrol</b></div>
+                </div>
+              </div>
+
+              <div className="card management-card">
+                <h2>Yedekleme Merkezi</h2>
+                <p>Stok, satış, kasa, banka, cari, gider ve aksesuar kısayolları tek JSON dosyası olarak yedeklenir.</p>
+
+                <div className="backup-actions">
+                  <button className="primary backup-btn" type="button" onClick={downloadBackupFile}>
+                    <Save size={18} /> Cihaza / PC’ye Yedek İndir
+                  </button>
+
+                  <button className="primary backup-btn drive-btn" type="button" onClick={shareBackupFile}>
+                    <ShieldCheck size={18} /> Google Drive / Paylaş
+                  </button>
+
+                  <button className="primary backup-btn mail-btn" type="button" onClick={prepareEmailBackup}>
+                    <ReceiptText size={18} /> Mail İçin Yedek Hazırla
+                  </button>
+                </div>
+
+                <div className="backup-warning">
+                  <b>Not:</b> Google Drive’a doğrudan otomatik yükleme için ileride Google Drive API bağlantısı gerekir. Bu sürümde dosya indirilir veya cihazın paylaşım menüsü açılır.
+                </div>
+              </div>
+            </div>
+
+            <div className="card management-card">
+              <h2>Yedek Önizleme</h2>
+              <div className="backup-preview-grid">
+                <Stat title="Stok Kaydı" value={stock.length} />
+                <Stat title="Satış Kaydı" value={sales.length} />
+                <Stat title="Cari Kayıt" value={contacts.length} />
+                <Stat title="Kasa Hareketi" value={cashMovements.length} />
+                <Stat title="Banka Hareketi" value={bankMovements.length} />
+                <Stat title="Gider Kaydı" value={expenses.length} />
+              </div>
+            </div>
+
+            <div className="card management-card">
+              <h2>Sonraki Yönetim Modülleri</h2>
+              <div className="management-roadmap">
+                <div><b>Güvenlik</b><span>Kritik işlem şifresi değiştirme</span></div>
+                <div><b>Kullanıcılar</b><span>Owner / Yönetici / Personel rolleri</span></div>
+                <div><b>Yetkiler</b><span>Satış silme, kâr görme, kasa kapatma izinleri</span></div>
+                <div><b>Loglar</b><span>Kim hangi işlemi yaptı takibi</span></div>
+                <div><b>Drive API</b><span>Gerçek otomatik Google Drive yedekleme</span></div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {active === "kasa" && (
           <section className="section">
