@@ -71,7 +71,7 @@ const stockSellerDebt = (product) => {
 };
 
 const saleTypes = ["Telefon Satışı", "Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı", "Aksesuar Satışı"];
-const mainSaleGroups = ["Telefon", "Teknik", "Saat", "Tablet", "PC", "Elektronik", "Program"];
+const mainSaleGroups = ["Telefon", "Aksesuar", "Teknik", "PC", "Program", "Saat", "Tablet", "Elektronik"];
 const otherSaleTypes = ["Saat Satışı", "PC Satışı", "Elektronik Satışı"];
 const expenseCategories = ["Yemek", "Kargo", "Borç", "İade", "Ivır Zıvır"];
 const quickAccessoryGroups = {
@@ -1040,7 +1040,7 @@ export default function App() {
         bank_name: sale.bank || null,
       });
 
-      if (!isProgramSale) {
+      if (!isProgramSale && selectedProduct) {
         setStock(stock.map((product) => product.id === selectedProduct.id ? { ...product, qty: Math.max(Number(product.qty || 0) - 1, 0) } : product));
       }
       setSales([fromDbSale(savedSale), ...sales]);
@@ -1300,12 +1300,13 @@ export default function App() {
                               ...saleForm,
                               type:
                                 group === "Telefon" ? "Telefon Satışı" :
+                                group === "Aksesuar" ? "Aksesuar Satışı" :
                                 group === "Teknik" ? "Teknik Servis" :
+                                group === "PC" ? "PC Satışı" :
+                                group === "Program" ? "Program Satışı" :
                                 group === "Saat" ? "Saat Satışı" :
                                 group === "Tablet" ? "Tablet Satışı" :
-                                group === "PC" ? "PC Satışı" :
                                 group === "Elektronik" ? "Elektronik Satışı" :
-                                group === "Program" ? "Program Satışı" :
                                 "Telefon Satışı",
                               productId: "",
                               search: "",
@@ -1383,7 +1384,7 @@ export default function App() {
 
                   <div className="card">
                     <h2>Aksesuar Hızlı Seçim</h2>
-                    <p>Kendi aksesuar kısayollarını ekle. En fazla 20 adet kısayol kalıcı olarak bu kullanıcının ekranında görünür.</p>
+                    <p>Kendi aksesuar kısayollarını ekle. En fazla 20 adet kısayol bu kullanıcının ekranında kalıcı olarak görünür.</p>
 
                     <h3>Kısayol Ekle</h3>
                     <div className="accessory-shortcut-form">
@@ -1482,7 +1483,6 @@ export default function App() {
                       <div><span>Alt Seçenek</span><b>{quickAccessorySubType || "-"}</b></div>
                       <div><span>Ürün</span><b>{saleForm.type === "Aksesuar Satışı" && saleForm.productId ? productTitle(stock.find((item) => String(item.id) === String(saleForm.productId))) : (saleForm.type === "Aksesuar Satışı" ? saleForm.search || "Stoksuz Aksesuar Seçimi" : "-")}</b></div>
                     </div>
-                  </div>
                   </div>
 
 
