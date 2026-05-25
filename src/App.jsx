@@ -75,8 +75,10 @@ const stockSellerDebt = (product) => {
 };
 
 const saleTypes = ["Telefon Satışı", "Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı", "Aksesuar Satışı"];
-const mainSaleGroups = ["Telefon", "Aksesuar", "Teknik", "PC", "Program", "Saat", "Tablet", "Elektronik"];
+const ADMIN_EDIT_PASSWORD = "1999";
+const mainSaleGroups = ["Telefon", "Aksesuar", "Program", "Saat", "Tablet", "Elektronik"];
 const otherSaleTypes = ["Saat Satışı", "PC Satışı", "Elektronik Satışı"];
+const purchasePaymentMovementTypes = ["Alım Ödemesi", "Cihaz Alım Ödemesi", "Stok Alım Ödemesi", "Stok Ödemesi", "Tedarikçi Ödemesi", "Telefon Alım Ödemesi"];
 const expenseCategories = ["Yemek", "Kargo", "Borç", "İade", "Ivır Zıvır"];
 const quickAccessoryGroups = {
   "Kılıf": ["A Kılıf", "B Kılıf", "Silikon Kılıf"],
@@ -162,6 +164,14 @@ const cashMovementAmount = (item) => typeof item.amount === "number" ? item.amou
 const bankMovementType = (item) => item.movement_type || item.movementType || item.type || "";
 const bankMovementAmount = (item) => typeof item.amount === "number" ? item.amount : parseMoneyInput(item.amount);
 const bankMovementDirection = (item) => item.direction || (bankMovementType(item) === "Bankadan Çekilen" ? "out" : "in");
+const isPurchasePaymentMovement = (item, movementType, direction) => {
+  const type = String(movementType || "");
+  const relatedTable = String(item?.relatedTable || item?.related_table || "");
+  if (direction !== "out") return false;
+  if (!purchasePaymentMovementTypes.includes(type)) return false;
+  if (type === "Stok Ödemesi") return relatedTable === "stock_items";
+  return !["sales", "technical_services", "expenses"].includes(relatedTable);
+};
 const isTechnicalServiceMovement = (type) => technicalServiceMovementTypes.includes(String(type || ""));
 const isTechnicalServiceIncomeMovement = (type) => technicalServiceIncomeTypes.includes(String(type || ""));
 const isTechnicalServiceRefundMovement = (type) => technicalServiceRefundTypes.includes(String(type || ""));
@@ -661,6 +671,7 @@ export default function App() {
     .filter((product) => {
       if (isAccessorySale) return product.module === "Aksesuar";
       if (saleDeviceType === "Telefon") return product.module === "Cihaz" && product.deviceType === "Telefon";
+      if (saleDeviceType === "Elektronik") return ["Elektronik", "PC"].includes(product.deviceType);
       return product.deviceType === saleDeviceType || product.deviceType === saleGroup;
     })
     .filter((product) => !saleForm.search || has(productTitle(product), saleForm.search) || has(product.barcode, saleForm.search))
@@ -1069,7 +1080,14 @@ export default function App() {
   const cashSaleMovementIds = new Set(activeCashMovements.filter((item) => cashMovementType(item) === "Satış Nakit" && item.relatedTable === "sales").map((item) => String(item.relatedId)));
   const cashBankMovementIds = new Set(activeCashMovements.filter((item) => cashMovementType(item) === "Bankadan Nakit Gelen" && item.relatedTable === "bank_movements").map((item) => String(item.relatedId)));
   const cashExpenseMovementIds = new Set(activeCashMovements.filter((item) => cashMovementType(item) === "Gider" && item.relatedTable === "expenses").map((item) => String(item.relatedId)));
-  const cashStockMovementIds = new Set(activeCashMovements.filter((item) => cashMovementType(item) === "Stok Ödemesi" && item.relatedTable === "stock_items").map((item) => String(item.relatedId)));
+  const stockPaymentMovementIds = new Set([
+    ...activeCashMovements
+      .filter((item) => isPurchasePaymentMovement(item, cashMovementType(item), item.direction) && item.relatedTable === "stock_items")
+      .map((item) => String(item.relatedId)),
+    ...activeBankMovements
+      .filter((item) => isPurchasePaymentMovement(item, bankMovementType(item), bankMovementDirection(item)) && item.relatedTable === "stock_items")
+      .map((item) => String(item.relatedId)),
+  ]);
   const legacyCashSales = activeSales
     .filter((sale) => !cashSaleMovementIds.has(String(sale.id)))
     .reduce((sum, sale) => sum + parseMoneyInput(sale.cash), 0);
@@ -1080,7 +1098,7 @@ export default function App() {
     .filter((item) => !cashExpenseMovementIds.has(String(item.id)))
     .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
   const legacyStockPaymentOut = activeStock
-    .filter((product) => !cashStockMovementIds.has(String(product.id)))
+    .filter((product) => !stockPaymentMovementIds.has(String(product.id)))
     .reduce((sum, product) => sum + stockPurchasePaymentAmount(product), 0);
   const cashMovementNet = activeCashMovements
     .filter((item) => cashLedgerMovementTypes.includes(cashMovementType(item)))
@@ -1104,7 +1122,7 @@ export default function App() {
     .filter((item) => !cashExpenseMovementIds.has(String(item.id)) && isTodayRecord(item, todayKey))
     .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
   const todayLegacyStockPaymentOut = activeStock
-    .filter((product) => !cashStockMovementIds.has(String(product.id)) && isTodayRecord(product, todayKey))
+    .filter((product) => !stockPaymentMovementIds.has(String(product.id)) && isTodayRecord(product, todayKey))
     .reduce((sum, product) => sum + stockPurchasePaymentAmount(product), 0);
   const todayCashMovementOut = activeCashMovements
     .filter((item) => item.direction === "out" && cashLedgerMovementTypes.includes(cashMovementType(item)) && isTodayRecord(item, todayKey))
@@ -1112,8 +1130,10 @@ export default function App() {
   const todayCashIn = todayBankCashIncoming + todayCashMovementIn;
   const todayCashOut = todayExpenseOut + todayLegacyStockPaymentOut + todayCashMovementOut;
   const stockPurchasePayments = activeCashMovements
-    .filter((item) => cashMovementType(item) === "Stok Ödemesi" && item.direction === "out")
-    .reduce((sum, item) => sum + cashMovementAmount(item), 0) + legacyStockPaymentOut;
+    .filter((item) => isPurchasePaymentMovement(item, cashMovementType(item), item.direction))
+    .reduce((sum, item) => sum + cashMovementAmount(item), 0) + activeBankMovements
+    .filter((item) => isPurchasePaymentMovement(item, bankMovementType(item), bankMovementDirection(item)))
+    .reduce((sum, item) => sum + bankMovementAmount(item), 0) + legacyStockPaymentOut;
   const receivablePayments = activeCashMovements
     .filter((item) => receivablePaymentTypes.includes(cashMovementType(item)) && item.direction === "in")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
@@ -1190,7 +1210,7 @@ export default function App() {
         ["Gelen Alacak", receivablePayments],
         ["Giderler", cashExpensePayments],
       ],
-      total: cashWithBankIncoming,
+      total: null,
       negative: cashWithBankIncoming < 0,
     },
   ];
@@ -1280,9 +1300,20 @@ export default function App() {
     return password === "1";
   }
 
+  function askAdminEditPassword() {
+    const password = window.prompt("Yönetici şifresi girin");
+    if (password === null) return false;
+    if (password !== ADMIN_EDIT_PASSWORD) {
+      alert("Şifre hatalı. Düzenleme yetkisi verilmedi.");
+      return false;
+    }
+    return true;
+  }
+
   function openSaleEditor(sale) {
     try {
       if (!sale?.id) return alert("Düzenlenecek satış kaydı bulunamadı.");
+      if (!askAdminEditPassword()) return;
       setEditingSale({
         ...sale,
         customer: sale.customer || "",
@@ -1300,6 +1331,12 @@ export default function App() {
     } catch (error) {
       alert(error.message || "Satış düzenleme ekranı açılamadı.");
     }
+  }
+
+  function openStockEditor(product) {
+    if (!product?.id) return alert("Düzenlenecek stok kaydı bulunamadı.");
+    if (!askAdminEditPassword()) return;
+    setEditingStock({ ...product });
   }
 
   async function deleteSale(id) {
@@ -1467,6 +1504,9 @@ export default function App() {
     if (isSecondHandPhone && !stockForm.saleFormImageName) return "Satış formu resmi eklemeden kayıt yapılamaz";
     if (!stockForm.buy || !stockForm.sell) return "Kaça aldın ve kaça satacaksın alanlarını yaz";
     if (!isDevice && !stockForm.qty) return "Stok adedi yaz";
+    const purchaseTotal = parseMoneyInput(stockForm.buy) * (isDevice ? 1 : Number(stockForm.qty || 0));
+    const paidTotal = parseMoneyInput(stockForm.supplierPaid);
+    if (paidTotal > purchaseTotal) return "Ödeme tutarı alış tutarını aşamaz.";
     if (!stockForm.barcode) return "Barkod / IMEI yaz";
     if (stockForm.barcode.length > 15) return "Barkod / IMEI en fazla 15 rakam olabilir";
     if (stock.some((product) => product.barcode === stockForm.barcode)) return "Bu Barkod / IMEI zaten kayıtlı";
@@ -1629,6 +1669,12 @@ export default function App() {
       sell: formatMoneyInput(editingStock.sell),
       supplierPaid: formatMoneyInput(editingStock.supplierPaid),
     };
+    const purchaseTotal = parseMoneyInput(fixed.buy) * Number(fixed.qty || 1);
+    const paidTotal = parseMoneyInput(fixed.supplierPaid);
+    if (paidTotal > purchaseTotal) {
+      alert("Ödeme tutarı alış tutarını aşamaz.");
+      return;
+    }
     try {
       await updateStockItem(fixed.id, {
         module: fixed.module,
@@ -1862,6 +1908,7 @@ export default function App() {
   }
 
   function updateTechnicalServiceStatus(id, status) {
+    if (!askAdminEditPassword()) return;
     setTechnicalServices(technicalServices.map((item) => (
       item.id === id ? { ...item, status, updatedAt: new Date().toISOString() } : item
     )));
@@ -2709,10 +2756,12 @@ export default function App() {
                           </div>
                         ))}
                       </div>
-                      <div className="compact-summary-total">
-                        <span>{card.totalLabel}</span>
-                        <b>{money(card.total)}</b>
-                      </div>
+                      {card.total !== null && (
+                        <div className="compact-summary-total">
+                          <span>{card.totalLabel}</span>
+                          <b>{money(card.total)}</b>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2751,6 +2800,25 @@ export default function App() {
                         </button>
                       ))}
                     </div>
+
+                    {saleGroup === "Elektronik" && (
+                      <div className="electronics-sub-tabs">
+                        <button
+                          type="button"
+                          className={saleForm.type === "PC Satışı" ? "choice active" : "choice"}
+                          onClick={() => setSaleForm({ ...saleForm, type: "PC Satışı", productId: "", search: "", total: "", cash: "", card: "" })}
+                        >
+                          PC
+                        </button>
+                        <button
+                          type="button"
+                          className={saleForm.type === "Elektronik Satışı" ? "choice active" : "choice"}
+                          onClick={() => setSaleForm({ ...saleForm, type: "Elektronik Satışı", productId: "", search: "", total: "", cash: "", card: "" })}
+                        >
+                          Diğer Elektronik
+                        </button>
+                      </div>
+                    )}
 
 
 
@@ -3229,7 +3297,7 @@ export default function App() {
                 </div>
               </div>
 
-              <StockTable stock={currentStockList} setEditingStock={setEditingStock} deleteStock={deleteStock} deviceView={stockView === "cihaz"} />
+              <StockTable stock={currentStockList} setEditingStock={openStockEditor} deleteStock={deleteStock} deviceView={stockView === "cihaz"} />
 
               {stockView === "tum" && (
                 <div className="grouped-stock">
@@ -3242,7 +3310,7 @@ export default function App() {
                     return (
                       <div key={groupName} className="group-block">
                         <h4>{groupName}</h4>
-                        <StockTable stock={groupItems} setEditingStock={setEditingStock} deleteStock={deleteStock} deviceView={groupName === "Cihaz"} />
+                        <StockTable stock={groupItems} setEditingStock={openStockEditor} deleteStock={deleteStock} deviceView={groupName === "Cihaz"} />
                       </div>
                     );
                   })}
@@ -3484,7 +3552,7 @@ export default function App() {
                   <span>Tedarikçi Firma</span>
                 </div>
                 <h3>Stok Sonuçları</h3>
-                <StockTable stock={filteredStock} setEditingStock={setEditingStock} deleteStock={deleteStock} />
+                <StockTable stock={filteredStock} setEditingStock={openStockEditor} deleteStock={deleteStock} />
                 <h3>Satış Sonuçları</h3>
                 <Table headers={["Grup", "Ürün", "Müşteri / Cari Kişi", "Satış", "Nakit", "Kart", "Kalan", "Düzelt", "Sil"]} rows={sortedFilteredSales.map((sale) => [
                   saleGroupName(sale.type),

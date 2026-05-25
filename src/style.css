@@ -5462,6 +5462,20 @@ select {
   font-weight: 900 !important;
 }
 
+.electronics-sub-tabs {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin: 8px 0 2px !important;
+}
+
+.electronics-sub-tabs .choice {
+  min-height: 38px !important;
+  border-radius: 12px !important;
+  font-size: 13px !important;
+  font-weight: 1000 !important;
+}
+
 @media (max-width: 720px) {
   .technical-detail-header h3 {
     white-space: normal !important;

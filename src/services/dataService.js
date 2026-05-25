@@ -560,6 +560,7 @@ export async function createStockItem(payload) {
   const workspaceId = await getCurrentWorkspaceId();
   const paid = toDbNumber(payload.supplier_paid);
   const buyTotal = toDbNumber(payload.buy_price) * Number(payload.quantity || 1);
+  if (paid > buyTotal) throw new Error("Ödeme tutarı alış tutarını aşamaz.");
   const remaining = Math.max(buyTotal - paid, 0);
   const sellerName = stockSellerName(payload);
   const paymentName = sellerName || payload.supplier_name || "";
@@ -796,6 +797,9 @@ export async function updateSaleRecord(id, payload) {
 
 export async function updateStockItem(id, payload) {
   const workspaceId = await getCurrentWorkspaceId();
+  const buyTotal = toDbNumber(payload.buy_price) * Number(payload.quantity || 0);
+  const paid = toDbNumber(payload.supplier_paid);
+  if (paid > buyTotal) throw new Error("Ödeme tutarı alış tutarını aşamaz.");
   return callFinancialRpc("update_stock_with_effects", {
     p_stock_id: id,
     p_workspace_id: workspaceId,
