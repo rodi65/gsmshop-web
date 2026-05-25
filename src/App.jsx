@@ -84,6 +84,19 @@ const quickAccessoryGroups = {
   "Kulaklık": ["Kulaklık"],
 };
 const accessoryShortcutLimit = 30;
+const technicalServiceStatuses = ["Beklemede", "İşlemde", "Hazır", "Teslim Edildi", "İptal"];
+const emptyTechnicalServiceForm = {
+  customerName: "",
+  phone: "",
+  device: "",
+  issue: "",
+  technician: "",
+  estimatedPrice: "",
+  deposit: "",
+  dueDate: "",
+  status: "Beklemede",
+  note: "",
+};
 const cashEntryTypes = ["Manuel Nakit Girişi", "Devir Nakit"];
 const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Devir Nakit", "Gelen Alacak", "Alacak Ödemesi", "Stok Ödemesi", "Cari Ödeme", "Gider", "Bankaya Yatırılan Nakit", "Düzeltme"];
 const receivablePaymentTypes = ["Gelen Alacak", "Alacak Ödemesi"];
@@ -528,6 +541,9 @@ export default function App() {
   const [quickAccessorySubType, setQuickAccessorySubType] = useState("A Kılıf");
   const [accessoryShortcuts, setAccessoryShortcuts] = useState([]);
   const [accessoryShortcutForm, setAccessoryShortcutForm] = useState({ group: "Kılıf", sub: "A Kılıf", price: "" });
+  const [technicalServices, setTechnicalServices] = useState([]);
+  const [technicalServiceForm, setTechnicalServiceForm] = useState(emptyTechnicalServiceForm);
+  const [technicalServiceStorageReadyKey, setTechnicalServiceStorageReadyKey] = useState("");
   const [visibleKasaStats, setVisibleKasaStats] = useState({});
   const [profitUnlocked, setProfitUnlocked] = useState(false);
   const [profitDateFrom, setProfitDateFrom] = useState("");
@@ -688,6 +704,12 @@ export default function App() {
   const totalPayableBalance = activeContacts
     .filter((contact) => ["supplier", "seller"].includes(contact.kind) && contact.balanceType === "payable")
     .reduce((sum, contact) => sum + Number(contact.balance || 0), 0);
+  const activeTechnicalServices = technicalServices.filter((item) => !["İptal", "Teslim Edildi"].includes(item.status));
+  const technicalReadyCount = technicalServices.filter((item) => item.status === "Hazır").length;
+  const technicalDeliveredCount = technicalServices.filter((item) => item.status === "Teslim Edildi").length;
+  const technicalEstimatedTotal = technicalServices
+    .filter((item) => item.status !== "İptal")
+    .reduce((sum, item) => sum + parseMoneyInput(item.estimatedPrice), 0);
 
 
   async function refreshFromDatabase() {
@@ -1364,6 +1386,44 @@ export default function App() {
     setSyncMessage(`${title} satış formuna aktarıldı.`);
   }
 
+  function saveTechnicalService() {
+    const customerName = technicalServiceForm.customerName.trim();
+    const phone = formatPhoneDisplay(technicalServiceForm.phone);
+    const device = technicalServiceForm.device.trim();
+    const issue = technicalServiceForm.issue.trim();
+
+    if (!customerName) return alert("Müşteri adı soyadı yaz");
+    if (!phone) return alert("Müşteri telefonu yaz");
+    if (!device) return alert("Cihaz / model yaz");
+    if (!issue) return alert("Arıza açıklaması yaz");
+
+    const record = {
+      id: Date.now(),
+      customerName,
+      phone,
+      device,
+      issue,
+      technician: technicalServiceForm.technician.trim(),
+      estimatedPrice: formatMoneyInput(technicalServiceForm.estimatedPrice),
+      deposit: formatMoneyInput(technicalServiceForm.deposit),
+      dueDate: technicalServiceForm.dueDate,
+      status: technicalServiceForm.status || "Beklemede",
+      note: technicalServiceForm.note.trim(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setTechnicalServices([record, ...technicalServices]);
+    setTechnicalServiceForm(emptyTechnicalServiceForm);
+    setSyncMessage("Teknik servis kaydı açıldı. Bu kayıt kasa/cari/stok hareketi oluşturmaz.");
+  }
+
+  function updateTechnicalServiceStatus(id, status) {
+    setTechnicalServices(technicalServices.map((item) => (
+      item.id === id ? { ...item, status, updatedAt: new Date().toISOString() } : item
+    )));
+  }
+
   function createBackupPayload() {
     return {
       app: "CEPLOG",
@@ -1383,6 +1443,7 @@ export default function App() {
         cashMovements: activeCashMovements.length,
         contacts: activeContacts.length,
         suppliers: suppliers.length,
+        technicalServices: technicalServices.length,
       },
       data: {
         stock,
@@ -1394,6 +1455,7 @@ export default function App() {
         suppliers,
         cashClosings: [],
         accessoryShortcuts,
+        technicalServices,
       },
     };
   }
@@ -1450,6 +1512,7 @@ export default function App() {
   }
 
   const accessoryShortcutStorageKey = activeWorkspaceId || currentUser?.id || "";
+  const technicalServiceStorageKey = activeWorkspaceId || currentUser?.id || "";
 
   useEffect(() => {
     if (!accessoryShortcutStorageKey) return;
@@ -1468,6 +1531,27 @@ export default function App() {
     if (!accessoryShortcutStorageKey) return;
     localStorage.setItem(`ceplog_accessory_shortcuts_${accessoryShortcutStorageKey}`, JSON.stringify(accessoryShortcuts.slice(0, accessoryShortcutLimit)));
   }, [accessoryShortcuts, accessoryShortcutStorageKey]);
+
+  useEffect(() => {
+    if (!technicalServiceStorageKey) return;
+    const saved = localStorage.getItem(`ceplog_technical_services_${technicalServiceStorageKey}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setTechnicalServices(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        setTechnicalServices([]);
+      }
+    } else {
+      setTechnicalServices([]);
+    }
+    setTechnicalServiceStorageReadyKey(technicalServiceStorageKey);
+  }, [technicalServiceStorageKey]);
+
+  useEffect(() => {
+    if (!technicalServiceStorageKey || technicalServiceStorageReadyKey !== technicalServiceStorageKey) return;
+    localStorage.setItem(`ceplog_technical_services_${technicalServiceStorageKey}`, JSON.stringify(technicalServices.slice(0, 1000)));
+  }, [technicalServices, technicalServiceStorageKey, technicalServiceStorageReadyKey]);
 
   function addAccessoryShortcut() {
     const group = accessoryShortcutForm.group || "Kılıf";
@@ -1622,12 +1706,11 @@ export default function App() {
           </button>
 
           <button
-            className="nav-btn disabled"
-            disabled
+            className={active === "tamir" ? "nav-btn active" : "nav-btn"}
+            onClick={() => setActive("tamir")}
           >
             <Wrench size={22} />
             <span>TEKNİK</span>
-            <small>Yakında</small>
           </button>
 
           <button
@@ -2372,7 +2455,128 @@ export default function App() {
           </section>
         )}
 
-        {active === "tamir" && <section className="card"><h2>Tamir</h2><p>Tamir modülü şimdilik aktif değil.</p></section>}
+        {active === "tamir" && (
+          <section className="section technical-service-page">
+            <div className="stats four">
+              <Stat title="Açık Servis" value={activeTechnicalServices.length} />
+              <Stat title="Hazır Cihaz" value={technicalReadyCount} />
+              <Stat title="Teslim Edilen" value={technicalDeliveredCount} />
+              <Stat title="Tahmini Servis Geliri" value={money(technicalEstimatedTotal)} />
+            </div>
+
+            <div className="grid technical-service-layout">
+              <section className="card technical-service-form-card">
+                <h2>TEKNİK SERVİS KAYDI</h2>
+                <p>Müşteri ve cihaz bilgilerini gir; bu ekran şimdilik kasa, cari veya stok hareketi oluşturmaz.</p>
+
+                <div className="form-grid technical-service-form-grid">
+                  <input
+                    type="text"
+                    placeholder="Müşteri adı soyadı"
+                    value={technicalServiceForm.customerName}
+                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, customerName: e.target.value })}
+                  />
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="Telefon 0 (5xx) xxx xx xx"
+                    value={technicalServiceForm.phone}
+                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, phone: cleanPhone(e.target.value) })}
+                    onBlur={() => setTechnicalServiceForm({ ...technicalServiceForm, phone: formatPhoneDisplay(technicalServiceForm.phone) })}
+                    onFocus={() => setTechnicalServiceForm({ ...technicalServiceForm, phone: cleanPhone(technicalServiceForm.phone) })}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Cihaz / model"
+                    value={technicalServiceForm.device}
+                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, device: e.target.value })}
+                  />
+                  <select
+                    value={technicalServiceForm.status}
+                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, status: e.target.value })}
+                  >
+                    {technicalServiceStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
+                  </select>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Tahmini ücret"
+                    value={technicalServiceForm.estimatedPrice}
+                    onFocus={() => setTechnicalServiceForm({ ...technicalServiceForm, estimatedPrice: stripMoneyForEdit(technicalServiceForm.estimatedPrice) })}
+                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, estimatedPrice: cleanMoneyTyping(e.target.value) })}
+                    onBlur={() => setTechnicalServiceForm({ ...technicalServiceForm, estimatedPrice: formatMoneyInput(technicalServiceForm.estimatedPrice) })}
+                  />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Kapora"
+                    value={technicalServiceForm.deposit}
+                    onFocus={() => setTechnicalServiceForm({ ...technicalServiceForm, deposit: stripMoneyForEdit(technicalServiceForm.deposit) })}
+                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, deposit: cleanMoneyTyping(e.target.value) })}
+                    onBlur={() => setTechnicalServiceForm({ ...technicalServiceForm, deposit: formatMoneyInput(technicalServiceForm.deposit) })}
+                  />
+                  <input
+                    type="date"
+                    value={technicalServiceForm.dueDate}
+                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, dueDate: e.target.value })}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Teknisyen"
+                    value={technicalServiceForm.technician}
+                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, technician: e.target.value })}
+                  />
+                </div>
+
+                <textarea
+                  className="technical-textarea"
+                  placeholder="Arıza açıklaması"
+                  value={technicalServiceForm.issue}
+                  onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, issue: e.target.value })}
+                />
+                <textarea
+                  className="technical-textarea"
+                  placeholder="Servis notu"
+                  value={technicalServiceForm.note}
+                  onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, note: e.target.value })}
+                />
+
+                <button className="primary" type="button" onClick={saveTechnicalService}>
+                  <Plus size={16} /> SERVİS KAYDI AÇ
+                </button>
+              </section>
+
+              <section className="card technical-service-list-card">
+                <h2>TEKNİK SERVİS LİSTESİ</h2>
+                <Table headers={["No", "Tarih", "Müşteri", "Telefon", "Cihaz", "Arıza", "Durum", "Tahmini", "Kapora", "İşlem"]} rows={technicalServices.map((item, index) => [
+                  index + 1,
+                  formatRecordDate(item.createdAt),
+                  item.customerName,
+                  item.phone || "-",
+                  item.device,
+                  item.issue,
+                  <span className={`service-status-badge service-status-${String(item.status || "").toLocaleLowerCase("tr-TR").replace(/\s+/g, "-")}`}>{item.status}</span>,
+                  item.estimatedPrice || "0 TL",
+                  item.deposit || "0 TL",
+                  <div className="service-actions">
+                    {item.status !== "İşlemde" && item.status !== "Teslim Edildi" && item.status !== "İptal" && (
+                      <button className="edit-btn" type="button" onClick={() => updateTechnicalServiceStatus(item.id, "İşlemde")}>İşleme Al</button>
+                    )}
+                    {item.status !== "Hazır" && item.status !== "Teslim Edildi" && item.status !== "İptal" && (
+                      <button className="edit-btn" type="button" onClick={() => updateTechnicalServiceStatus(item.id, "Hazır")}>Hazır</button>
+                    )}
+                    {item.status !== "Teslim Edildi" && item.status !== "İptal" && (
+                      <button className="primary compact-action" type="button" onClick={() => updateTechnicalServiceStatus(item.id, "Teslim Edildi")}>Teslim</button>
+                    )}
+                    {item.status !== "İptal" && item.status !== "Teslim Edildi" && (
+                      <button className="delete-btn" type="button" onClick={() => updateTechnicalServiceStatus(item.id, "İptal")}>İptal</button>
+                    )}
+                  </div>,
+                ])} />
+              </section>
+            </div>
+          </section>
+        )}
 
         {active === "vole" && (
           <section className="section">
