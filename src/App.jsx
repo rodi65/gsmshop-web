@@ -10,6 +10,7 @@ import {
   createExpense,
   createBankWithdrawal,
   createCashMovement,
+  createBankMovement,
   createContactPayment,
   createReceivablePayment,
   repairStockSideEffects,
@@ -31,6 +32,7 @@ const formatMoneyInput = (value) => {
 const cleanMoneyTyping = (value) => String(value || "").replace(/\D/g, "");
 const stripMoneyForEdit = (value) => String(value || "").replace(/\D/g, "");
 const cleanPhone = (value) => String(value || "").replace(/\D/g, "").slice(0, 11);
+const cleanImei = (value) => String(value || "").replace(/\D/g, "").slice(0, 15);
 const formatPhoneDisplay = (value, masked = false) => {
   const digits = cleanPhone(value);
   if (!digits) return "";
@@ -85,20 +87,38 @@ const quickAccessoryGroups = {
 };
 const accessoryShortcutLimit = 30;
 const technicalServiceStatuses = ["Beklemede", "İşlemde", "Hazır", "Teslim Edildi", "İptal"];
-const emptyTechnicalServiceForm = {
+const technicalServiceFilterOptions = ["TÜMÜ", ...technicalServiceStatuses];
+const technicalServiceIncomeTypes = ["Teknik Servis Geliri", "Teknik Servis Kaparo", "Teknik Servis Tahsilat"];
+const technicalServiceRefundTypes = ["Teknik Servis İade"];
+const technicalServiceMovementTypes = [...technicalServiceIncomeTypes, ...technicalServiceRefundTypes];
+const toDatetimeLocalInput = (date = new Date()) => {
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+const makeEmptyTechnicalServiceForm = () => ({
   customerName: "",
   phone: "",
+  brand: "",
+  model: "",
   device: "",
+  imei: "",
+  color: "",
+  accessory: "",
+  stockItemId: "",
   issue: "",
+  repairAction: "",
   technician: "",
   estimatedPrice: "",
   deposit: "",
-  dueDate: "",
+  cardDeposit: "",
+  bank: "",
+  dueDate: toDatetimeLocalInput(),
   status: "Beklemede",
   note: "",
-};
+});
+const emptyTechnicalPaymentForm = { amount: "", method: "Nakit", bank: "", note: "" };
 const cashEntryTypes = ["Manuel Nakit Girişi", "Devir Nakit"];
-const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Devir Nakit", "Gelen Alacak", "Alacak Ödemesi", "Stok Ödemesi", "Cari Ödeme", "Gider", "Bankaya Yatırılan Nakit", "Düzeltme"];
+const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Devir Nakit", "Gelen Alacak", "Alacak Ödemesi", "Stok Ödemesi", "Cari Ödeme", "Gider", "Bankaya Yatırılan Nakit", "Düzeltme", ...technicalServiceMovementTypes];
 const receivablePaymentTypes = ["Gelen Alacak", "Alacak Ödemesi"];
 
 const saleGroupRank = (type) => {
@@ -126,6 +146,14 @@ const recordDate = (item) => item.created_at || item.createdAt || item.date || "
 const isTodayRecord = (item, todayKey) => recordDate(item).slice(0, 10) === todayKey;
 const cashMovementType = (item) => item.movement_type || item.movementType || item.type || "";
 const cashMovementAmount = (item) => typeof item.amount === "number" ? item.amount : parseMoneyInput(item.amount);
+const bankMovementType = (item) => item.movement_type || item.movementType || item.type || "";
+const bankMovementAmount = (item) => typeof item.amount === "number" ? item.amount : parseMoneyInput(item.amount);
+const bankMovementDirection = (item) => item.direction || (bankMovementType(item) === "Bankadan Çekilen" ? "out" : "in");
+const isTechnicalServiceMovement = (type) => technicalServiceMovementTypes.includes(String(type || ""));
+const isTechnicalServiceIncomeMovement = (type) => technicalServiceIncomeTypes.includes(String(type || ""));
+const isTechnicalServiceRefundMovement = (type) => technicalServiceRefundTypes.includes(String(type || ""));
+const serviceMovementId = (item) =>
+  String(item?.relatedServiceId || item?.related_service_id || item?.serviceRecordId || item?.service_record_id || item?.referenceId || item?.reference_id || item?.relatedId || item?.related_id || "");
 const stockPurchasePaymentAmount = (product) => {
   const paid = parseMoneyInput(product.supplierPaid || 0);
   if (paid > 0) return paid;
@@ -227,8 +255,14 @@ const fromDbBankMovement = (item) => ({
   id: item.id,
   type: item.movement_type,
   bank: item.bank_name,
+  direction: item.direction || (item.movement_type === "Bankadan Çekilen" ? "out" : "in"),
   amount: money(Number(item.amount || 0)),
   note: item.note || "",
+  relatedTable: item.related_table || item.relatedTable || "",
+  relatedId: item.related_id || item.relatedId || item.related_sale_id || "",
+  relatedServiceId: item.related_service_id || item.relatedServiceId || "",
+  serviceRecordId: item.service_record_id || item.serviceRecordId || "",
+  referenceId: item.reference_id || item.referenceId || "",
   date: item.created_at || new Date().toISOString(),
   status: item.status || "active",
 });
@@ -241,6 +275,9 @@ const fromDbCashMovement = (item) => ({
   note: item.note || "",
   relatedTable: item.related_table || item.relatedTable || "",
   relatedId: item.related_id || item.relatedId || "",
+  relatedServiceId: item.related_service_id || item.relatedServiceId || "",
+  serviceRecordId: item.service_record_id || item.serviceRecordId || "",
+  referenceId: item.reference_id || item.referenceId || "",
   date: item.created_at || item.date || new Date().toISOString(),
   status: item.status || "active",
 });
@@ -416,6 +453,7 @@ function productTitle(product) {
 }
 
 const stockSearchFilters = ["TÜMÜ", "TELEFON", "AKSESUAR", "DİĞERLERİ", "SAAT", "TABLET", "PC", "BLUETOOTH", "ELEKTRONİK", "PROGRAM"];
+const technicalSearchFilters = ["TÜMÜ", "TELEFON", "PC", "TABLET", "ELEKTRONİK", "DİĞERLERİ"];
 
 function stockSearchGroup(product) {
   const moduleName = normalizeStockText(product?.module);
@@ -542,7 +580,16 @@ export default function App() {
   const [accessoryShortcuts, setAccessoryShortcuts] = useState([]);
   const [accessoryShortcutForm, setAccessoryShortcutForm] = useState({ group: "Kılıf", sub: "A Kılıf", price: "" });
   const [technicalServices, setTechnicalServices] = useState([]);
-  const [technicalServiceForm, setTechnicalServiceForm] = useState(emptyTechnicalServiceForm);
+  const [technicalServiceForm, setTechnicalServiceForm] = useState(() => makeEmptyTechnicalServiceForm());
+  const [selectedTechnicalServiceId, setSelectedTechnicalServiceId] = useState("");
+  const [technicalServiceMode, setTechnicalServiceMode] = useState("new");
+  const [technicalServiceDetailModalOpen, setTechnicalServiceDetailModalOpen] = useState(false);
+  const [technicalSearchModalOpen, setTechnicalSearchModalOpen] = useState(false);
+  const [technicalSearchQuery, setTechnicalSearchQuery] = useState("");
+  const [technicalSearchFilter, setTechnicalSearchFilter] = useState("TÜMÜ");
+  const [technicalStatusFilter, setTechnicalStatusFilter] = useState("TÜMÜ");
+  const [technicalPaymentForm, setTechnicalPaymentForm] = useState(emptyTechnicalPaymentForm);
+  const [technicalRefundForm, setTechnicalRefundForm] = useState(emptyTechnicalPaymentForm);
   const [technicalServiceStorageReadyKey, setTechnicalServiceStorageReadyKey] = useState("");
   const [visibleKasaStats, setVisibleKasaStats] = useState({});
   const [profitUnlocked, setProfitUnlocked] = useState(false);
@@ -621,6 +668,25 @@ export default function App() {
       .map(({ product }) => product)
       .slice(0, 80);
   }, [inStockItems, stockSearchFilter, stockSearchQuery]);
+
+  const technicalSearchResults = useMemo(() => {
+    const queryText = technicalSearchQuery.trim().toLocaleLowerCase("tr-TR");
+    const allowedGroups = new Set(["TELEFON", "PC", "TABLET", "ELEKTRONİK", "DİĞERLERİ"]);
+
+    return inStockItems
+      .map((product, index) => ({ product, index }))
+      .filter(({ product }) => allowedGroups.has(stockSearchGroup(product)))
+      .filter(({ product }) => technicalSearchFilter === "TÜMÜ" || stockSearchGroup(product) === technicalSearchFilter)
+      .filter(({ product }) => !queryText || stockSearchHaystack(product).includes(queryText))
+      .sort((a, b) => {
+        const aTime = new Date(a.product.saleDate || a.product.createdAt || a.product.created_at || 0).getTime();
+        const bTime = new Date(b.product.saleDate || b.product.createdAt || b.product.created_at || 0).getTime();
+        if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return bTime - aTime;
+        return a.index - b.index;
+      })
+      .map(({ product }) => product)
+      .slice(0, 80);
+  }, [inStockItems, technicalSearchFilter, technicalSearchQuery]);
 
   const selectedProduct = inStockItems.find((product) => String(product.id) === String(saleForm.productId));
   const saleTotal = parseMoneyInput(saleForm.total || selectedProduct?.sell || 0);
@@ -705,11 +771,104 @@ export default function App() {
     .filter((contact) => ["supplier", "seller"].includes(contact.kind) && contact.balanceType === "payable")
     .reduce((sum, contact) => sum + Number(contact.balance || 0), 0);
   const activeTechnicalServices = technicalServices.filter((item) => !["İptal", "Teslim Edildi"].includes(item.status));
+  const visibleTechnicalServices = technicalStatusFilter === "TÜMÜ"
+    ? technicalServices
+    : technicalServices.filter((item) => item.status === technicalStatusFilter);
   const technicalReadyCount = technicalServices.filter((item) => item.status === "Hazır").length;
   const technicalDeliveredCount = technicalServices.filter((item) => item.status === "Teslim Edildi").length;
   const technicalEstimatedTotal = technicalServices
     .filter((item) => item.status !== "İptal")
     .reduce((sum, item) => sum + parseMoneyInput(item.estimatedPrice), 0);
+  const technicalCashMovementNet = activeCashMovements
+    .filter((item) => isTechnicalServiceMovement(cashMovementType(item)))
+    .reduce((sum, item) => sum + (item.direction === "out" || isTechnicalServiceRefundMovement(cashMovementType(item)) ? -cashMovementAmount(item) : cashMovementAmount(item)), 0);
+  const technicalBankMovementNet = activeBankMovements
+    .filter((item) => isTechnicalServiceMovement(bankMovementType(item)))
+    .reduce((sum, item) => sum + (bankMovementDirection(item) === "out" || isTechnicalServiceRefundMovement(bankMovementType(item)) ? -bankMovementAmount(item) : bankMovementAmount(item)), 0);
+  const technicalServiceMovementTotal = technicalCashMovementNet + technicalBankMovementNet;
+
+  const technicalServicePaymentHistory = (serviceId) => {
+    const cleanServiceId = String(serviceId || "");
+    return [
+      ...activeCashMovements
+        .filter((item) => isTechnicalServiceMovement(cashMovementType(item)) && serviceMovementId(item) === cleanServiceId)
+        .map((item) => ({
+          id: `cash-${item.id}`,
+          date: item.date,
+          type: cashMovementType(item),
+          method: "Nakit",
+          bank: "",
+          direction: item.direction || (isTechnicalServiceRefundMovement(cashMovementType(item)) ? "out" : "in"),
+          amount: cashMovementAmount(item),
+          note: item.note || "",
+        })),
+      ...activeBankMovements
+        .filter((item) => isTechnicalServiceMovement(bankMovementType(item)) && serviceMovementId(item) === cleanServiceId)
+        .map((item) => ({
+          id: `bank-${item.id}`,
+          date: item.date,
+          type: bankMovementType(item),
+          method: "Kart/Banka",
+          bank: item.bank || "",
+          direction: bankMovementDirection(item),
+          amount: bankMovementAmount(item),
+          note: item.note || "",
+        })),
+    ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  };
+
+  const technicalServiceSummary = (service) => {
+    if (!service) return { total: 0, collected: 0, refunded: 0, net: 0, remaining: 0, history: [] };
+    const history = technicalServicePaymentHistory(service.id);
+    const collected = history
+      .filter((item) => item.direction !== "out" && !isTechnicalServiceRefundMovement(item.type))
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const refunded = history
+      .filter((item) => item.direction === "out" || isTechnicalServiceRefundMovement(item.type))
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const net = Math.max(collected - refunded, 0);
+    const total = parseMoneyInput(service.estimatedPrice);
+    return {
+      total,
+      collected,
+      refunded,
+      net,
+      remaining: Math.max(total - net, 0),
+      history,
+    };
+  };
+  const selectedTechnicalService = technicalServices.find((item) => String(item.id) === String(selectedTechnicalServiceId));
+  const selectedTechnicalSummary = technicalServiceSummary(selectedTechnicalService);
+  const technicalServiceMovements = [
+    ...activeCashMovements
+      .filter((item) => isTechnicalServiceMovement(cashMovementType(item)))
+      .map((item) => ({
+        id: `cash-${item.id}`,
+        rawId: item.id,
+        serviceId: serviceMovementId(item),
+        date: item.date,
+        type: cashMovementType(item),
+        method: "Nakit",
+        bank: "",
+        direction: item.direction || (isTechnicalServiceRefundMovement(cashMovementType(item)) ? "out" : "in"),
+        amount: cashMovementAmount(item),
+        note: item.note || "",
+      })),
+    ...activeBankMovements
+      .filter((item) => isTechnicalServiceMovement(bankMovementType(item)))
+      .map((item) => ({
+        id: `bank-${item.id}`,
+        rawId: item.id,
+        serviceId: serviceMovementId(item),
+        date: item.date,
+        type: bankMovementType(item),
+        method: "Kart/Banka",
+        bank: item.bank || "",
+        direction: bankMovementDirection(item),
+        amount: bankMovementAmount(item),
+        note: item.note || "",
+      })),
+  ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
 
 
   async function refreshFromDatabase() {
@@ -783,25 +942,32 @@ export default function App() {
     .reduce((sum, sale) => sum + parseMoneyInput(sale.total), 0);
   const phoneSalesTotal = saleTotalByType((sale) => sale.type === "Telefon Satışı");
   const accessorySalesTotal = saleTotalByType((sale) => sale.type === "Aksesuar Satışı");
-  const technicalServiceTotal = saleTotalByType((sale) => sale.type === "Teknik Servis");
+  const technicalServiceTotal = saleTotalByType((sale) => sale.type === "Teknik Servis") + technicalServiceMovementTotal;
   const otherSalesTotal = saleTotalByType((sale) => !["Telefon Satışı", "Aksesuar Satışı", "Teknik Servis"].includes(sale.type));
 
   const expenseReport = {
     total: activeExpenses.reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
   };
 
+  const isBankIncomingMovement = (item) =>
+    item.type === "Bankaya Giden" ||
+    (isTechnicalServiceIncomeMovement(bankMovementType(item)) && bankMovementDirection(item) === "in");
+  const isBankOutgoingMovement = (item) =>
+    item.type === "Bankadan Çekilen" ||
+    (isTechnicalServiceRefundMovement(bankMovementType(item)) && bankMovementDirection(item) === "out");
+
   const bankReport = {
-    totalToBank: activeBankMovements.filter((item) => item.type === "Bankaya Giden").reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
-    withdrawnFromBank: activeBankMovements.filter((item) => item.type === "Bankadan Çekilen").reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
+    totalToBank: activeBankMovements.filter(isBankIncomingMovement).reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
+    withdrawnFromBank: activeBankMovements.filter(isBankOutgoingMovement).reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
   };
   bankReport.remainingInBank = Math.max(bankReport.totalToBank - bankReport.withdrawnFromBank, 0);
 
   const bankAccountRows = bankOptions.map((bank) => {
     const totalToBank = activeBankMovements
-      .filter((item) => item.type === "Bankaya Giden" && item.bank === bank)
+      .filter((item) => isBankIncomingMovement(item) && item.bank === bank)
       .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
     const withdrawnFromBank = activeBankMovements
-      .filter((item) => item.type === "Bankadan Çekilen" && item.bank === bank)
+      .filter((item) => isBankOutgoingMovement(item) && item.bank === bank)
       .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
     return {
       bank,
@@ -814,7 +980,7 @@ export default function App() {
 
   const currentMonthKey = new Date().toISOString().slice(0, 7);
   const monthlyPosTotal = activeBankMovements
-    .filter((item) => item.type === "Bankaya Giden" && item.date && item.date.slice(0, 7) === currentMonthKey)
+    .filter((item) => isBankIncomingMovement(item) && item.date && item.date.slice(0, 7) === currentMonthKey)
     .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
   const monthlyPosCommission = (bankReport.remainingInBank / 100) * 3.5;
 
@@ -871,7 +1037,7 @@ export default function App() {
   const receivablePayments = activeCashMovements
     .filter((item) => receivablePaymentTypes.includes(cashMovementType(item)) && item.direction === "in")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
-  const cardSalesTotal = activeSales.reduce((sum, sale) => sum + parseMoneyInput(sale.card || sale.card_amount || 0), 0);
+  const cardSalesTotal = activeSales.reduce((sum, sale) => sum + parseMoneyInput(sale.card || sale.card_amount || 0), 0) + technicalBankMovementNet;
   const cashExpensePayments = activeCashMovements
     .filter((item) => cashMovementType(item) === "Gider" && item.direction === "out")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0) + legacyExpenseOut;
@@ -928,6 +1094,13 @@ export default function App() {
 
   const sortedSales = sortSalesForList(activeSales);
   const sortedFilteredSales = sortSalesForList(filteredSales);
+  const combinedSalesListRows = [
+    ...sortedSales.map((sale) => ({ kind: "sale", date: sale.date, sale })),
+    ...technicalServiceMovements.map((movement) => {
+      const service = technicalServices.find((item) => String(item.id) === String(movement.serviceId));
+      return { kind: "technical", date: movement.date, movement, service };
+    }),
+  ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
 
   function handleBankSelect(value, setter) {
     if (value !== "__add_bank__") {
@@ -1386,42 +1559,315 @@ export default function App() {
     setSyncMessage(`${title} satış formuna aktarıldı.`);
   }
 
-  function saveTechnicalService() {
+  function openTechnicalServiceForm() {
+    setTechnicalServiceForm(makeEmptyTechnicalServiceForm());
+    setSelectedTechnicalServiceId("");
+    setTechnicalServiceMode("new");
+    setTechnicalServiceDetailModalOpen(false);
+  }
+
+  function openTechnicalServiceDetail(serviceId, asModal = false) {
+    if (!serviceId) return alert("Servis bağlantısı bulunamadı.");
+    const exists = technicalServices.some((item) => String(item.id) === String(serviceId));
+    if (!exists) return alert("Bağlı teknik servis kaydı bulunamadı.");
+    setSelectedTechnicalServiceId(String(serviceId));
+    setTechnicalServiceMode("detail");
+    setTechnicalServiceDetailModalOpen(Boolean(asModal));
+  }
+
+  function cycleTechnicalStatusFilter() {
+    const currentIndex = technicalServiceFilterOptions.indexOf(technicalStatusFilter);
+    const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % technicalServiceFilterOptions.length : 0;
+    setTechnicalStatusFilter(technicalServiceFilterOptions[nextIndex]);
+  }
+
+  function transferProductToTechnicalService(product) {
+    if (!product) return;
+    const title = productTitle(product) || product.name || "Cihaz";
+    setTechnicalServiceForm({
+      ...technicalServiceForm,
+      brand: product.brand || "",
+      model: product.model || "",
+      device: title,
+      imei: cleanImei(product.imei || product.barcode || ""),
+      stockItemId: product.id || "",
+    });
+    setTechnicalServiceMode("new");
+    setTechnicalSearchModalOpen(false);
+    setSyncMessage(`${title} teknik servis formuna aktarıldı.`);
+  }
+
+  async function saveTechnicalService() {
     const customerName = technicalServiceForm.customerName.trim();
     const phone = formatPhoneDisplay(technicalServiceForm.phone);
-    const device = technicalServiceForm.device.trim();
+    const brand = technicalServiceForm.brand.trim();
+    const model = technicalServiceForm.model.trim();
+    const device = technicalServiceForm.device.trim() || [brand, model].filter(Boolean).join(" ").trim();
+    const imei = cleanImei(technicalServiceForm.imei);
     const issue = technicalServiceForm.issue.trim();
+    const totalAmount = parseMoneyInput(technicalServiceForm.estimatedPrice);
+    const cashDeposit = parseMoneyInput(technicalServiceForm.deposit);
+    const cardDeposit = parseMoneyInput(technicalServiceForm.cardDeposit);
+    const totalDeposit = cashDeposit + cardDeposit;
 
     if (!customerName) return alert("Müşteri adı soyadı yaz");
     if (!phone) return alert("Müşteri telefonu yaz");
     if (!device) return alert("Cihaz / model yaz");
+    if (technicalServiceForm.imei && imei.length !== 15) return alert("IMEI girildiyse tam 15 rakam olmalıdır.");
     if (!issue) return alert("Arıza açıklaması yaz");
+    if (totalDeposit > 0 && !totalAmount) return alert("Kaparo/ödeme alınacaksa toplam servis tutarını yaz.");
+    if (totalDeposit > totalAmount) return alert("Alınan kaparo/ödeme toplam servis tutarından fazla olamaz.");
+    if (cardDeposit > 0 && !technicalServiceForm.bank) return alert("Kart/banka kaparosu için banka seçmek zorunludur.");
+
+    const serviceId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+    const movementNote = `${customerName} - ${device} - ${issue}`.slice(0, 180);
 
     const record = {
-      id: Date.now(),
+      id: serviceId,
       customerName,
       phone,
+      brand,
+      model,
       device,
+      imei,
+      color: technicalServiceForm.color.trim(),
+      accessory: technicalServiceForm.accessory.trim(),
+      stockItemId: technicalServiceForm.stockItemId || "",
       issue,
+      repairAction: technicalServiceForm.repairAction.trim(),
       technician: technicalServiceForm.technician.trim(),
       estimatedPrice: formatMoneyInput(technicalServiceForm.estimatedPrice),
-      deposit: formatMoneyInput(technicalServiceForm.deposit),
-      dueDate: technicalServiceForm.dueDate,
+      deposit: formatMoneyInput(totalDeposit),
+      cashDeposit: formatMoneyInput(cashDeposit),
+      cardDeposit: formatMoneyInput(cardDeposit),
+      bank: technicalServiceForm.bank,
+      dueDate: technicalServiceForm.dueDate || toDatetimeLocalInput(),
+      deliveryDateTime: technicalServiceForm.dueDate || toDatetimeLocalInput(),
       status: technicalServiceForm.status || "Beklemede",
       note: technicalServiceForm.note.trim(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
+    let cashMovementSaved = false;
+    try {
+      if (cashDeposit > 0) {
+        await createCashMovement({
+          movement_type: "Teknik Servis Kaparo",
+          direction: "in",
+          amount: cashDeposit,
+          related_table: "technical_services",
+          related_id: serviceId,
+          related_service_id: serviceId,
+          service_record_id: serviceId,
+          reference_id: serviceId,
+          note: movementNote,
+        });
+        cashMovementSaved = true;
+      }
+
+      if (cardDeposit > 0) {
+        await createBankMovement({
+          movement_type: "Teknik Servis Kaparo",
+          direction: "in",
+          bank_name: technicalServiceForm.bank,
+          amount: cardDeposit,
+          related_table: "technical_services",
+          related_id: serviceId,
+          related_service_id: serviceId,
+          service_record_id: serviceId,
+          reference_id: serviceId,
+          note: movementNote,
+        });
+      }
+    } catch (error) {
+      console.error("Teknik servis kayıt finans hareketi hatası", error);
+      if (cashMovementSaved && cardDeposit > 0) {
+        setTechnicalServices([record, ...technicalServices]);
+        setTechnicalServiceForm(makeEmptyTechnicalServiceForm());
+        setSelectedTechnicalServiceId(serviceId);
+        setTechnicalServiceMode("detail");
+        await refreshFromDatabase();
+        const message = error.message || "Banka/kart hareketi kaydedilemedi.";
+        alert(`Yarım işlem uyarısı: Nakit hareket kasaya kaydedildi ancak banka/kart hareketi kaydedilemedi. Hata: ${message}`);
+        setSyncMessage("Yarım işlem: Nakit kaparo kaydedildi, banka/kart kaparosu kaydedilemedi.");
+        return;
+      }
+      alert(error.message || "Teknik servis finansal hareketi kaydedilemedi. Supabase migration gerekebilir.");
+      return;
+    }
+
     setTechnicalServices([record, ...technicalServices]);
-    setTechnicalServiceForm(emptyTechnicalServiceForm);
-    setSyncMessage("Teknik servis kaydı açıldı. Bu kayıt kasa/cari/stok hareketi oluşturmaz.");
+    setTechnicalServiceForm(makeEmptyTechnicalServiceForm());
+    setSelectedTechnicalServiceId(serviceId);
+    setTechnicalServiceMode("detail");
+    await refreshFromDatabase();
+    setSyncMessage("Teknik servis kaydı açıldı; kaparo/ödeme kasa veya banka hareketlerine işlendi.");
   }
 
   function updateTechnicalServiceStatus(id, status) {
     setTechnicalServices(technicalServices.map((item) => (
       item.id === id ? { ...item, status, updatedAt: new Date().toISOString() } : item
     )));
+  }
+
+  async function saveTechnicalServiceFinance(service, mode) {
+    if (!service?.id) return alert("Servis kaydı seçilemedi.");
+    const isRefund = mode === "refund";
+    const form = isRefund ? technicalRefundForm : technicalPaymentForm;
+    const amount = parseMoneyInput(form.amount);
+    const method = form.method || "Nakit";
+    const summary = technicalServiceSummary(service);
+
+    if (!amount) return alert(isRefund ? "İade tutarını yaz." : "Ödeme tutarını yaz.");
+    if (!summary.total && !isRefund) return alert("Toplam servis tutarı yazılmadan ödeme alınamaz.");
+    if (!isRefund && amount > summary.remaining) return alert("Ödeme kalan servis tutarından fazla olamaz.");
+    if (isRefund && amount > summary.net) return alert("İade tutarı bu servis için tahsil edilen toplamdan fazla olamaz.");
+    if (method === "Kart/Banka" && !form.bank) return alert("Banka seçmek zorunludur.");
+
+    const movementType = isRefund ? "Teknik Servis İade" : "Teknik Servis Tahsilat";
+    const direction = isRefund ? "out" : "in";
+    const note = (form.note || `${isRefund ? "Teknik servis iade" : "Teknik servis tahsilat"} - ${service.customerName || "Müşteri"} - ${service.device || "Cihaz"}`).slice(0, 180);
+
+    try {
+      if (method === "Kart/Banka") {
+        await createBankMovement({
+          movement_type: movementType,
+          direction,
+          bank_name: form.bank,
+          amount,
+          related_table: "technical_services",
+          related_id: service.id,
+          related_service_id: service.id,
+          service_record_id: service.id,
+          reference_id: service.id,
+          note,
+        });
+      } else {
+        await createCashMovement({
+          movement_type: movementType,
+          direction,
+          amount,
+          related_table: "technical_services",
+          related_id: service.id,
+          related_service_id: service.id,
+          service_record_id: service.id,
+          reference_id: service.id,
+          note,
+        });
+      }
+
+      setTechnicalServices(technicalServices.map((item) => (
+        String(item.id) === String(service.id) ? { ...item, updatedAt: new Date().toISOString() } : item
+      )));
+      if (isRefund) setTechnicalRefundForm(emptyTechnicalPaymentForm);
+      else setTechnicalPaymentForm(emptyTechnicalPaymentForm);
+      await refreshFromDatabase();
+      setSyncMessage(isRefund ? "Teknik servis iadesi kaydedildi." : "Teknik servis ödemesi kaydedildi.");
+    } catch (error) {
+      alert(error.message || "Teknik servis ödeme/iade hareketi kaydedilemedi. Supabase migration gerekebilir.");
+    }
+  }
+
+  function renderTechnicalServiceDetailCard(service, summary, modal = false) {
+    if (!service) return null;
+    const historyRows = summary.history.map((item) => [
+      new Date(item.date).toLocaleString("tr-TR"),
+      item.type,
+      item.method,
+      item.note || "-",
+      <span className={item.direction === "out" ? "technical-money-out" : "technical-money-in"}>{`${item.direction === "out" ? "-" : "+"}${money(item.amount)}`}</span>,
+      item.bank || (item.method === "Nakit" ? "Kasa" : "-"),
+      currentUser?.email || "-",
+    ]);
+
+    return (
+      <div className={modal ? "technical-service-detail-card global-detail" : "technical-service-detail-card"}>
+        <div className="technical-detail-header">
+          <div>
+            <h3>SERVİSTE BİLGİ FORMU</h3>
+            <p>{service.customerName} - {service.device}</p>
+          </div>
+          <button className="delete-btn compact-action" type="button" onClick={() => modal ? setTechnicalServiceDetailModalOpen(false) : setSelectedTechnicalServiceId("")}>Kapat</button>
+        </div>
+
+        <div className="technical-info-grid">
+          <div className="technical-info-block">
+            <h4>MÜŞTERİ / CİHAZ BİLGİLERİ</h4>
+            <div><span>Müşteri adı</span><b>{service.customerName || "-"}</b></div>
+            <div><span>Telefon</span><b>{service.phone || "-"}</b></div>
+            <div><span>Cihaz</span><b>{service.device || "-"}</b></div>
+            <div><span>IMEI</span><b>{service.imei || "-"}</b></div>
+            <div><span>Renk</span><b>{service.color || "-"}</b></div>
+            <div><span>Aksesuar</span><b>{service.accessory || "-"}</b></div>
+          </div>
+
+          <div className="technical-info-block">
+            <h4>SERVİS BİLGİLERİ</h4>
+            <div><span>Kayıt tarihi</span><b>{formatRecordDate(service.createdAt)}</b></div>
+            <div><span>Teslim tarihi</span><b>{formatRecordDate(service.deliveryDateTime || service.dueDate || service.createdAt)}</b></div>
+            <div><span>Durum</span><b>{service.status || "-"}</b></div>
+            <div><span>Teknisyen</span><b>{service.technician || "-"}</b></div>
+            <div><span>Arıza / Sorun</span><b>{service.issue || "-"}</b></div>
+            <div><span>Yapılan işlem</span><b>{service.repairAction || "-"}</b></div>
+            <div><span>Servis notu</span><b>{service.note || "-"}</b></div>
+          </div>
+
+          <div className="technical-info-block finance">
+            <h4>FİNANSAL ÖZET</h4>
+            <div><span>Toplam Servis Tutarı</span><b>{money(summary.total)}</b></div>
+            <div><span>Toplam Tahsil Edilen</span><b>{money(summary.collected)}</b></div>
+            <div><span>Toplam İade</span><b>{money(summary.refunded)}</b></div>
+            <div><span>Kalan Tutar</span><b>{money(summary.remaining)}</b></div>
+            <div><span>Net Tahsilat</span><b>{money(summary.net)}</b></div>
+            <div className="technical-finance-actions">
+              <button className="primary compact-action" type="button" onClick={() => setTechnicalPaymentForm(emptyTechnicalPaymentForm)}>ÖDEME AL</button>
+              <button className="delete-btn compact-action" type="button" onClick={() => setTechnicalRefundForm(emptyTechnicalPaymentForm)}>İADE YAP</button>
+              <button className="edit-btn compact-action" type="button" onClick={() => setSyncMessage("Ödeme / iade geçmişi aşağıda listelendi.")}>GEÇMİŞİ GÖR</button>
+            </div>
+          </div>
+        </div>
+
+        <div className="technical-service-actions-grid">
+          <div className="technical-mini-form">
+            <h4>ÖDEME AL</h4>
+            <input type="text" inputMode="numeric" placeholder="Tutar" value={technicalPaymentForm.amount} onFocus={() => setTechnicalPaymentForm({ ...technicalPaymentForm, amount: stripMoneyForEdit(technicalPaymentForm.amount) })} onChange={(e) => setTechnicalPaymentForm({ ...technicalPaymentForm, amount: cleanMoneyTyping(e.target.value) })} onBlur={() => setTechnicalPaymentForm({ ...technicalPaymentForm, amount: formatMoneyInput(technicalPaymentForm.amount) })} />
+            <select value={technicalPaymentForm.method} onChange={(e) => setTechnicalPaymentForm({ ...technicalPaymentForm, method: e.target.value })}>
+              <option value="Nakit">Nakit</option>
+              <option value="Kart/Banka">Kart/Banka</option>
+            </select>
+            {technicalPaymentForm.method === "Kart/Banka" && (
+              <select value={technicalPaymentForm.bank} onChange={(e) => setTechnicalPaymentForm({ ...technicalPaymentForm, bank: e.target.value })}>
+                <option value="">Banka seç</option>
+                {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+              </select>
+            )}
+            <input placeholder="Açıklama" value={technicalPaymentForm.note} onChange={(e) => setTechnicalPaymentForm({ ...technicalPaymentForm, note: e.target.value })} />
+            <button className="primary compact-action" type="button" onClick={() => saveTechnicalServiceFinance(service, "payment")}>ÖDEME AL</button>
+          </div>
+
+          <div className="technical-mini-form">
+            <h4>PARA İADESİ</h4>
+            <input type="text" inputMode="numeric" placeholder="İade tutarı" value={technicalRefundForm.amount} onFocus={() => setTechnicalRefundForm({ ...technicalRefundForm, amount: stripMoneyForEdit(technicalRefundForm.amount) })} onChange={(e) => setTechnicalRefundForm({ ...technicalRefundForm, amount: cleanMoneyTyping(e.target.value) })} onBlur={() => setTechnicalRefundForm({ ...technicalRefundForm, amount: formatMoneyInput(technicalRefundForm.amount) })} />
+            <select value={technicalRefundForm.method} onChange={(e) => setTechnicalRefundForm({ ...technicalRefundForm, method: e.target.value })}>
+              <option value="Nakit">Nakit</option>
+              <option value="Kart/Banka">Kart/Banka</option>
+            </select>
+            {technicalRefundForm.method === "Kart/Banka" && (
+              <select value={technicalRefundForm.bank} onChange={(e) => setTechnicalRefundForm({ ...technicalRefundForm, bank: e.target.value })}>
+                <option value="">Banka seç</option>
+                {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+              </select>
+            )}
+            <input placeholder="Açıklama" value={technicalRefundForm.note} onChange={(e) => setTechnicalRefundForm({ ...technicalRefundForm, note: e.target.value })} />
+            <button className="delete-btn compact-action" type="button" onClick={() => saveTechnicalServiceFinance(service, "refund")}>İADE YAP</button>
+          </div>
+        </div>
+
+        <h4 className="technical-history-title">ÖDEME / İADE GEÇMİŞİ</h4>
+        <Table headers={["Tarih", "İşlem", "Yöntem", "Açıklama", "Tutar", "Banka/Kasa", "Kullanıcı"]} rows={historyRows} />
+      </div>
+    );
   }
 
   function createBackupPayload() {
@@ -1596,13 +2042,16 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!searchModalOpen) return undefined;
+    if (!searchModalOpen && !technicalSearchModalOpen && !technicalServiceDetailModalOpen) return undefined;
     const closeOnEscape = (event) => {
-      if (event.key === "Escape") setSearchModalOpen(false);
+      if (event.key !== "Escape") return;
+      setSearchModalOpen(false);
+      setTechnicalSearchModalOpen(false);
+      setTechnicalServiceDetailModalOpen(false);
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [searchModalOpen]);
+  }, [searchModalOpen, technicalSearchModalOpen, technicalServiceDetailModalOpen]);
 
   if (!authChecked) {
     return <div className="app"><section className="card"><h2>CEPLOG yükleniyor...</h2></section></div>;
@@ -1806,6 +2255,90 @@ export default function App() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {technicalSearchModalOpen && (
+          <div className="modal-bg">
+            <div className="modal search-modal">
+              <div className="search-panel">
+                <div className="search-panel-head">
+                  <div>
+                    <h2 className="search-title">TEKNİK SERVİS SORGULA</h2>
+                    <p>Arama yazmadan cihazları listele; cihaz seçince servis formu otomatik dolsun.</p>
+                  </div>
+                  <button className="choice search-close-btn" type="button" onClick={() => setTechnicalSearchModalOpen(false)}>
+                    <X size={18} /> KAPAT
+                  </button>
+                </div>
+
+                <input
+                  className="global-search-input"
+                  placeholder="Cihaz adı, marka, model, barkod veya IMEI yaz"
+                  value={technicalSearchQuery}
+                  onChange={(e) => setTechnicalSearchQuery(e.target.value)}
+                  autoComplete="off"
+                  autoFocus
+                />
+
+                <div className="search-filter-tabs">
+                  {technicalSearchFilters.map((filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      className={technicalSearchFilter === filter ? "choice active" : "choice"}
+                      onClick={() => setTechnicalSearchFilter(filter)}
+                    >
+                      {filter}
+                    </button>
+                  ))}
+                </div>
+
+                {!technicalSearchResults.length ? (
+                  <div className="empty-search-note">Cihaz bulunamadı.</div>
+                ) : (
+                  <div className="search-results-table">
+                    {technicalSearchResults.map((product) => {
+                      const group = stockSearchGroup(product);
+                      const code = product.imei || product.barcode || "-";
+                      const quantity = Number(product.qty || 0);
+
+                      return (
+                        <button
+                          key={product.id}
+                          type="button"
+                          className="search-result-card"
+                          onClick={() => transferProductToTechnicalService(product)}
+                        >
+                          <div className="search-result-head">
+                            <div>
+                              <b>{productTitle(product) || product.name || "-"}</b>
+                              <span>{[product.brand, product.model, product.memory].filter(Boolean).join(" / ") || product.deviceType || product.category || "-"}</span>
+                            </div>
+                            <span className="stock-status-badge">{group}</span>
+                          </div>
+
+                          <div className="search-result-grid">
+                            <div><span>Grup</span><b>{group}</b></div>
+                            <div><span>Barkod / IMEI</span><b>{code}</b></div>
+                            <div><span>Stok</span><b>{quantity}</b></div>
+                            <div><span>Satış</span><b>{product.sell || "0 TL"}</b></div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {technicalServiceDetailModalOpen && selectedTechnicalService && (
+          <div className="modal-bg">
+            <div className="modal technical-global-modal">
+              {renderTechnicalServiceDetailCard(selectedTechnicalService, selectedTechnicalSummary, true)}
             </div>
           </div>
         )}
@@ -2172,19 +2705,47 @@ export default function App() {
             {kasaTab === "satisListesi" && (
               <section className="card">
                 <h2>Satış Listesi</h2>
-                <Table headers={["No", "Grup", "Saat", "Ürün", "Müşteri", "Nakit", "Kart", "Kalan", "Kâr", "İşlem", "Sil"]} rows={sortedSales.map((sale, index) => [
-                  index + 1,
-                  saleGroupName(sale.type),
-                  new Date(sale.date).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
-                  sale.productName,
-                  sale.customer || "-",
-                  sale.cash,
-                  sale.card,
-                  money(sale.remaining),
-                  money(sale.profit),
-                  <button className="edit-btn" onClick={() => openSaleEditor(sale)}><Pencil size={14} /> Düzenle</button>,
-                  <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
-                ])} />
+                <p>Normal satışlar ve teknik servis kaparo/tahsilat/iade hareketleri aynı listede görünür.</p>
+                <Table headers={["No", "Tarih/Saat", "İşlem Türü", "Müşteri", "Ürün / Cihaz", "Yöntem", "Tutar", "Kalan / Kâr", "Durum", "Detay", "Sil"]} rows={combinedSalesListRows.map((row, index) => {
+                  if (row.kind === "technical") {
+                    const { movement, service } = row;
+                    return [
+                      index + 1,
+                      new Date(movement.date).toLocaleString("tr-TR"),
+                      movement.type,
+                      service?.customerName || "-",
+                      service?.device || movement.note || "-",
+                      movement.method === "Kart/Banka" ? movement.bank || "Kart/Banka" : "Nakit",
+                      <span className={movement.direction === "out" ? "technical-money-out" : "technical-money-in"}>{`${movement.direction === "out" ? "-" : "+"}${money(movement.amount)}`}</span>,
+                      "-",
+                      "Aktif",
+                      movement.serviceId ? (
+                        <button className="edit-btn" type="button" onClick={() => openTechnicalServiceDetail(movement.serviceId, true)}>Servis Aç</button>
+                      ) : (
+                        <button className="edit-btn" type="button" onClick={() => alert("Bu teknik servis hareketi servis kaydıyla bağlantılı değil.")}>Bağ Yok</button>
+                      ),
+                      "-",
+                    ];
+                  }
+
+                  const { sale } = row;
+                  return [
+                    index + 1,
+                    new Date(sale.date).toLocaleString("tr-TR"),
+                    saleGroupName(sale.type),
+                    sale.customer || "-",
+                    sale.productName,
+                    [
+                      parseMoneyInput(sale.cash) > 0 ? "Nakit" : "",
+                      parseMoneyInput(sale.card) > 0 ? (sale.bank || "Kart") : "",
+                    ].filter(Boolean).join(" + ") || "-",
+                    sale.total,
+                    `${money(sale.remaining)} / ${money(sale.profit)}`,
+                    sale.status || "active",
+                    <button className="edit-btn" onClick={() => openSaleEditor(sale)}><Pencil size={14} /> Düzenle</button>,
+                    <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
+                  ];
+                })} />
               </section>
             )}
 
@@ -2464,101 +3025,36 @@ export default function App() {
               <Stat title="Tahmini Servis Geliri" value={money(technicalEstimatedTotal)} />
             </div>
 
-            <div className="grid technical-service-layout">
-              <section className="card technical-service-form-card">
-                <h2>TEKNİK SERVİS KAYDI</h2>
-                <p>Müşteri ve cihaz bilgilerini gir; bu ekran şimdilik kasa, cari veya stok hareketi oluşturmaz.</p>
-
-                <div className="form-grid technical-service-form-grid">
-                  <input
-                    type="text"
-                    placeholder="Müşteri adı soyadı"
-                    value={technicalServiceForm.customerName}
-                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, customerName: e.target.value })}
-                  />
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    placeholder="Telefon 0 (5xx) xxx xx xx"
-                    value={technicalServiceForm.phone}
-                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, phone: cleanPhone(e.target.value) })}
-                    onBlur={() => setTechnicalServiceForm({ ...technicalServiceForm, phone: formatPhoneDisplay(technicalServiceForm.phone) })}
-                    onFocus={() => setTechnicalServiceForm({ ...technicalServiceForm, phone: cleanPhone(technicalServiceForm.phone) })}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Cihaz / model"
-                    value={technicalServiceForm.device}
-                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, device: e.target.value })}
-                  />
-                  <select
-                    value={technicalServiceForm.status}
-                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, status: e.target.value })}
-                  >
-                    {technicalServiceStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
-                  </select>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="Tahmini ücret"
-                    value={technicalServiceForm.estimatedPrice}
-                    onFocus={() => setTechnicalServiceForm({ ...technicalServiceForm, estimatedPrice: stripMoneyForEdit(technicalServiceForm.estimatedPrice) })}
-                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, estimatedPrice: cleanMoneyTyping(e.target.value) })}
-                    onBlur={() => setTechnicalServiceForm({ ...technicalServiceForm, estimatedPrice: formatMoneyInput(technicalServiceForm.estimatedPrice) })}
-                  />
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="Kapora"
-                    value={technicalServiceForm.deposit}
-                    onFocus={() => setTechnicalServiceForm({ ...technicalServiceForm, deposit: stripMoneyForEdit(technicalServiceForm.deposit) })}
-                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, deposit: cleanMoneyTyping(e.target.value) })}
-                    onBlur={() => setTechnicalServiceForm({ ...technicalServiceForm, deposit: formatMoneyInput(technicalServiceForm.deposit) })}
-                  />
-                  <input
-                    type="date"
-                    value={technicalServiceForm.dueDate}
-                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, dueDate: e.target.value })}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Teknisyen"
-                    value={technicalServiceForm.technician}
-                    onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, technician: e.target.value })}
-                  />
+            <section className="card technical-service-list-card">
+              <div className="technical-section-head">
+                <div>
+                  <h2>SERVİS KAYITLARI / TEKNİK SERVİS LİSTESİ</h2>
+                  <p>Liste üstte, seçili servis veya yeni kayıt formu altta açılır.</p>
                 </div>
+                <div className="technical-toolbar">
+                  <button className="primary compact-action" type="button" onClick={openTechnicalServiceForm}><Plus size={16} /> YENİ SERVİS KAYDI</button>
+                  <button className="edit-btn compact-action" type="button" onClick={refreshFromDatabase}>YENİLE</button>
+                  <button className="edit-btn compact-action" type="button" onClick={cycleTechnicalStatusFilter}>FİLTRE: {technicalStatusFilter}</button>
+                  <button className="choice compact-action" type="button" onClick={() => setTechnicalSearchModalOpen(true)}><Search size={15} /> SORGULA</button>
+                </div>
+              </div>
 
-                <textarea
-                  className="technical-textarea"
-                  placeholder="Arıza açıklaması"
-                  value={technicalServiceForm.issue}
-                  onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, issue: e.target.value })}
-                />
-                <textarea
-                  className="technical-textarea"
-                  placeholder="Servis notu"
-                  value={technicalServiceForm.note}
-                  onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, note: e.target.value })}
-                />
-
-                <button className="primary" type="button" onClick={saveTechnicalService}>
-                  <Plus size={16} /> SERVİS KAYDI AÇ
-                </button>
-              </section>
-
-              <section className="card technical-service-list-card">
-                <h2>TEKNİK SERVİS LİSTESİ</h2>
-                <Table headers={["No", "Tarih", "Müşteri", "Telefon", "Cihaz", "Arıza", "Durum", "Tahmini", "Kapora", "İşlem"]} rows={technicalServices.map((item, index) => [
+              <Table headers={["No", "Kayıt Tarihi", "Teslim Tarihi", "Müşteri", "Telefon", "Cihaz / IMEI", "Arıza", "Durum", "Toplam", "Net Tahsilat", "Kalan", "İşlem / Detay"]} rows={visibleTechnicalServices.map((item, index) => {
+                const summary = technicalServiceSummary(item);
+                return [
                   index + 1,
                   formatRecordDate(item.createdAt),
+                  formatRecordDate(item.deliveryDateTime || item.dueDate || item.createdAt),
                   item.customerName,
                   item.phone || "-",
-                  item.device,
+                  <div className="technical-device-cell"><b>{item.device}</b><span>{item.imei || "-"}</span></div>,
                   item.issue,
                   <span className={`service-status-badge service-status-${String(item.status || "").toLocaleLowerCase("tr-TR").replace(/\s+/g, "-")}`}>{item.status}</span>,
                   item.estimatedPrice || "0 TL",
-                  item.deposit || "0 TL",
+                  money(summary.net),
+                  money(summary.remaining),
                   <div className="service-actions">
+                    <button className="edit-btn" type="button" onClick={() => openTechnicalServiceDetail(item.id)}>Detay</button>
                     {item.status !== "İşlemde" && item.status !== "Teslim Edildi" && item.status !== "İptal" && (
                       <button className="edit-btn" type="button" onClick={() => updateTechnicalServiceStatus(item.id, "İşlemde")}>İşleme Al</button>
                     )}
@@ -2572,9 +3068,64 @@ export default function App() {
                       <button className="delete-btn" type="button" onClick={() => updateTechnicalServiceStatus(item.id, "İptal")}>İptal</button>
                     )}
                   </div>,
-                ])} />
-              </section>
-            </div>
+                ];
+              })} />
+            </section>
+
+            <section className="card technical-service-form-card technical-service-bottom-card">
+              {technicalServiceMode === "new" ? (
+                <>
+                  <div className="technical-section-head">
+                    <div>
+                      <h2>SERVİSTE BİLGİ FORMU</h2>
+                      <p>Yeni servis kaydı aç; ödeme varsa kasa/banka hareketi aynı servis id ile bağlanır.</p>
+                    </div>
+                  </div>
+
+                  <div className="technical-info-grid">
+                    <div className="technical-info-block technical-form-block">
+                      <h4>MÜŞTERİ / CİHAZ BİLGİLERİ</h4>
+                      <input type="text" placeholder="Müşteri adı" value={technicalServiceForm.customerName} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, customerName: e.target.value })} />
+                      <input type="tel" inputMode="numeric" placeholder="Telefon 0 (5xx) xxx xx xx" value={technicalServiceForm.phone} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, phone: cleanPhone(e.target.value) })} onBlur={() => setTechnicalServiceForm({ ...technicalServiceForm, phone: formatPhoneDisplay(technicalServiceForm.phone) })} onFocus={() => setTechnicalServiceForm({ ...technicalServiceForm, phone: cleanPhone(technicalServiceForm.phone) })} />
+                      <input type="text" placeholder="Marka / Cihaz" value={technicalServiceForm.brand} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, brand: e.target.value })} />
+                      <input type="text" placeholder="Model" value={technicalServiceForm.model} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, model: e.target.value })} />
+                      <input type="text" placeholder="Cihaz açıklaması" value={technicalServiceForm.device} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, device: e.target.value })} />
+                      <input type="text" inputMode="numeric" maxLength={15} placeholder="IMEI (opsiyonel, 15 rakam)" value={technicalServiceForm.imei} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, imei: cleanImei(e.target.value) })} />
+                      <input type="text" placeholder="Renk" value={technicalServiceForm.color} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, color: e.target.value })} />
+                      <input type="text" placeholder="Aksesuar" value={technicalServiceForm.accessory} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, accessory: e.target.value })} />
+                    </div>
+
+                    <div className="technical-info-block technical-form-block">
+                      <h4>SERVİS BİLGİLERİ</h4>
+                      <input type="datetime-local" aria-label="Cihaz teslim tarihi ve saati" value={technicalServiceForm.dueDate} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, dueDate: e.target.value })} />
+                      <select value={technicalServiceForm.status} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, status: e.target.value })}>
+                        {technicalServiceStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
+                      </select>
+                      <input type="text" placeholder="Teknisyen" value={technicalServiceForm.technician} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, technician: e.target.value })} />
+                      <textarea className="technical-textarea" placeholder="Arıza / Sorun" value={technicalServiceForm.issue} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, issue: e.target.value })} />
+                      <textarea className="technical-textarea" placeholder="Yapılan işlem" value={technicalServiceForm.repairAction} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, repairAction: e.target.value })} />
+                      <textarea className="technical-textarea" placeholder="Servis notu" value={technicalServiceForm.note} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, note: e.target.value })} />
+                    </div>
+
+                    <div className="technical-info-block technical-form-block finance">
+                      <h4>FİNANSAL ÖZET</h4>
+                      <input type="text" inputMode="numeric" placeholder="Toplam servis tutarı" value={technicalServiceForm.estimatedPrice} onFocus={() => setTechnicalServiceForm({ ...technicalServiceForm, estimatedPrice: stripMoneyForEdit(technicalServiceForm.estimatedPrice) })} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, estimatedPrice: cleanMoneyTyping(e.target.value) })} onBlur={() => setTechnicalServiceForm({ ...technicalServiceForm, estimatedPrice: formatMoneyInput(technicalServiceForm.estimatedPrice) })} />
+                      <input type="text" inputMode="numeric" placeholder="Nakit kaparo / ödeme" value={technicalServiceForm.deposit} onFocus={() => setTechnicalServiceForm({ ...technicalServiceForm, deposit: stripMoneyForEdit(technicalServiceForm.deposit) })} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, deposit: cleanMoneyTyping(e.target.value) })} onBlur={() => setTechnicalServiceForm({ ...technicalServiceForm, deposit: formatMoneyInput(technicalServiceForm.deposit) })} />
+                      <input type="text" inputMode="numeric" placeholder="Kart kaparo / ödeme" value={technicalServiceForm.cardDeposit} onFocus={() => setTechnicalServiceForm({ ...technicalServiceForm, cardDeposit: stripMoneyForEdit(technicalServiceForm.cardDeposit) })} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, cardDeposit: cleanMoneyTyping(e.target.value) })} onBlur={() => setTechnicalServiceForm({ ...technicalServiceForm, cardDeposit: formatMoneyInput(technicalServiceForm.cardDeposit) })} />
+                      <select value={technicalServiceForm.bank} onChange={(e) => setTechnicalServiceForm({ ...technicalServiceForm, bank: e.target.value })}>
+                        <option value="">Kart/banka için banka seç</option>
+                        {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+                      </select>
+                      <button className="primary" type="button" onClick={saveTechnicalService}><Plus size={16} /> SERVİS KAYDI AÇ</button>
+                    </div>
+                  </div>
+                </>
+              ) : selectedTechnicalService ? (
+                renderTechnicalServiceDetailCard(selectedTechnicalService, selectedTechnicalSummary)
+              ) : (
+                <div className="empty-search-note">Listeden servis seç veya yeni servis kaydı aç.</div>
+              )}
+            </section>
           </section>
         )}
 

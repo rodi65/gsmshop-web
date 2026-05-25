@@ -154,6 +154,40 @@ function financialRpcMissingError(error) {
   return wrapped;
 }
 
+function isMissingTechnicalServiceFinanceColumn(error) {
+  const message = String(error?.message || "").toLowerCase();
+  const missingColumnCodes = new Set(["42703", "PGRST204", "PGRST205"]);
+  const mentionsMissingColumn =
+    message.includes("could not find") ||
+    message.includes("column") && (message.includes("does not exist") || message.includes("schema cache"));
+  return (
+    (missingColumnCodes.has(error?.code) || mentionsMissingColumn) &&
+    (
+      message.includes("related_service_id") ||
+      message.includes("service_record_id") ||
+      message.includes("reference_id") ||
+      message.includes("related_id")
+    )
+  );
+}
+
+function technicalServiceFinanceColumnsError(error) {
+  const wrapped = new Error("Teknik servis banka bağlantı kolonları Supabase’de eksik. bank_movements_related_id_fix_20260525.sql dosyasını SQL Editor’da çalıştırın.");
+  wrapped.cause = error;
+  return wrapped;
+}
+
+function isTechnicalServiceMovementTypeError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("movement_type") && (message.includes("check constraint") || message.includes("violates"));
+}
+
+function technicalServiceMovementTypeError(error) {
+  const wrapped = new Error("Supabase teknik servis finans SQL migration çalıştırılmalı. technical_service_movement_type_fix_20260525.sql dosyasını SQL Editor’da çalıştırın.");
+  wrapped.cause = error;
+  return wrapped;
+}
+
 async function callFinancialRpc(name, payload, missingMessage = "") {
   const { data, error } = await supabase.rpc(name, payload);
   if (error) {
@@ -283,6 +317,9 @@ export async function findOrCreateContact({ kind, name, phone = "", balance = 0,
 export async function createCashMovement(payload) {
   const user = await getCurrentUser();
   const workspaceId = await getCurrentWorkspaceId();
+  const serviceReferenceId = payload.related_service_id || payload.service_record_id || payload.reference_id || (
+    payload.related_table === "technical_services" ? payload.related_id : ""
+  );
 
   const { data, error } = await supabase
     .from("cash_movements")
@@ -293,6 +330,11 @@ export async function createCashMovement(payload) {
       note: payload.note || "",
       related_table: payload.related_table || null,
       related_id: payload.related_id || null,
+      ...(serviceReferenceId ? {
+        related_service_id: serviceReferenceId,
+        service_record_id: serviceReferenceId,
+        reference_id: serviceReferenceId,
+      } : {}),
       workspace_id: workspaceId,
       status: "active",
       created_by: user?.id,
@@ -300,7 +342,85 @@ export async function createCashMovement(payload) {
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("cash_movements insert error", {
+      error,
+      payload: {
+        movement_type: payload.movement_type,
+        direction: payload.direction,
+        amount: toDbNumber(payload.amount),
+        related_table: payload.related_table || null,
+        related_id: payload.related_id || null,
+        related_service_id: serviceReferenceId || null,
+        service_record_id: serviceReferenceId || null,
+        reference_id: serviceReferenceId || null,
+      },
+    });
+    if (serviceReferenceId && isMissingTechnicalServiceFinanceColumn(error)) {
+      throw technicalServiceFinanceColumnsError(error);
+    }
+    if (isTechnicalServiceMovementTypeError(error)) {
+      throw technicalServiceMovementTypeError(error);
+    }
+    throw error;
+  }
+  return data;
+}
+
+export async function createBankMovement(payload) {
+  const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
+  const serviceReferenceId = payload.related_service_id || payload.service_record_id || payload.reference_id || (
+    payload.related_table === "technical_services" ? payload.related_id : ""
+  );
+
+  if (!payload.bank_name) {
+    throw new Error("Banka seçmek zorunludur.");
+  }
+
+  const { data, error } = await supabase
+    .from("bank_movements")
+    .insert([{
+      movement_type: payload.movement_type,
+      direction: payload.direction || "in",
+      bank_name: payload.bank_name,
+      amount: toDbNumber(payload.amount),
+      note: payload.note || "",
+      related_table: payload.related_table || null,
+      related_id: payload.related_id || null,
+      related_service_id: serviceReferenceId || null,
+      service_record_id: serviceReferenceId || null,
+      reference_id: serviceReferenceId || null,
+      workspace_id: workspaceId,
+      status: "active",
+      created_by: user?.id,
+    }])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("bank_movements insert error", {
+      error,
+      payload: {
+        movement_type: payload.movement_type,
+        direction: payload.direction || "in",
+        bank_name: payload.bank_name,
+        amount: toDbNumber(payload.amount),
+        related_table: payload.related_table || null,
+        related_id: payload.related_id || null,
+        related_service_id: serviceReferenceId || null,
+        service_record_id: serviceReferenceId || null,
+        reference_id: serviceReferenceId || null,
+      },
+    });
+    if (serviceReferenceId && isMissingTechnicalServiceFinanceColumn(error)) {
+      throw technicalServiceFinanceColumnsError(error);
+    }
+    if (isTechnicalServiceMovementTypeError(error)) {
+      throw technicalServiceMovementTypeError(error);
+    }
+    throw error;
+  }
   return data;
 }
 
