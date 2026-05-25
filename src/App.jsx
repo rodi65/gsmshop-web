@@ -154,7 +154,8 @@ const emptyTechnicalSummary = {
 const cashEntryTypes = ["Manuel Nakit Girişi", "Devir Nakit"];
 const cashEntryMovementTypes = ["Manuel Nakit Girişi", "Nakit Girişi", "Kasaya Nakit Girişi"];
 const cashEntryCancellationType = "Nakit Girişi İptali";
-const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Nakit Girişi", "Kasaya Nakit Girişi", cashEntryCancellationType, "Devir Nakit", "Gelen Alacak", "Alacak Ödemesi", "Stok Ödemesi", "Cari Ödeme", "Gider", "Bankaya Yatırılan Nakit", "Düzeltme", ...technicalServiceMovementTypes];
+const purchaseCancellationMovementTypes = ["Stok Alış İptali", "Cihaz Alış İptali"];
+const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Nakit Girişi", "Kasaya Nakit Girişi", cashEntryCancellationType, "Devir Nakit", "Gelen Alacak", "Alacak Ödemesi", "Stok Ödemesi", "Cari Ödeme", "Gider", "Bankaya Yatırılan Nakit", "Düzeltme", ...purchaseCancellationMovementTypes, ...technicalServiceMovementTypes];
 const receivablePaymentTypes = ["Gelen Alacak", "Alacak Ödemesi"];
 
 const saleGroupRank = (type) => {
@@ -196,6 +197,8 @@ const isPurchasePaymentMovement = (item, movementType = cashMovementType(item) |
 };
 const isCancellableCashEntryMovement = (item) =>
   cashEntryMovementTypes.includes(cashMovementType(item)) && (item?.direction || "in") === "in";
+const isPurchaseCancellationMovement = (item, movementType = cashMovementType(item) || bankMovementType(item)) =>
+  purchaseCancellationMovementTypes.includes(String(movementType || ""));
 const isTechnicalServiceMovement = (type) => technicalServiceMovementTypes.includes(String(type || ""));
 const isTechnicalServiceIncomeMovement = (type) => technicalServiceIncomeTypes.includes(String(type || ""));
 const isTechnicalServiceRefundMovement = (type) => technicalServiceRefundTypes.includes(String(type || ""));
@@ -336,6 +339,13 @@ const fromDbContact = (item) => ({
   phone: item.phone || "",
   balance: Number(item.balance || 0),
   balanceType: item.balance_type || item.balanceType || "",
+  relatedTable: item.related_table || item.relatedTable || "",
+  relatedId: item.related_id || item.relatedId || "",
+  relatedStockId: item.related_stock_id || item.relatedStockId || "",
+  stockId: item.stock_id || item.stockId || "",
+  itemId: item.item_id || item.itemId || "",
+  productId: item.product_id || item.productId || "",
+  referenceId: item.reference_id || item.referenceId || "",
   note: item.note || "",
   date: item.created_at || item.date || new Date().toISOString(),
   status: item.status || "active",
@@ -1075,10 +1085,12 @@ export default function App() {
   const isBankIncomingMovement = (item) =>
     item.type === "Bankaya Giden" ||
     (bankMovementType(item) === "Düzeltme" && bankMovementDirection(item) === "in") ||
+    (isPurchaseCancellationMovement(item, bankMovementType(item)) && bankMovementDirection(item) === "in") ||
     (isTechnicalServiceIncomeMovement(bankMovementType(item)) && bankMovementDirection(item) === "in");
   const isBankOutgoingMovement = (item) =>
     item.type === "Bankadan Çekilen" ||
     (bankMovementType(item) === "Düzeltme" && bankMovementDirection(item) === "out") ||
+    (isPurchaseCancellationMovement(item, bankMovementType(item)) && bankMovementDirection(item) === "out") ||
     (isTechnicalServiceRefundMovement(bankMovementType(item)) && bankMovementDirection(item) === "out");
 
   const bankReport = {
@@ -1155,7 +1167,13 @@ export default function App() {
     .filter((item) => isPurchasePaymentMovement(item))
     .reduce((sum, item) => sum + Math.abs(cashMovementAmount(item)), 0) + activeBankMovements
     .filter((item) => isPurchasePaymentMovement(item))
-    .reduce((sum, item) => sum + Math.abs(bankMovementAmount(item)), 0) + legacyStockPaymentOut;
+    .reduce((sum, item) => sum + Math.abs(bankMovementAmount(item)), 0) + legacyStockPaymentOut
+    - activeCashMovements
+    .filter((item) => isPurchaseCancellationMovement(item))
+    .reduce((sum, item) => sum + Math.abs(cashMovementAmount(item)), 0)
+    - activeBankMovements
+    .filter((item) => isPurchaseCancellationMovement(item))
+    .reduce((sum, item) => sum + Math.abs(bankMovementAmount(item)), 0);
   const receivablePayments = activeCashMovements
     .filter((item) => receivablePaymentTypes.includes(cashMovementType(item)) && item.direction === "in")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
@@ -1166,8 +1184,9 @@ export default function App() {
 
   function dailyReportRowType(type, direction = "") {
     if (type === cashEntryCancellationType) return { label: "Nakit Girişi İptali", tone: "cancel" };
+    if (purchaseCancellationMovementTypes.includes(type)) return { label: "Alış İptali", tone: "cancel" };
     if (cashEntryMovementTypes.includes(type) || type === "Devir Nakit") return { label: "Nakit Girişi", tone: "cash-in" };
-    if (isPurchasePaymentMovement({ type, direction })) return { label: "Alım Ödemesi", tone: "purchase" };
+    if (purchasePaymentMovementTypes.includes(type) && (!direction || direction === "out")) return { label: "Alım Ödemesi", tone: "purchase" };
     if (receivablePaymentTypes.includes(type) || ["Alacak Tahsilatı", "Cari Tahsilat"].includes(type)) return { label: "Alacak Tahsilatı", tone: "debt" };
     if (type === "Cari Ödeme") return { label: "Cari Ödeme", tone: "debt" };
     if (isTechnicalServiceRefundMovement(type)) return { label: "Teknik Servis İade", tone: "service-refund" };
@@ -1222,7 +1241,7 @@ export default function App() {
         cash: inactive ? 0 : signedCash,
         bank: 0,
         debt: !inactive && ["Cari Ödeme"].includes(type) ? amount : 0,
-        refund: inactive || direction === "out" && (type === cashEntryCancellationType || isTechnicalServiceRefundMovement(type)) ? amount : 0,
+        refund: inactive || isPurchaseCancellationMovement(item) || direction === "out" && (type === cashEntryCancellationType || isTechnicalServiceRefundMovement(type)) ? amount : 0,
         total: inactive ? -amount : signedCash,
       });
     });
@@ -1247,7 +1266,7 @@ export default function App() {
         cash: 0,
         bank: inactive ? 0 : signedBank,
         debt: 0,
-        refund: inactive || direction === "out" ? amount : 0,
+        refund: inactive || isPurchaseCancellationMovement(item) || direction === "out" ? amount : 0,
         total: inactive ? -amount : signedBank,
       });
     });
@@ -1474,26 +1493,34 @@ export default function App() {
   function stockReferenceValues(product) {
     return [
       product?.id,
-      product?.stock_item_id,
-      product?.productId,
-      product?.barcode,
-      product?.imei,
     ]
       .filter(Boolean)
       .map((value) => String(value).trim())
       .filter(Boolean);
   }
 
-  function movementReferenceValues(item) {
+  function directStockReferenceValues(item) {
+    return [
+      item?.relatedStockId,
+      item?.related_stock_id,
+      item?.stockItemId,
+      item?.stock_item_id,
+      item?.stockId,
+      item?.stock_id,
+      item?.itemId,
+      item?.item_id,
+      item?.productId,
+      item?.product_id,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim())
+      .filter(Boolean);
+  }
+
+  function relatedRecordValues(item) {
     return [
       item?.relatedId,
       item?.related_id,
-      item?.relatedStockId,
-      item?.related_stock_id,
-      item?.stockId,
-      item?.stock_id,
-      item?.productId,
-      item?.product_id,
       item?.referenceId,
       item?.reference_id,
     ]
@@ -1502,26 +1529,39 @@ export default function App() {
       .filter(Boolean);
   }
 
+  function trustedRelatedTable(item) {
+    return normalizeStockText(item?.relatedTable || item?.related_table || "");
+  }
+
+  function isStockRelatedTable(tableName) {
+    return ["stock_items", "stock_item", "stock", "stocks", "purchase", "purchases", "stock_purchases"].includes(tableName);
+  }
+
   function saleMatchesStock(product, sale) {
-    const stockId = String(product?.id || "").trim();
-    const barcode = String(product?.barcode || product?.imei || "").trim();
-    if (stockId && String(sale?.productId || sale?.stock_item_id || "").trim() === stockId) return true;
-    if (barcode && String(sale?.productBarcode || sale?.barcode || sale?.imei || "").trim() === barcode) return true;
-    return false;
+    const stockRefs = stockReferenceValues(product);
+    return directStockReferenceValues(sale).some((reference) => stockRefs.includes(reference));
   }
 
   function movementMatchesStock(product, movement) {
     const stockRefs = stockReferenceValues(product);
-    const movementRefs = movementReferenceValues(movement);
-    if (movementRefs.some((reference) => stockRefs.includes(reference))) return true;
+    if (directStockReferenceValues(movement).some((reference) => stockRefs.includes(reference))) return true;
+    const tableName = trustedRelatedTable(movement);
+    return isStockRelatedTable(tableName) && relatedRecordValues(movement).some((reference) => stockRefs.includes(reference));
+  }
 
-    const barcode = String(product?.barcode || product?.imei || "").trim();
-    const note = String(movement?.note || "");
-    return Boolean(barcode && note.includes(barcode));
+  function contactMatchesStock(product, contact) {
+    const stockRefs = stockReferenceValues(product);
+    if (directStockReferenceValues(contact).some((reference) => stockRefs.includes(reference))) return true;
+    const tableName = trustedRelatedTable(contact);
+    return isStockRelatedTable(tableName) && relatedRecordValues(contact).some((reference) => stockRefs.includes(reference));
+  }
+
+  function technicalServiceMatchesStock(product, service) {
+    const stockRefs = stockReferenceValues(product);
+    return directStockReferenceValues(service).some((reference) => stockRefs.includes(reference));
   }
 
   function analyzeStockDeleteLinks(product) {
-    const title = productTitle(product);
     const linkedSales = activeSales.filter((sale) => saleMatchesStock(product, sale));
     const linkedCashMovements = activeCashMovements.filter((movement) => movementMatchesStock(product, movement));
     const linkedBankMovements = activeBankMovements.filter((movement) => movementMatchesStock(product, movement));
@@ -1531,13 +1571,8 @@ export default function App() {
     const linkedBankPurchases = linkedBankMovements.filter((movement) =>
       isPurchasePaymentMovement(movement)
     );
-    const contactLinks = activeContacts.filter((contact) => {
-      if (!title || !contact?.note) return false;
-      return normalizeStockText(contact.note).includes(normalizeStockText(title));
-    });
-    const legacyPurchasePayment = linkedCashPurchases.length || linkedBankPurchases.length
-      ? 0
-      : stockPurchasePaymentAmount(product);
+    const contactLinks = activeContacts.filter((contact) => contactMatchesStock(product, contact));
+    const linkedTechnicalServices = technicalServices.filter((service) => isActiveRecord(service) && technicalServiceMatchesStock(product, service));
 
     return {
       linkedSales,
@@ -1546,30 +1581,33 @@ export default function App() {
       linkedCashPurchases,
       linkedBankPurchases,
       contactLinks,
-      legacyPurchasePayment,
+      linkedTechnicalServices,
+      hasCancellablePurchaseLink: Boolean(linkedCashPurchases.length || linkedBankPurchases.length),
+      hasUntrustedFinanceHint: Boolean(stockPurchasePaymentAmount(product) > 0 || stockSellerDebt(product) > 0),
       hasFinancialLink: Boolean(
         linkedCashMovements.length ||
         linkedBankMovements.length ||
         linkedCashPurchases.length ||
         linkedBankPurchases.length ||
-        legacyPurchasePayment > 0 ||
-        stockSellerDebt(product) > 0 ||
-        contactLinks.length
+        contactLinks.length ||
+        linkedTechnicalServices.length
       ),
     };
   }
 
   async function createStockPurchaseCancellationMovements(product, links) {
     const title = productTitle(product) || "Stok kaydı";
-    const note = `Cihaz alış iptali - ${title}`;
+    const movementType = product?.module === "Cihaz" ? "Cihaz Alış İptali" : "Stok Alış İptali";
+    const note = `Stok alış iptali - ${title}`;
     let createdCount = 0;
 
     for (const movement of links.linkedBankPurchases) {
       const amount = bankMovementAmount(movement);
       if (!amount) continue;
+      const originalDirection = bankMovementDirection(movement);
       await createBankMovement({
-        movement_type: "Düzeltme",
-        direction: "in",
+        movement_type: movementType,
+        direction: originalDirection === "out" ? "in" : "out",
         bank_name: movement.bank || movement.bank_name || "",
         amount,
         related_table: "stock_items",
@@ -1582,22 +1620,11 @@ export default function App() {
     for (const movement of links.linkedCashPurchases) {
       const amount = cashMovementAmount(movement);
       if (!amount) continue;
+      const originalDirection = movement.direction || "out";
       await createCashMovement({
-        movement_type: "Düzeltme",
-        direction: "in",
+        movement_type: movementType,
+        direction: originalDirection === "out" ? "in" : "out",
         amount,
-        related_table: "stock_items",
-        related_id: product.id,
-        note,
-      });
-      createdCount += 1;
-    }
-
-    if (links.legacyPurchasePayment > 0) {
-      await createCashMovement({
-        movement_type: "Düzeltme",
-        direction: "in",
-        amount: links.legacyPurchasePayment,
         related_table: "stock_items",
         related_id: product.id,
         note,
@@ -1626,18 +1653,19 @@ export default function App() {
 
     const links = analyzeStockDeleteLinks(product);
     if (links.linkedSales.length) {
-      alert("Bu cihaz satış kaydına bağlı olduğu için stoktan doğrudan silinemez. Önce Kasa > Satış Listesi bölümünden satış iptal/iade işlemi yapmalısınız.");
+      alert("Bu cihaz satış kaydına bağlı olduğu için stoktan doğrudan silinemez. Önce Kasa > Satış Listesi bölümünden satış iptal/iade işlemi yapılmalıdır.");
       return;
     }
 
     try {
       let deleteMode = "stockOnly";
       if (links.hasFinancialLink) {
-        const choice = window.prompt(
-          "Bu cihaz alış/kasa hareketine bağlı.\n\n1 - Sadece stoktan kaldır\n2 - Alış/kasa etkisini iptal ederek kaldır\n3 - Vazgeç"
-        );
+        const choiceText = links.hasCancellablePurchaseLink
+          ? "Bu stok kaydı alış/kasa hareketine bağlı.\n\nBu cihazı/ürünü stoktan kaldırırken kasa/banka etkisini değiştirmek isteyip istemediğinizi seçin.\n\n1 - Sadece stoktan kaldır\n2 - Alış/kasa etkisini iptal ederek kaldır\n3 - Vazgeç"
+          : "Bu stok kaydı başka kayıtlara bağlı görünüyor ancak açık alış/kasa ödeme bağlantısı bulunamadı.\n\n1 - Sadece stoktan kaldır\n3 - Vazgeç";
+        const choice = window.prompt(choiceText);
         if (choice === null || choice.trim() === "" || choice.trim() === "3") return;
-        if (!["1", "2"].includes(choice.trim())) {
+        if (!["1", "2"].includes(choice.trim()) || choice.trim() === "2" && !links.hasCancellablePurchaseLink) {
           alert("Geçerli bir seçim yapılmadı. İşlem iptal edildi.");
           return;
         }
@@ -1648,7 +1676,12 @@ export default function App() {
             deleteMode = createdCount > 0 ? "purchaseCancelled" : "stockOnly";
           } catch (error) {
             console.error("Stok alış iptali ters hareket hatası", error);
-            alert(`Cihaz alış iptali için ters kasa/banka hareketi oluşturulamadı: ${error.message || error}`);
+            const message = String(error?.message || error || "");
+            if (message.includes("movement_type") || message.includes("violates check constraint")) {
+              alert("Stok alış iptali hareket tipi Supabase'de eksik. supabase/stock_purchase_cancel_movement_type_20260526.sql dosyasını SQL Editor'da çalıştırın.");
+            } else {
+              alert(`Stok alış iptali için ters kasa/banka hareketi oluşturulamadı: ${error.message || error}`);
+            }
             await refreshFromDatabase();
             return;
           }
@@ -1658,8 +1691,10 @@ export default function App() {
       await softDelete("stock_items", id);
       await refreshFromDatabase();
       const message = deleteMode === "purchaseCancelled"
-        ? "Cihaz alış iptali yapıldı. Kasa/banka hareketleri ters kayıtla düzeltildi."
-        : "Cihaz stoktan kaldırıldı. Kasa/banka hareketleri değiştirilmedi.";
+        ? "Stok kaydı kaldırıldı ve kasa/banka etkisi ters hareketle düzeltildi."
+        : links.hasUntrustedFinanceHint
+          ? "Bu kayıtla ilgili finansal bağlantı kesin olarak bulunamadı. Kasa/banka hareketi değiştirilmedi."
+          : "Cihaz stoktan kaldırıldı. Kasa/banka hareketleri değiştirilmedi.";
       setSyncMessage(message);
       alert(message);
     } catch (error) {
