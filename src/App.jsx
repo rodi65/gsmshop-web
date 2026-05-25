@@ -480,6 +480,23 @@ function formatRecordDate(value) {
   return date.toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+function localDateKey(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value || "").slice(0, 10);
+  const pad = (part) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function reportDateValue(item) {
+  return item?.created_at || item?.createdAt || item?.movement_date || item?.sale_date || item?.date || "";
+}
+
+function isSameReportDay(item, selectedDate) {
+  const value = reportDateValue(item);
+  if (!value || !selectedDate) return false;
+  return localDateKey(value) === selectedDate;
+}
+
 function cleanBarcode(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 15);
 }
@@ -532,6 +549,7 @@ export default function App() {
   const [cashMovements, setCashMovements] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [kasaTab, setKasaTab] = useState("yeniSatis");
+  const [dailyReportDate, setDailyReportDate] = useState(() => localDateKey(new Date()));
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [stockSearchQuery, setStockSearchQuery] = useState("");
   const [stockSearchFilter, setStockSearchFilter] = useState("TÜMÜ");
@@ -1067,6 +1085,131 @@ export default function App() {
   const cashExpensePayments = activeCashMovements
     .filter((item) => cashMovementType(item) === "Gider" && item.direction === "out")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0) + legacyExpenseOut;
+
+  function dailyReportRowType(type, direction = "") {
+    if (type === cashEntryCancellationType) return { label: "Nakit Girişi İptali", tone: "cancel" };
+    if (cashEntryMovementTypes.includes(type) || type === "Devir Nakit") return { label: "Nakit Girişi", tone: "cash-in" };
+    if (isPurchasePaymentMovement({ type, direction })) return { label: "Alım Ödemesi", tone: "purchase" };
+    if (receivablePaymentTypes.includes(type) || ["Alacak Tahsilatı", "Cari Tahsilat"].includes(type)) return { label: "Alacak Tahsilatı", tone: "debt" };
+    if (type === "Cari Ödeme") return { label: "Cari Ödeme", tone: "debt" };
+    if (isTechnicalServiceRefundMovement(type)) return { label: "Teknik Servis İade", tone: "service-refund" };
+    if (isTechnicalServiceIncomeMovement(type)) return { label: "Teknik Servis Tahsilat", tone: "service" };
+    if (type === "Gider" || direction === "out") return { label: "Nakit Çıkışı", tone: "cash-out" };
+    return { label: type || "Nakit Hareketi", tone: direction === "out" ? "cash-out" : "cash-in" };
+  }
+
+  function normalizeDailyCashReportRows(selectedDate) {
+    const rows = [];
+    const saleIds = new Set(safeSales.map((sale) => String(sale.id)));
+
+    safeSales.filter((sale) => isSameReportDay(sale, selectedDate)).forEach((sale) => {
+      const inactive = !isActiveRecord(sale);
+      const total = parseMoneyInput(sale.total || sale.total_amount || 0);
+      const cash = parseMoneyInput(sale.cash || sale.cash_amount || 0);
+      const card = parseMoneyInput(sale.card || sale.card_amount || 0);
+      const remaining = parseMoneyInput(sale.remaining || sale.remaining_amount || 0);
+      rows.push({
+        date: reportDateValue(sale),
+        tone: inactive ? "cancel" : "sale",
+        type: inactive ? "İptal" : "Satış",
+        description: sale.productName || sale.product_name || sale.type || sale.sale_type || "-",
+        party: sale.customer || sale.customer_name || sale.cariPerson || sale.cari_person || "",
+        buy: inactive ? 0 : parseMoneyInput(sale.productBuyPrice || sale.buy_cost || 0),
+        sale: inactive ? 0 : total,
+        cash: inactive ? 0 : cash,
+        bank: inactive ? 0 : card,
+        debt: inactive ? 0 : remaining,
+        refund: inactive ? total : 0,
+        total: inactive ? -total : total,
+      });
+    });
+
+    safeCashMovements.filter((item) => isSameReportDay(item, selectedDate)).forEach((item) => {
+      const type = cashMovementType(item);
+      const relatedSaleDuplicate = type === "Satış Nakit" && String(item.relatedTable || item.related_table || "") === "sales" && saleIds.has(String(item.relatedId || item.related_id || ""));
+      if (relatedSaleDuplicate) return;
+      const amount = Math.abs(cashMovementAmount(item));
+      const direction = item.direction || "in";
+      const inactive = !isActiveMovement(item);
+      const reportType = inactive ? { label: "İptal", tone: "cancel" } : dailyReportRowType(type, direction);
+      const signedCash = direction === "out" ? -amount : amount;
+      rows.push({
+        date: reportDateValue(item),
+        tone: reportType.tone,
+        type: reportType.label,
+        description: item.note || type || "-",
+        party: "",
+        buy: !inactive && isPurchasePaymentMovement(item) ? amount : 0,
+        sale: 0,
+        cash: inactive ? 0 : signedCash,
+        bank: 0,
+        debt: !inactive && ["Cari Ödeme"].includes(type) ? amount : 0,
+        refund: inactive || direction === "out" && (type === cashEntryCancellationType || isTechnicalServiceRefundMovement(type)) ? amount : 0,
+        total: inactive ? -amount : signedCash,
+      });
+    });
+
+    safeBankMovements.filter((item) => isSameReportDay(item, selectedDate)).forEach((item) => {
+      const type = bankMovementType(item);
+      const relatedSaleDuplicate = String(item.relatedTable || item.related_table || "") === "sales" && saleIds.has(String(item.relatedId || item.related_id || ""));
+      if (relatedSaleDuplicate) return;
+      const amount = Math.abs(bankMovementAmount(item));
+      const direction = bankMovementDirection(item);
+      const inactive = !isActiveMovement(item);
+      const reportType = inactive ? { label: "İptal", tone: "cancel" } : dailyReportRowType(type, direction);
+      const signedBank = direction === "out" ? -amount : amount;
+      rows.push({
+        date: reportDateValue(item),
+        tone: reportType.tone === "cash-in" ? "bank" : reportType.tone,
+        type: isTechnicalServiceMovement(type) ? reportType.label : "Banka Hareketi",
+        description: item.note || type || "-",
+        party: item.bank || item.bank_name || "",
+        buy: !inactive && isPurchasePaymentMovement(item) ? amount : 0,
+        sale: 0,
+        cash: 0,
+        bank: inactive ? 0 : signedBank,
+        debt: 0,
+        refund: inactive || direction === "out" ? amount : 0,
+        total: inactive ? -amount : signedBank,
+      });
+    });
+
+    safeContacts.filter((contact) => isSameReportDay(contact, selectedDate)).forEach((contact) => {
+      const balance = Math.abs(Number(contact.balance || 0));
+      if (!balance) return;
+      const inactive = !isActiveRecord(contact);
+      rows.push({
+        date: reportDateValue(contact),
+        tone: inactive ? "cancel" : "debt",
+        type: contact.balanceType === "payable" ? "Borç Alınan" : "Borç / Cari",
+        description: contact.note || contact.kind || "-",
+        party: contact.name || "",
+        buy: 0,
+        sale: 0,
+        cash: 0,
+        bank: 0,
+        debt: inactive ? 0 : balance,
+        refund: inactive ? balance : 0,
+        total: inactive ? -balance : balance,
+      });
+    });
+
+    return rows
+      .sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime())
+      .map((row, index) => ({ ...row, no: index + 1 }));
+  }
+
+  const dailyCashReportRows = normalizeDailyCashReportRows(dailyReportDate);
+  const dailyCashReportTotals = dailyCashReportRows.reduce((totals, row) => ({
+    buy: totals.buy + Number(row.buy || 0),
+    sale: totals.sale + Number(row.sale || 0),
+    cash: totals.cash + Number(row.cash || 0),
+    bank: totals.bank + Number(row.bank || 0),
+    debt: totals.debt + Number(row.debt || 0),
+    refund: totals.refund + Number(row.refund || 0),
+    netCash: totals.netCash + Number(row.cash || 0),
+  }), { buy: 0, sale: 0, cash: 0, bank: 0, debt: 0, refund: 0, netCash: 0 });
+
   const cashWithBankIncoming = cashMovementNetWithoutSaleCash + report.cash + legacyBankCashIncoming - legacyExpenseOut - legacyStockPaymentOut;
   const cashAfterExpenses = cashWithBankIncoming;
   const compactKasaSummaryCards = [
@@ -2465,6 +2608,21 @@ export default function App() {
     setAccessoryShortcuts(accessoryShortcuts.filter((item) => item.id !== id));
   }
 
+  function reportMoneyCell(value, options = {}) {
+    const amount = Number(value || 0);
+    if (!amount) return <span className="report-money muted">-</span>;
+    const negative = options.negative || amount < 0;
+    return (
+      <span className={negative ? "report-money negative" : "report-money"}>
+        {negative ? `-${money(Math.abs(amount))}` : money(amount)}
+      </span>
+    );
+  }
+
+  function reportTypeBadge(row) {
+    return <span className={`report-type-badge ${row.tone || "default"}`}>{row.type || "-"}</span>;
+  }
+
   useEffect(() => {
     const timer = setInterval(() => setClockNow(new Date()), 1000);
     return () => clearInterval(timer);
@@ -3287,7 +3445,52 @@ export default function App() {
             )}
 
             {kasaTab === "kapanis" && (
-              <CashClosingPanel />
+              <div className="kasa-closing-stack">
+                <CashClosingPanel />
+
+                <section className="card daily-report-card">
+                  <div className="daily-report-header">
+                    <div>
+                      <h2>GÜNLÜK KASA RAPORU</h2>
+                      <p>Seçilen tarihteki satış, kasa, banka, cari ve teknik servis hareketlerini okuma amaçlı listeler.</p>
+                    </div>
+                    <div className="daily-report-controls">
+                      <label>
+                        <span>Tarih</span>
+                        <input type="date" value={dailyReportDate} onChange={(event) => setDailyReportDate(event.target.value)} />
+                      </label>
+                      <button className="primary" onClick={() => setSyncMessage(`Günlük kasa raporu yenilendi: ${dailyReportDate}`)}>
+                        Raporu Yenile
+                      </button>
+                    </div>
+                  </div>
+
+                  <Table headers={["No", "Tarih / Saat", "İşlem Türü", "Ürün / Açıklama", "Müşteri / Tedarikçi", "Alış Fiyatı", "Satış Fiyatı", "Nakit", "Kart / Banka", "Borç / Cari", "İade / İptal", "Toplam"]} rows={dailyCashReportRows.map((row) => [
+                    row.no,
+                    formatRecordDate(row.date),
+                    reportTypeBadge(row),
+                    row.description || "-",
+                    row.party || "-",
+                    reportMoneyCell(row.buy),
+                    reportMoneyCell(row.sale),
+                    reportMoneyCell(row.cash),
+                    reportMoneyCell(row.bank),
+                    reportMoneyCell(row.debt),
+                    reportMoneyCell(row.refund, { negative: true }),
+                    reportMoneyCell(row.total),
+                  ])} />
+
+                  <div className="daily-report-totals">
+                    <div><span>Toplam Alış</span><b>{money(dailyCashReportTotals.buy)}</b></div>
+                    <div><span>Toplam Satış</span><b>{money(dailyCashReportTotals.sale)}</b></div>
+                    <div><span>Toplam Nakit</span><b className={dailyCashReportTotals.cash < 0 ? "money-negative" : ""}>{money(dailyCashReportTotals.cash)}</b></div>
+                    <div><span>Toplam Kart/Banka</span><b className={dailyCashReportTotals.bank < 0 ? "money-negative" : ""}>{money(dailyCashReportTotals.bank)}</b></div>
+                    <div><span>Toplam Borç/Cari</span><b>{money(dailyCashReportTotals.debt)}</b></div>
+                    <div><span>Toplam İade/İptal</span><b className="money-negative">{money(dailyCashReportTotals.refund)}</b></div>
+                    <div className="daily-report-net"><span>Net Kasa Etkisi</span><b className={dailyCashReportTotals.netCash < 0 ? "money-negative" : ""}>{money(dailyCashReportTotals.netCash)}</b></div>
+                  </div>
+                </section>
+              </div>
             )}
 
             {kasaTab === "bankadanNakit" && (
