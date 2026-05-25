@@ -1042,9 +1042,11 @@ export default function App() {
 
   const isBankIncomingMovement = (item) =>
     item.type === "Bankaya Giden" ||
+    (bankMovementType(item) === "Düzeltme" && bankMovementDirection(item) === "in") ||
     (isTechnicalServiceIncomeMovement(bankMovementType(item)) && bankMovementDirection(item) === "in");
   const isBankOutgoingMovement = (item) =>
     item.type === "Bankadan Çekilen" ||
+    (bankMovementType(item) === "Düzeltme" && bankMovementDirection(item) === "out") ||
     (isTechnicalServiceRefundMovement(bankMovementType(item)) && bankMovementDirection(item) === "out");
 
   const bankReport = {
@@ -1339,8 +1341,145 @@ export default function App() {
     setEditingStock({ ...product });
   }
 
+  function stockReferenceValues(product) {
+    return [
+      product?.id,
+      product?.stock_item_id,
+      product?.productId,
+      product?.barcode,
+      product?.imei,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim())
+      .filter(Boolean);
+  }
+
+  function movementReferenceValues(item) {
+    return [
+      item?.relatedId,
+      item?.related_id,
+      item?.relatedStockId,
+      item?.related_stock_id,
+      item?.stockId,
+      item?.stock_id,
+      item?.productId,
+      item?.product_id,
+      item?.referenceId,
+      item?.reference_id,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim())
+      .filter(Boolean);
+  }
+
+  function saleMatchesStock(product, sale) {
+    const stockId = String(product?.id || "").trim();
+    const barcode = String(product?.barcode || product?.imei || "").trim();
+    if (stockId && String(sale?.productId || sale?.stock_item_id || "").trim() === stockId) return true;
+    if (barcode && String(sale?.productBarcode || sale?.barcode || sale?.imei || "").trim() === barcode) return true;
+    return false;
+  }
+
+  function movementMatchesStock(product, movement) {
+    const stockRefs = stockReferenceValues(product);
+    const movementRefs = movementReferenceValues(movement);
+    if (movementRefs.some((reference) => stockRefs.includes(reference))) return true;
+
+    const barcode = String(product?.barcode || product?.imei || "").trim();
+    const note = String(movement?.note || "");
+    return Boolean(barcode && note.includes(barcode));
+  }
+
+  function analyzeStockDeleteLinks(product) {
+    const title = productTitle(product);
+    const linkedSales = activeSales.filter((sale) => saleMatchesStock(product, sale));
+    const linkedCashMovements = activeCashMovements.filter((movement) => movementMatchesStock(product, movement));
+    const linkedBankMovements = activeBankMovements.filter((movement) => movementMatchesStock(product, movement));
+    const linkedCashPurchases = linkedCashMovements.filter((movement) =>
+      isPurchasePaymentMovement(movement, cashMovementType(movement), movement.direction)
+    );
+    const linkedBankPurchases = linkedBankMovements.filter((movement) =>
+      isPurchasePaymentMovement(movement, bankMovementType(movement), bankMovementDirection(movement))
+    );
+    const contactLinks = activeContacts.filter((contact) => {
+      if (!title || !contact?.note) return false;
+      return normalizeStockText(contact.note).includes(normalizeStockText(title));
+    });
+    const legacyPurchasePayment = linkedCashPurchases.length || linkedBankPurchases.length
+      ? 0
+      : stockPurchasePaymentAmount(product);
+
+    return {
+      linkedSales,
+      linkedCashMovements,
+      linkedBankMovements,
+      linkedCashPurchases,
+      linkedBankPurchases,
+      contactLinks,
+      legacyPurchasePayment,
+      hasFinancialLink: Boolean(
+        linkedCashMovements.length ||
+        linkedBankMovements.length ||
+        linkedCashPurchases.length ||
+        linkedBankPurchases.length ||
+        legacyPurchasePayment > 0 ||
+        stockSellerDebt(product) > 0 ||
+        contactLinks.length
+      ),
+    };
+  }
+
+  async function createStockPurchaseCancellationMovements(product, links) {
+    const title = productTitle(product) || "Stok kaydı";
+    const note = `Cihaz alış iptali - ${title}`;
+    let createdCount = 0;
+
+    for (const movement of links.linkedBankPurchases) {
+      const amount = bankMovementAmount(movement);
+      if (!amount) continue;
+      await createBankMovement({
+        movement_type: "Düzeltme",
+        direction: "in",
+        bank_name: movement.bank || movement.bank_name || "",
+        amount,
+        related_table: "stock_items",
+        related_id: product.id,
+        note,
+      });
+      createdCount += 1;
+    }
+
+    for (const movement of links.linkedCashPurchases) {
+      const amount = cashMovementAmount(movement);
+      if (!amount) continue;
+      await createCashMovement({
+        movement_type: "Düzeltme",
+        direction: "in",
+        amount,
+        related_table: "stock_items",
+        related_id: product.id,
+        note,
+      });
+      createdCount += 1;
+    }
+
+    if (links.legacyPurchasePayment > 0) {
+      await createCashMovement({
+        movement_type: "Düzeltme",
+        direction: "in",
+        amount: links.legacyPurchasePayment,
+        related_table: "stock_items",
+        related_id: product.id,
+        note,
+      });
+      createdCount += 1;
+    }
+
+    return createdCount;
+  }
+
   async function deleteSale(id) {
-    if (!askDeletePassword()) return alert("Şifre yanlış. Silme işlemi iptal edildi.");
+    if (!askAdminEditPassword()) return;
     try {
       await cancelRecord("sales", id, "Kullanıcı tarafından satış iptal edildi.");
       await refreshFromDatabase();
@@ -1351,18 +1490,55 @@ export default function App() {
   }
 
   async function deleteStock(id) {
-    if (!askDeletePassword()) return alert("Şifre yanlış. Silme işlemi iptal edildi.");
+    const product = activeStock.find((item) => String(item.id) === String(id)) || stock.find((item) => String(item.id) === String(id));
+    if (!product) return alert("Silinecek stok kaydı bulunamadı.");
+    if (!askAdminEditPassword()) return;
+
+    const links = analyzeStockDeleteLinks(product);
+    if (links.linkedSales.length) {
+      alert("Bu cihaz satış kaydına bağlı olduğu için stoktan doğrudan silinemez. Önce Kasa > Satış Listesi bölümünden satış iptal/iade işlemi yapmalısınız.");
+      return;
+    }
+
     try {
+      let deleteMode = "stockOnly";
+      if (links.hasFinancialLink) {
+        const choice = window.prompt(
+          "Bu cihaz alış/kasa hareketine bağlı.\n\n1 - Sadece stoktan kaldır\n2 - Alış/kasa etkisini iptal ederek kaldır\n3 - Vazgeç"
+        );
+        if (choice === null || choice.trim() === "" || choice.trim() === "3") return;
+        if (!["1", "2"].includes(choice.trim())) {
+          alert("Geçerli bir seçim yapılmadı. İşlem iptal edildi.");
+          return;
+        }
+
+        if (choice.trim() === "2") {
+          try {
+            const createdCount = await createStockPurchaseCancellationMovements(product, links);
+            deleteMode = createdCount > 0 ? "purchaseCancelled" : "stockOnly";
+          } catch (error) {
+            console.error("Stok alış iptali ters hareket hatası", error);
+            alert(`Cihaz alış iptali için ters kasa/banka hareketi oluşturulamadı: ${error.message || error}`);
+            await refreshFromDatabase();
+            return;
+          }
+        }
+      }
+
       await softDelete("stock_items", id);
-      setStock(stock.filter((product) => product.id !== id));
-      setSyncMessage("Stok Supabase'de silindi olarak işaretlendi.");
+      await refreshFromDatabase();
+      const message = deleteMode === "purchaseCancelled"
+        ? "Cihaz alış iptali yapıldı. Kasa/banka hareketleri ters kayıtla düzeltildi."
+        : "Cihaz stoktan kaldırıldı. Kasa/banka hareketleri değiştirilmedi.";
+      setSyncMessage(message);
+      alert(message);
     } catch (error) {
       alert(error.message || "Stok silinemedi.");
     }
   }
 
   function deleteSupplierDebt(supplierName) {
-    if (!askDeletePassword()) return alert("Şifre yanlış. Silme işlemi iptal edildi.");
+    if (!askAdminEditPassword()) return;
     setStock(stock.filter((product) => product.supplier !== supplierName));
   }
 
@@ -1388,7 +1564,7 @@ export default function App() {
   }
 
   async function deleteExpense(id) {
-    if (!askDeletePassword()) return alert("Şifre yanlış. Silme işlemi iptal edildi.");
+    if (!askAdminEditPassword()) return;
     try {
       await softDelete("expenses", id);
       setExpenses(expenses.filter((item) => item.id !== id));
