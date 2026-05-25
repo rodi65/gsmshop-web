@@ -5268,3 +5268,206 @@ select {
     max-height: 248px !important;
   }
 }
+
+/* CEPLOG kasa kompakt 5 kutulu ozet sistemi */
+.compact-summary-grid {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  align-items: stretch !important;
+  margin: 0 0 10px !important;
+}
+
+.compact-summary-card {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 178px !important;
+  max-height: 194px !important;
+  padding: 8px 9px !important;
+  border: 1px solid #dbeafe !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .07) !important;
+  overflow: hidden !important;
+}
+
+.compact-summary-card h3 {
+  margin: 0 0 5px !important;
+  color: #071226 !important;
+  font-size: clamp(13px, .9vw, 16px) !important;
+  line-height: 1 !important;
+  font-weight: 1000 !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+}
+
+.compact-summary-lines {
+  display: grid !important;
+  gap: 2px !important;
+  min-height: 0 !important;
+}
+
+.compact-summary-line {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) max-content !important;
+  align-items: center !important;
+  gap: 7px !important;
+  min-height: 18px !important;
+  padding: 1px 0 !important;
+  border-top: 1px solid rgba(226, 232, 240, .7) !important;
+}
+
+.compact-summary-line span,
+.compact-summary-total span {
+  color: #334155 !important;
+  font-size: clamp(11px, .72vw, 13px) !important;
+  line-height: 1.05 !important;
+  font-weight: 900 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.compact-summary-line b,
+.compact-summary-total b {
+  color: #020617 !important;
+  font-size: clamp(12px, .82vw, 15px) !important;
+  line-height: 1 !important;
+  font-weight: 1000 !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+
+.compact-summary-total {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) max-content !important;
+  gap: 7px !important;
+  align-items: center !important;
+  margin-top: auto !important;
+  padding: 7px 8px !important;
+  border-radius: 11px !important;
+  background: #eff6ff !important;
+}
+
+.compact-summary-card.phone {
+  border-color: #bfdbfe !important;
+}
+
+.compact-summary-card.accessory {
+  border-color: #bbf7d0 !important;
+}
+
+.compact-summary-card.accessory .compact-summary-total {
+  background: #ecfdf5 !important;
+}
+
+.compact-summary-card.other {
+  border-color: #ddd6fe !important;
+}
+
+.compact-summary-card.other .compact-summary-total {
+  background: #f5f3ff !important;
+}
+
+.compact-summary-card.technical {
+  border-color: #fed7aa !important;
+}
+
+.compact-summary-card.technical .compact-summary-total {
+  background: #fff7ed !important;
+}
+
+.compact-summary-card.total .compact-summary-total {
+  background: #071226 !important;
+}
+
+.compact-summary-card.total .compact-summary-total span,
+.compact-summary-card.total .compact-summary-total b {
+  color: #ffffff !important;
+}
+
+.compact-summary-card.total.negative .compact-summary-total {
+  background: #7f1d1d !important;
+}
+
+@media (max-width: 1400px) {
+  .compact-summary-grid {
+    grid-template-columns: repeat(5, minmax(160px, 1fr)) !important;
+    overflow-x: auto !important;
+    padding-bottom: 2px !important;
+  }
+
+  .compact-summary-card {
+    min-width: 160px !important;
+  }
+}
+
+@media (max-width: 920px) {
+  .compact-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    overflow-x: visible !important;
+  }
+
+  .compact-summary-card {
+    max-height: none !important;
+  }
+}
+
+/* CEPLOG teknik servis modal ve profesyonel iade kaynaklari */
+.technical-service-form-modal {
+  width: min(1180px, 96vw) !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+}
+
+.technical-service-form-shell {
+  display: grid !important;
+  gap: 12px !important;
+}
+
+.technical-modal-form-grid {
+  align-items: stretch !important;
+}
+
+.technical-modal-actions {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 8px !important;
+  margin-top: 4px !important;
+}
+
+.technical-detail-header h3 {
+  white-space: nowrap !important;
+}
+
+.technical-refund-sources {
+  grid-column: 1 / -1 !important;
+  display: grid !important;
+  gap: 4px !important;
+  padding: 8px 10px !important;
+  border: 1px solid #fecaca !important;
+  border-radius: 12px !important;
+  background: #fff7ed !important;
+}
+
+.technical-refund-sources b {
+  color: #7f1d1d !important;
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+}
+
+.technical-refund-sources span {
+  color: #991b1b !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+}
+
+@media (max-width: 720px) {
+  .technical-detail-header h3 {
+    white-space: normal !important;
+  }
+
+  .technical-modal-actions {
+    grid-template-columns: 1fr !important;
+  }
+}
