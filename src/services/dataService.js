@@ -154,10 +154,17 @@ function financialRpcMissingError(error) {
   return wrapped;
 }
 
-async function callFinancialRpc(name, payload) {
+async function callFinancialRpc(name, payload, missingMessage = "") {
   const { data, error } = await supabase.rpc(name, payload);
   if (error) {
-    if (isMissingRpcError(error)) throw financialRpcMissingError(error);
+    if (isMissingRpcError(error)) {
+      if (missingMessage) {
+        const wrapped = new Error(missingMessage);
+        wrapped.cause = error;
+        throw wrapped;
+      }
+      throw financialRpcMissingError(error);
+    }
     throw error;
   }
   return data;
@@ -185,13 +192,13 @@ export async function loadDashboardData() {
   const profile = await getCurrentProfile();
   const workspaceId = profile?.workspace_id || await getCurrentWorkspaceId();
   const [stock, sales, expenses, bank, closings, cash, contacts] = await Promise.all([
-    supabase.from("stock_items").select("*").eq("workspace_id", workspaceId).neq("status", "deleted").order("created_at", { ascending: false }),
-    supabase.from("sales").select("*").eq("workspace_id", workspaceId).neq("status", "deleted").order("created_at", { ascending: false }),
-    supabase.from("expenses").select("*").eq("workspace_id", workspaceId).neq("status", "deleted").order("created_at", { ascending: false }),
-    supabase.from("bank_movements").select("*").eq("workspace_id", workspaceId).neq("status", "deleted").order("created_at", { ascending: false }),
+    supabase.from("stock_items").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
+    supabase.from("sales").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
+    supabase.from("expenses").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
+    supabase.from("bank_movements").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
     supabase.from("cash_closings").select("*").eq("workspace_id", workspaceId).order("closing_date", { ascending: false }),
-    supabase.from("cash_movements").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.neq.deleted").order("created_at", { ascending: false }),
-    supabase.from("contacts").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.neq.deleted").order("created_at", { ascending: false }),
+    supabase.from("cash_movements").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
+    supabase.from("contacts").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
   ]);
 
   for (const response of [stock, sales, expenses, bank, closings]) {
@@ -226,7 +233,7 @@ export async function findOrCreateContact({ kind, name, phone = "", balance = 0,
     .eq("workspace_id", workspaceId)
     .eq("kind", kind)
     .ilike("name", cleanName)
-    .or("status.is.null,status.neq.deleted")
+    .or("status.is.null,status.eq.active")
     .maybeSingle();
 
   if (findError) throw findError;
@@ -312,7 +319,7 @@ export async function createContactPayment({ kind, name, phone = "", amount, cur
     .eq("workspace_id", workspaceId)
     .eq("kind", kind)
     .ilike("name", cleanName)
-    .or("status.is.null,status.neq.deleted")
+    .or("status.is.null,status.eq.active")
     .maybeSingle();
 
   if (findError) throw findError;
@@ -508,6 +515,21 @@ export async function createSale(payload) {
     updated_by: user?.id,
   };
 
+  let stockItemToDecrease = null;
+  if (payload.stock_item_id) {
+    const { data: stockItem, error: stockFindError } = await supabase
+      .from("stock_items")
+      .select("id, quantity")
+      .eq("id", payload.stock_item_id)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (stockFindError) throw stockFindError;
+    if (!stockItem) throw new Error("Satılacak stok kaydı bulunamadı.");
+    if (Number(stockItem.quantity || 0) <= 0) throw new Error("Stok yok.");
+    stockItemToDecrease = stockItem;
+  }
+
   const { data: sale, error } = await supabase
     .from("sales")
     .insert([salePayload])
@@ -515,6 +537,21 @@ export async function createSale(payload) {
     .single();
 
   if (error) throw error;
+
+  if (stockItemToDecrease) {
+    const currentQuantity = Number(stockItemToDecrease.quantity || 0);
+    const { error: stockUpdateError } = await supabase
+      .from("stock_items")
+      .update({
+        quantity: Math.max(currentQuantity - 1, 0),
+        updated_by: user?.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", stockItemToDecrease.id)
+      .eq("workspace_id", workspaceId);
+
+    if (stockUpdateError) throw stockUpdateError;
+  }
 
   if (toDbNumber(payload.cash_amount) > 0) {
     await createCashMovement({
@@ -686,7 +723,7 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
       p_sale_id: id,
       p_workspace_id: workspaceId,
       p_reason: reason,
-    });
+    }, "Finansal iptal fonksiyonu kurulmamış. Supabase financial_integrity SQL çalıştırılmalı.");
   }
 
   const { data, error } = await supabase

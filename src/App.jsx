@@ -83,6 +83,7 @@ const quickAccessoryGroups = {
   "Şarj": ["A Şarj", "B Şarj", "Replika"],
   "Kulaklık": ["Kulaklık"],
 };
+const accessoryShortcutLimit = 30;
 const cashEntryTypes = ["Manuel Nakit Girişi", "Devir Nakit"];
 const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Devir Nakit", "Gelen Alacak", "Alacak Ödemesi", "Stok Ödemesi", "Cari Ödeme", "Gider", "Bankaya Yatırılan Nakit", "Düzeltme"];
 const receivablePaymentTypes = ["Gelen Alacak", "Alacak Ödemesi"];
@@ -176,6 +177,7 @@ const fromDbStock = (item) => {
     sellerCariRemaining: sellerRemaining,
     sellerCariName: sellerRemaining > 0 ? sellerNameFromProduct(item) : "",
     acquisitionType: item.acquisition_type || "Tedarikçi Firma",
+    status: item.status || "active",
   };
 };
 
@@ -196,6 +198,7 @@ const fromDbSale = (sale) => ({
   remaining: Number(sale.remaining_amount || 0),
   profit: Number(sale.profit_amount || 0),
   date: sale.created_at || new Date().toISOString(),
+  status: sale.status || "active",
 });
 
 const fromDbExpense = (item) => ({
@@ -204,6 +207,7 @@ const fromDbExpense = (item) => ({
   amount: money(Number(item.amount || 0)),
   note: item.note || "",
   date: item.created_at || new Date().toISOString(),
+  status: item.status || "active",
 });
 
 const fromDbBankMovement = (item) => ({
@@ -213,6 +217,7 @@ const fromDbBankMovement = (item) => ({
   amount: money(Number(item.amount || 0)),
   note: item.note || "",
   date: item.created_at || new Date().toISOString(),
+  status: item.status || "active",
 });
 
 const fromDbCashMovement = (item) => ({
@@ -224,6 +229,7 @@ const fromDbCashMovement = (item) => ({
   relatedTable: item.related_table || item.relatedTable || "",
   relatedId: item.related_id || item.relatedId || "",
   date: item.created_at || item.date || new Date().toISOString(),
+  status: item.status || "active",
 });
 
 const fromDbContact = (item) => ({
@@ -235,7 +241,10 @@ const fromDbContact = (item) => ({
   balanceType: item.balance_type || item.balanceType || "",
   note: item.note || "",
   date: item.created_at || item.date || new Date().toISOString(),
+  status: item.status || "active",
 });
+
+const isActiveRecord = (item) => !["deleted", "cancelled"].includes(String(item?.status || "active").toLocaleLowerCase("tr-TR"));
 
 
 const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik", "Diğer"];
@@ -549,16 +558,29 @@ export default function App() {
   const [editingSale, setEditingSale] = useState(null);
   const [editingStock, setEditingStock] = useState(null);
   const [query, setQuery] = useState("");
+  const safeStock = Array.isArray(stock) ? stock : [];
+  const safeSales = Array.isArray(sales) ? sales : [];
+  const safeExpenses = Array.isArray(expenses) ? expenses : [];
+  const safeBankMovements = Array.isArray(bankMovements) ? bankMovements : [];
+  const safeCashMovements = Array.isArray(cashMovements) ? cashMovements : [];
+  const safeContacts = Array.isArray(contacts) ? contacts : [];
+  const activeStock = safeStock.filter(isActiveRecord);
+  const activeSales = safeSales.filter(isActiveRecord);
+  const activeExpenses = safeExpenses.filter(isActiveRecord);
+  const activeBankMovements = safeBankMovements.filter(isActiveRecord);
+  const activeCashMovements = safeCashMovements.filter(isActiveRecord);
+  const activeContacts = safeContacts.filter(isActiveRecord);
+  const inStockItems = activeStock.filter((product) => Number(product.quantity || product.qty || 0) > 0);
 
   const supplierOptions = useMemo(() => {
-    return Array.from(new Set([...suppliers, ...stock.map((product) => product.supplier).filter((supplier) => supplier && !isSellerLabel(supplier))])).sort();
-  }, [suppliers, stock]);
+    return Array.from(new Set([...suppliers, ...activeStock.map((product) => product.supplier).filter((supplier) => supplier && !isSellerLabel(supplier))])).sort();
+  }, [suppliers, activeStock]);
 
   const isAccessorySale = saleForm.type === "Aksesuar Satışı";
   const isProgramSale = saleForm.type === "Program Satışı";
   const saleDeviceType = saleForm.type.replace(" Satışı", "");
 
-  const saleProducts = isProgramSale ? [] : stock
+  const saleProducts = isProgramSale ? [] : inStockItems
     .filter((product) => {
       if (isAccessorySale) return product.module === "Aksesuar";
       if (saleDeviceType === "Telefon") return product.module === "Cihaz" && product.deviceType === "Telefon";
@@ -569,25 +591,32 @@ export default function App() {
 
   const stockSearchResults = useMemo(() => {
     const queryText = stockSearchQuery.trim().toLocaleLowerCase("tr-TR");
-    if (!queryText) return [];
 
-    return stock
-      .filter((product) => stockSearchFilter === "TÜMÜ" || stockSearchGroup(product) === stockSearchFilter)
-      .filter((product) => stockSearchHaystack(product).includes(queryText))
+    return inStockItems
+      .map((product, index) => ({ product, index }))
+      .filter(({ product }) => stockSearchFilter === "TÜMÜ" || stockSearchGroup(product) === stockSearchFilter)
+      .filter(({ product }) => !queryText || stockSearchHaystack(product).includes(queryText))
+      .sort((a, b) => {
+        const aTime = new Date(a.product.saleDate || a.product.createdAt || a.product.created_at || 0).getTime();
+        const bTime = new Date(b.product.saleDate || b.product.createdAt || b.product.created_at || 0).getTime();
+        if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return bTime - aTime;
+        return a.index - b.index;
+      })
+      .map(({ product }) => product)
       .slice(0, 80);
-  }, [stock, stockSearchFilter, stockSearchQuery]);
+  }, [inStockItems, stockSearchFilter, stockSearchQuery]);
 
-  const selectedProduct = stock.find((product) => String(product.id) === String(saleForm.productId));
+  const selectedProduct = inStockItems.find((product) => String(product.id) === String(saleForm.productId));
   const saleTotal = parseMoneyInput(saleForm.total || selectedProduct?.sell || 0);
   const saleCash = parseMoneyInput(saleForm.cash || 0);
   const saleCard = parseMoneyInput(saleForm.card || 0);
   const saleRemaining = isAccessorySale ? 0 : Math.max(saleTotal - saleCash - saleCard, 0);
 
-  const alacaklarim = sales.filter((sale) => sale.type !== "Aksesuar Satışı" && Number(sale.remaining || 0) > 0);
+  const alacaklarim = activeSales.filter((sale) => sale.type !== "Aksesuar Satışı" && Number(sale.remaining || 0) > 0);
 
   const borclarim = useMemo(() => {
     const map = new Map();
-    stock.forEach((product) => {
+    activeStock.forEach((product) => {
       if (!product.supplier || isSellerLabel(product.supplier) || product.acquisitionType === "Müşteri") return;
       const totalBuy = parseMoneyInput(product.buy) * Number(product.qty || 0);
       const paid = parseMoneyInput(product.supplierPaid || 0);
@@ -600,7 +629,7 @@ export default function App() {
       map.set(accountKey, row);
     });
 
-    stock.forEach((product) => {
+    activeStock.forEach((product) => {
       const sellerDebt = stockSellerDebt(product);
       const sellerName = sellerNameFromProduct(product);
       if (!sellerDebt || !sellerName) return;
@@ -626,7 +655,7 @@ export default function App() {
       map.set(accountKey, row);
     });
 
-    contacts
+    activeContacts
       .filter((contact) => ["supplier", "seller"].includes(contact.kind) && contact.balanceType === "payable")
       .forEach((contact) => {
         const accountKey = `${contact.kind}:${contact.name.toLocaleLowerCase("tr-TR")}`;
@@ -651,7 +680,14 @@ export default function App() {
       });
 
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "tr-TR"));
-  }, [stock, contacts]);
+  }, [activeStock, activeContacts]);
+
+  const totalReceivableBalance = activeContacts
+    .filter((contact) => contact.kind === "customer" && contact.balanceType === "receivable")
+    .reduce((sum, contact) => sum + Number(contact.balance || 0), 0);
+  const totalPayableBalance = activeContacts
+    .filter((contact) => ["supplier", "seller"].includes(contact.kind) && contact.balanceType === "payable")
+    .reduce((sum, contact) => sum + Number(contact.balance || 0), 0);
 
 
   async function refreshFromDatabase() {
@@ -714,13 +750,13 @@ export default function App() {
   }
 
   const report = {
-    total: sales.reduce((sum, sale) => sum + parseMoneyInput(sale.total), 0),
-    cash: sales.reduce((sum, sale) => sum + parseMoneyInput(sale.cash), 0),
-    card: sales.reduce((sum, sale) => sum + parseMoneyInput(sale.card), 0),
-    remaining: sales.reduce((sum, sale) => sum + Number(sale.remaining || 0), 0),
-    profit: sales.reduce((sum, sale) => sum + Number(sale.profit || 0), 0),
+    total: activeSales.reduce((sum, sale) => sum + parseMoneyInput(sale.total), 0),
+    cash: activeSales.reduce((sum, sale) => sum + parseMoneyInput(sale.cash), 0),
+    card: activeSales.reduce((sum, sale) => sum + parseMoneyInput(sale.card), 0),
+    remaining: activeSales.reduce((sum, sale) => sum + Number(sale.remaining || 0), 0),
+    profit: activeSales.reduce((sum, sale) => sum + Number(sale.profit || 0), 0),
   };
-  const saleTotalByType = (predicate) => sales
+  const saleTotalByType = (predicate) => activeSales
     .filter(predicate)
     .reduce((sum, sale) => sum + parseMoneyInput(sale.total), 0);
   const phoneSalesTotal = saleTotalByType((sale) => sale.type === "Telefon Satışı");
@@ -729,20 +765,20 @@ export default function App() {
   const otherSalesTotal = saleTotalByType((sale) => !["Telefon Satışı", "Aksesuar Satışı", "Teknik Servis"].includes(sale.type));
 
   const expenseReport = {
-    total: expenses.reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
+    total: activeExpenses.reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
   };
 
   const bankReport = {
-    totalToBank: bankMovements.filter((item) => item.type === "Bankaya Giden").reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
-    withdrawnFromBank: bankMovements.filter((item) => item.type === "Bankadan Çekilen").reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
+    totalToBank: activeBankMovements.filter((item) => item.type === "Bankaya Giden").reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
+    withdrawnFromBank: activeBankMovements.filter((item) => item.type === "Bankadan Çekilen").reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
   };
   bankReport.remainingInBank = Math.max(bankReport.totalToBank - bankReport.withdrawnFromBank, 0);
 
   const bankAccountRows = bankOptions.map((bank) => {
-    const totalToBank = bankMovements
+    const totalToBank = activeBankMovements
       .filter((item) => item.type === "Bankaya Giden" && item.bank === bank)
       .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
-    const withdrawnFromBank = bankMovements
+    const withdrawnFromBank = activeBankMovements
       .filter((item) => item.type === "Bankadan Çekilen" && item.bank === bank)
       .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
     return {
@@ -755,78 +791,78 @@ export default function App() {
   });
 
   const currentMonthKey = new Date().toISOString().slice(0, 7);
-  const monthlyPosTotal = bankMovements
+  const monthlyPosTotal = activeBankMovements
     .filter((item) => item.type === "Bankaya Giden" && item.date && item.date.slice(0, 7) === currentMonthKey)
     .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
   const monthlyPosCommission = (bankReport.remainingInBank / 100) * 3.5;
 
   const todayKey = new Date().toISOString().slice(0, 10);
   const monthKey = new Date().toISOString().slice(0, 7);
-  const cashSaleMovementIds = new Set(cashMovements.filter((item) => cashMovementType(item) === "Satış Nakit" && item.relatedTable === "sales").map((item) => String(item.relatedId)));
-  const cashBankMovementIds = new Set(cashMovements.filter((item) => cashMovementType(item) === "Bankadan Nakit Gelen" && item.relatedTable === "bank_movements").map((item) => String(item.relatedId)));
-  const cashExpenseMovementIds = new Set(cashMovements.filter((item) => cashMovementType(item) === "Gider" && item.relatedTable === "expenses").map((item) => String(item.relatedId)));
-  const cashStockMovementIds = new Set(cashMovements.filter((item) => cashMovementType(item) === "Stok Ödemesi" && item.relatedTable === "stock_items").map((item) => String(item.relatedId)));
-  const legacyCashSales = sales
+  const cashSaleMovementIds = new Set(activeCashMovements.filter((item) => cashMovementType(item) === "Satış Nakit" && item.relatedTable === "sales").map((item) => String(item.relatedId)));
+  const cashBankMovementIds = new Set(activeCashMovements.filter((item) => cashMovementType(item) === "Bankadan Nakit Gelen" && item.relatedTable === "bank_movements").map((item) => String(item.relatedId)));
+  const cashExpenseMovementIds = new Set(activeCashMovements.filter((item) => cashMovementType(item) === "Gider" && item.relatedTable === "expenses").map((item) => String(item.relatedId)));
+  const cashStockMovementIds = new Set(activeCashMovements.filter((item) => cashMovementType(item) === "Stok Ödemesi" && item.relatedTable === "stock_items").map((item) => String(item.relatedId)));
+  const legacyCashSales = activeSales
     .filter((sale) => !cashSaleMovementIds.has(String(sale.id)))
     .reduce((sum, sale) => sum + parseMoneyInput(sale.cash), 0);
-  const legacyBankCashIncoming = bankMovements
+  const legacyBankCashIncoming = activeBankMovements
     .filter((item) => item.type === "Bankadan Çekilen" && !cashBankMovementIds.has(String(item.id)))
     .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
-  const legacyExpenseOut = expenses
+  const legacyExpenseOut = activeExpenses
     .filter((item) => !cashExpenseMovementIds.has(String(item.id)))
     .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
-  const legacyStockPaymentOut = stock
+  const legacyStockPaymentOut = activeStock
     .filter((product) => !cashStockMovementIds.has(String(product.id)))
     .reduce((sum, product) => sum + stockPurchasePaymentAmount(product), 0);
-  const cashMovementNet = cashMovements
+  const cashMovementNet = activeCashMovements
     .filter((item) => cashLedgerMovementTypes.includes(cashMovementType(item)))
     .reduce((sum, item) => sum + (item.direction === "out" ? -cashMovementAmount(item) : cashMovementAmount(item)), 0);
 
-  const cashMovementNetWithoutSaleCash = cashMovements
+  const cashMovementNetWithoutSaleCash = activeCashMovements
     .filter((item) => cashLedgerMovementTypes.includes(cashMovementType(item)) && cashMovementType(item) !== "Satış Nakit")
     .reduce((sum, item) => sum + (item.direction === "out" ? -cashMovementAmount(item) : cashMovementAmount(item)), 0);
 
 
-  const carryOverCash = cashMovements
+  const carryOverCash = activeCashMovements
     .filter((item) => cashMovementType(item) === "Devir Nakit" && item.direction === "in")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
-  const todayBankCashIncoming = bankMovements
+  const todayBankCashIncoming = activeBankMovements
     .filter((item) => item.type === "Bankadan Çekilen" && !cashBankMovementIds.has(String(item.id)) && isTodayRecord(item, todayKey))
     .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
-  const todayCashMovementIn = cashMovements
+  const todayCashMovementIn = activeCashMovements
     .filter((item) => item.direction === "in" && !["Devir Nakit", "Satış Nakit"].includes(cashMovementType(item)) && cashLedgerMovementTypes.includes(cashMovementType(item)) && isTodayRecord(item, todayKey))
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
-  const todayExpenseOut = expenses
+  const todayExpenseOut = activeExpenses
     .filter((item) => !cashExpenseMovementIds.has(String(item.id)) && isTodayRecord(item, todayKey))
     .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
-  const todayLegacyStockPaymentOut = stock
+  const todayLegacyStockPaymentOut = activeStock
     .filter((product) => !cashStockMovementIds.has(String(product.id)) && isTodayRecord(product, todayKey))
     .reduce((sum, product) => sum + stockPurchasePaymentAmount(product), 0);
-  const todayCashMovementOut = cashMovements
+  const todayCashMovementOut = activeCashMovements
     .filter((item) => item.direction === "out" && cashLedgerMovementTypes.includes(cashMovementType(item)) && isTodayRecord(item, todayKey))
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
   const todayCashIn = todayBankCashIncoming + todayCashMovementIn;
   const todayCashOut = todayExpenseOut + todayLegacyStockPaymentOut + todayCashMovementOut;
-  const stockPurchasePayments = cashMovements
+  const stockPurchasePayments = activeCashMovements
     .filter((item) => cashMovementType(item) === "Stok Ödemesi" && item.direction === "out")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0) + legacyStockPaymentOut;
-  const receivablePayments = cashMovements
+  const receivablePayments = activeCashMovements
     .filter((item) => receivablePaymentTypes.includes(cashMovementType(item)) && item.direction === "in")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
-  const cardSalesTotal = sales.reduce((sum, sale) => sum + parseMoneyInput(sale.card || sale.card_amount || 0), 0);
-  const cashExpensePayments = cashMovements
+  const cardSalesTotal = activeSales.reduce((sum, sale) => sum + parseMoneyInput(sale.card || sale.card_amount || 0), 0);
+  const cashExpensePayments = activeCashMovements
     .filter((item) => cashMovementType(item) === "Gider" && item.direction === "out")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0) + legacyExpenseOut;
   const cashWithBankIncoming = cashMovementNetWithoutSaleCash + report.cash + legacyBankCashIncoming - legacyExpenseOut - legacyStockPaymentOut;
   const cashAfterExpenses = cashWithBankIncoming;
 
-  const dayProfit = sales
+  const dayProfit = activeSales
     .filter((sale) => sale.date && sale.date.slice(0, 10) === todayKey)
     .reduce((sum, sale) => sum + Number(sale.profit || 0), 0);
-  const monthProfit = sales
+  const monthProfit = activeSales
     .filter((sale) => sale.date && sale.date.slice(0, 7) === monthKey)
     .reduce((sum, sale) => sum + Number(sale.profit || 0), 0);
-  const rangeProfit = sales
+  const rangeProfit = activeSales
     .filter((sale) => {
       const d = sale.date ? sale.date.slice(0, 10) : "";
       if (profitDateFrom && d < profitDateFrom) return false;
@@ -835,10 +871,10 @@ export default function App() {
     })
     .reduce((sum, sale) => sum + Number(sale.profit || 0), 0);
 
-  const deviceStock = stock.filter(isPhoneStockItem);
-  const accessoryStock = stock.filter(isAccessoryStockItem);
-  const otherStock = stock.filter(isOtherStockItem);
-  const allStock = stock;
+  const deviceStock = inStockItems.filter(isPhoneStockItem);
+  const accessoryStock = inStockItems.filter(isAccessoryStockItem);
+  const otherStock = inStockItems.filter(isOtherStockItem);
+  const allStock = inStockItems;
   const currentStockList =
     stockView === "cihaz" ? deviceStock :
     stockView === "aksesuar" ? accessoryStock :
@@ -848,7 +884,7 @@ export default function App() {
   const currentStockBuyTotal = currentStockList.reduce((sum, product) => sum + parseMoneyInput(product.buy) * Number(product.qty || 0), 0);
   const currentStockQtyTotal = currentStockList.reduce((sum, product) => sum + Number(product.qty || 0), 0);
 
-  const filteredStock = stock.filter((product) =>
+  const filteredStock = inStockItems.filter((product) =>
     !query ||
     has(productTitle(product), query) ||
     has(product.barcode, query) ||
@@ -860,7 +896,7 @@ export default function App() {
     has(product.sellerCariName, query)
   );
 
-  const filteredSales = sales.filter((sale) =>
+  const filteredSales = activeSales.filter((sale) =>
     !query ||
     has(sale.productName, query) ||
     has(sale.customer, query) ||
@@ -868,7 +904,7 @@ export default function App() {
     has(sale.productBarcode, query)
   );
 
-  const sortedSales = sortSalesForList(sales);
+  const sortedSales = sortSalesForList(activeSales);
   const sortedFilteredSales = sortSalesForList(filteredSales);
 
   function handleBankSelect(value, setter) {
@@ -896,6 +932,28 @@ export default function App() {
   function askDeletePassword() {
     const password = window.prompt("Silmek için şifre gir");
     return password === "1";
+  }
+
+  function openSaleEditor(sale) {
+    try {
+      if (!sale?.id) return alert("Düzenlenecek satış kaydı bulunamadı.");
+      setEditingSale({
+        ...sale,
+        customer: sale.customer || "",
+        customerPhone: sale.customerPhone || "",
+        cariPerson: sale.cariPerson || sale.customer || "",
+        productName: sale.productName || "",
+        productBuyPrice: sale.productBuyPrice || 0,
+        total: sale.total || "0 TL",
+        cash: sale.cash || "0 TL",
+        card: sale.card || "0 TL",
+        bank: sale.bank || "",
+        remaining: Number(sale.remaining || 0),
+        profit: Number(sale.profit || 0),
+      });
+    } catch (error) {
+      alert(error.message || "Satış düzenleme ekranı açılamadı.");
+    }
   }
 
   async function deleteSale(id) {
@@ -1133,7 +1191,7 @@ export default function App() {
 
   async function saveSale() {
     if (!isProgramSale && !isAccessorySale && !selectedProduct) return alert("Ürün seç");
-    if (!isProgramSale && !isAccessorySale && Number(selectedProduct.qty || 0) <= 0) return alert("Stok yok");
+    if (!isProgramSale && selectedProduct && Number(selectedProduct.qty || 0) <= 0) return alert("Stok yok");
     if (isProgramSale && !saleForm.search.trim()) return alert("Ne programı olduğunu yaz");
     if (!isAccessorySale && !saleForm.customer.trim()) return alert("Müşteri adı soyadı / telefon yaz");
     if (!isAccessorySale && saleRemaining > 0 && !saleForm.cariPerson.trim()) return alert("Kalan varsa Cari Ekle zorunludur");
@@ -1157,7 +1215,7 @@ export default function App() {
     });
 
     try {
-      const savedSale = await createSale({
+      await createSale({
         sale_group: saleGroupName(sale.type),
         sale_type: sale.type,
         stock_item_id: isProgramSale || !selectedProduct ? null : selectedProduct.id,
@@ -1174,24 +1232,7 @@ export default function App() {
         bank_name: sale.bank || null,
       });
 
-      if (!isProgramSale && selectedProduct) {
-        setStock(stock.map((product) => product.id === selectedProduct.id ? { ...product, qty: Math.max(Number(product.qty || 0) - 1, 0) } : product));
-      }
-      setSales([fromDbSale(savedSale), ...sales]);
-
-      if (parseMoneyInput(sale.card) > 0) {
-        setBankMovements([
-          {
-            id: Date.now() + 1,
-            type: "Bankaya Giden",
-            amount: sale.card,
-            note: `POSTAN Gelen - ${sale.bank || "Banka"} - ${sale.productName}`,
-            bank: sale.bank || "",
-            date: new Date().toISOString(),
-          },
-          ...bankMovements,
-        ]);
-      }
+      await refreshFromDatabase();
 
       setSyncMessage("Satış Supabase'e kaydedildi.");
     } catch (error) {
@@ -1204,14 +1245,20 @@ export default function App() {
 
   async function updateSale() {
     const fixed = calcSale(editingSale);
+    const editCustomerName = String(fixed.customer || fixed.cariPerson || "").trim();
+    if (Number(fixed.remaining || 0) > 0 && !editCustomerName) {
+      alert("Kalan bakiye varsa müşteri adı zorunludur.");
+      return;
+    }
+
     try {
       await updateSaleRecord(fixed.id, {
         sale_group: saleGroupName(fixed.type),
         sale_type: fixed.type,
         product_name: fixed.productName,
-        customer_name: fixed.customer || "",
+        customer_name: editCustomerName,
         customer_phone: fixed.customerPhone || "",
-        cari_person: fixed.cariPerson || fixed.customer || "",
+        cari_person: fixed.cariPerson || editCustomerName,
         total_amount: parseMoneyInput(fixed.total),
         cash_amount: parseMoneyInput(fixed.cash),
         card_amount: parseMoneyInput(fixed.card),
@@ -1329,12 +1376,12 @@ export default function App() {
         description: "26 Yıllık Tecrübeyle Yapılan Profesyonel GSM Satış Teknik Servis Takip Sistemi",
       },
       counts: {
-        stock: stock.length,
-        sales: sales.length,
-        expenses: expenses.length,
-        bankMovements: bankMovements.length,
-        cashMovements: cashMovements.length,
-        contacts: contacts.length,
+        stock: activeStock.length,
+        sales: activeSales.length,
+        expenses: activeExpenses.length,
+        bankMovements: activeBankMovements.length,
+        cashMovements: activeCashMovements.length,
+        contacts: activeContacts.length,
         suppliers: suppliers.length,
       },
       data: {
@@ -1410,7 +1457,7 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) setAccessoryShortcuts(parsed.slice(0, 20));
+        if (Array.isArray(parsed)) setAccessoryShortcuts(parsed.slice(0, accessoryShortcutLimit));
       } catch {
         setAccessoryShortcuts([]);
       }
@@ -1419,7 +1466,7 @@ export default function App() {
 
   useEffect(() => {
     if (!accessoryShortcutStorageKey) return;
-    localStorage.setItem(`ceplog_accessory_shortcuts_${accessoryShortcutStorageKey}`, JSON.stringify(accessoryShortcuts.slice(0, 20)));
+    localStorage.setItem(`ceplog_accessory_shortcuts_${accessoryShortcutStorageKey}`, JSON.stringify(accessoryShortcuts.slice(0, accessoryShortcutLimit)));
   }, [accessoryShortcuts, accessoryShortcutStorageKey]);
 
   function addAccessoryShortcut() {
@@ -1430,7 +1477,7 @@ export default function App() {
 
     if (!group) return alert("Grup seç");
     if (!sub) return alert("Alt seçenek seç");
-    if (accessoryShortcuts.length >= 20) return alert("En fazla 20 aksesuar kısayolu eklenebilir.");
+    if (accessoryShortcuts.length >= accessoryShortcutLimit) return alert("En fazla 30 kısayol eklenebilir.");
 
     const label = `${group} - ${sub}`;
     const exists = accessoryShortcuts.some((item) => item.label.toLocaleLowerCase("tr-TR") === label.toLocaleLowerCase("tr-TR"));
@@ -1445,7 +1492,7 @@ export default function App() {
         label,
         price,
       },
-    ].slice(0, 20));
+    ].slice(0, accessoryShortcutLimit));
 
     setAccessoryShortcutForm({ group, sub, price: "" });
   }
@@ -1463,6 +1510,15 @@ export default function App() {
     const timer = setInterval(() => setClockNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!searchModalOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setSearchModalOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [searchModalOpen]);
 
   if (!authChecked) {
     return <div className="app"><section className="card"><h2>CEPLOG yükleniyor...</h2></section></div>;
@@ -1627,9 +1683,7 @@ export default function App() {
                   ))}
                 </div>
 
-                {!stockSearchQuery.trim() ? (
-                  <div className="empty-search-note">Arama yapmak için ürün adı, barkod veya IMEI yaz.</div>
-                ) : !stockSearchResults.length ? (
+                {!stockSearchResults.length ? (
                   <div className="empty-search-note">Sonuç bulunamadı.</div>
                 ) : (
                   <div className="search-results-table">
@@ -1658,7 +1712,7 @@ export default function App() {
                             <div><span>Kategori</span><b>{product.category || product.condition || "-"}</b></div>
                             <div><span>Grup</span><b>{group}</b></div>
                             <div><span>Barkod / IMEI</span><b>{code}</b></div>
-                            <div><span>Stok</span><b>{quantity}</b></div>
+                            <div><span>Stok</span><b>{quantity > 0 ? quantity : "Stok Yok"}</b></div>
                             <div><span>Satış</span><b>{product.sell || "0 TL"}</b></div>
                             <div><span>Alış</span><b>{product.buy || "0 TL"}</b></div>
                             <div><span>Tedarikçi / Satıcı</span><b>{supplierOrSeller}</b></div>
@@ -1730,12 +1784,12 @@ export default function App() {
             <div className="card management-card">
               <h2>Yedek Önizleme</h2>
               <div className="backup-preview-grid">
-                <Stat title="Stok Kaydı" value={stock.length} />
-                <Stat title="Satış Kaydı" value={sales.length} />
-                <Stat title="Cari Kayıt" value={contacts.length} />
-                <Stat title="Kasa Hareketi" value={cashMovements.length} />
-                <Stat title="Banka Hareketi" value={bankMovements.length} />
-                <Stat title="Gider Kaydı" value={expenses.length} />
+                <Stat title="Stok Kaydı" value={activeStock.length} />
+                <Stat title="Satış Kaydı" value={activeSales.length} />
+                <Stat title="Cari Kayıt" value={activeContacts.length} />
+                <Stat title="Kasa Hareketi" value={activeCashMovements.length} />
+                <Stat title="Banka Hareketi" value={activeBankMovements.length} />
+                <Stat title="Gider Kaydı" value={activeExpenses.length} />
               </div>
             </div>
 
@@ -1901,7 +1955,72 @@ export default function App() {
 
                   <div className="card large-accessory-panel">
                     <h2 className="large-accessory-title">AKSESUAR HIZLI SATIŞ</h2>
-                    <p>Önce grup seç, sonra alt seçeneği seç, istersen fiyat yaz ve kısayol ekle. En fazla 20 kısayol eklenir.</p>
+                    <p>Önce grup seç, sonra alt seçeneği seç, istersen fiyat yaz ve kısayol ekle. En fazla 30 kısayol eklenir.</p>
+
+                    <div className="shortcut-limit-info">
+                      EKLENEN KISAYOL: <b>{accessoryShortcuts.length} / {accessoryShortcutLimit}</b>
+                    </div>
+
+                    <div className="accessory-user-shortcuts compact-shortcuts">
+                      {accessoryShortcuts.map((shortcut) => (
+                        <div key={shortcut.id} className={saleForm.type === "Aksesuar Satışı" && saleForm.search === shortcut.label ? "shortcut-chip active" : "shortcut-chip"}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQuickAccessoryGroup(shortcut.group);
+                              setQuickAccessorySubType(shortcut.sub || shortcut.group);
+                              setAccessoryShortcutForm({ group: shortcut.group, sub: shortcut.sub || shortcut.group, price: shortcut.price || "" });
+                              setSaleGroup("Aksesuar");
+                              setSaleForm({
+                                ...saleForm,
+                                type: "Aksesuar Satışı",
+                                productId: "",
+                                search: shortcut.label,
+                                total: shortcut.price || "",
+                                cash: shortcut.price || "",
+                                card: "",
+                              });
+                            }}
+                          >
+                            <span>{shortcut.label}</span>
+                            {shortcut.price && <small>{shortcut.price}</small>}
+                          </button>
+                          <button className="shortcut-delete" type="button" onClick={() => deleteAccessoryShortcut(shortcut.id)}>SİL</button>
+                        </div>
+                      ))}
+
+                      {!accessoryShortcuts.length && (
+                        <div className="empty-shortcut-note">Henüz kısayol eklenmedi. Grup ve alt seçenek seçip Kısayol Ekle dediğinde burada kalır.</div>
+                      )}
+                    </div>
+
+                    <div className="accessory-shortcut-price-row">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Varsayılan fiyat"
+                        value={accessoryShortcutForm.price}
+                        onFocus={() => setAccessoryShortcutForm({ ...accessoryShortcutForm, price: stripMoneyForEdit(accessoryShortcutForm.price) })}
+                        onChange={(e) => {
+                          const price = cleanMoneyTyping(e.target.value);
+                          setAccessoryShortcutForm({ ...accessoryShortcutForm, price });
+                          if (saleForm.type === "Aksesuar Satışı" && saleForm.search === `${accessoryShortcutForm.group} - ${accessoryShortcutForm.sub}`) {
+                            setSaleForm({ ...saleForm, total: price, cash: price });
+                          }
+                        }}
+                        onBlur={() => {
+                          const price = formatMoneyInput(accessoryShortcutForm.price);
+                          setAccessoryShortcutForm({ ...accessoryShortcutForm, price });
+                          if (saleForm.type === "Aksesuar Satışı" && saleForm.search === `${accessoryShortcutForm.group} - ${accessoryShortcutForm.sub}`) {
+                            setSaleForm({ ...saleForm, total: price, cash: price });
+                          }
+                        }}
+                      />
+
+                      <button className="primary" type="button" onClick={addAccessoryShortcut}>
+                        <Plus size={16} /> KISAYOL EKLE
+                      </button>
+                    </div>
 
                     <h3>GRUP SEÇ</h3>
                     <div className="accessory-select-tabs">
@@ -1960,77 +2079,6 @@ export default function App() {
                       ))}
                     </div>
 
-                    <div className="accessory-shortcut-price-row">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="Varsayılan fiyat"
-                        value={accessoryShortcutForm.price}
-                        onFocus={() => setAccessoryShortcutForm({ ...accessoryShortcutForm, price: stripMoneyForEdit(accessoryShortcutForm.price) })}
-                        onChange={(e) => {
-                          const price = cleanMoneyTyping(e.target.value);
-                          setAccessoryShortcutForm({ ...accessoryShortcutForm, price });
-                          if (saleForm.type === "Aksesuar Satışı" && saleForm.search === `${accessoryShortcutForm.group} - ${accessoryShortcutForm.sub}`) {
-                            setSaleForm({ ...saleForm, total: price, cash: price });
-                          }
-                        }}
-                        onBlur={() => {
-                          const price = formatMoneyInput(accessoryShortcutForm.price);
-                          setAccessoryShortcutForm({ ...accessoryShortcutForm, price });
-                          if (saleForm.type === "Aksesuar Satışı" && saleForm.search === `${accessoryShortcutForm.group} - ${accessoryShortcutForm.sub}`) {
-                            setSaleForm({ ...saleForm, total: price, cash: price });
-                          }
-                        }}
-                      />
-
-                      <button className="primary" type="button" onClick={addAccessoryShortcut}>
-                        <Plus size={16} /> KISAYOL EKLE
-                      </button>
-                    </div>
-
-                    <div className="shortcut-limit-info">
-                      EKLENEN KISAYOL: <b>{accessoryShortcuts.length} / 20</b>
-                    </div>
-
-                    <div className="accessory-user-shortcuts compact-shortcuts">
-                      {accessoryShortcuts.map((shortcut) => (
-                        <div key={shortcut.id} className={saleForm.type === "Aksesuar Satışı" && saleForm.search === shortcut.label ? "shortcut-chip active" : "shortcut-chip"}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setQuickAccessoryGroup(shortcut.group);
-                              setQuickAccessorySubType(shortcut.sub || shortcut.group);
-                              setAccessoryShortcutForm({ group: shortcut.group, sub: shortcut.sub || shortcut.group, price: shortcut.price || "" });
-                              setSaleGroup("Aksesuar");
-                              setSaleForm({
-                                ...saleForm,
-                                type: "Aksesuar Satışı",
-                                productId: "",
-                                search: shortcut.label,
-                                total: shortcut.price || "",
-                                cash: shortcut.price || "",
-                                card: "",
-                              });
-                            }}
-                          >
-                            <span>{shortcut.label}</span>
-                            {shortcut.price && <small>{shortcut.price}</small>}
-                          </button>
-                          <button className="shortcut-delete" type="button" onClick={() => deleteAccessoryShortcut(shortcut.id)}>SİL</button>
-                        </div>
-                      ))}
-
-                      {!accessoryShortcuts.length && (
-                        <div className="empty-shortcut-note">Henüz kısayol eklenmedi. Grup ve alt seçenek seçip Kısayol Ekle dediğinde burada kalır.</div>
-                      )}
-                    </div>
-
-                    <div className="close-summary accessory-pick-summary">
-                      <small>SEÇİLEN AKSESUAR</small>
-                      <div><span>GRUP</span><b>{accessoryShortcutForm.group || "-"}</b></div>
-                      <div><span>ALT SEÇENEK</span><b>{accessoryShortcutForm.sub || "-"}</b></div>
-                      <div><span>ÜRÜN</span><b>{saleForm.type === "Aksesuar Satışı" ? saleForm.search || "Stoksuz Aksesuar Seçimi" : "-"}</b></div>
-                    </div>
                   </div>
 
 
@@ -2051,7 +2099,7 @@ export default function App() {
                   sale.card,
                   money(sale.remaining),
                   money(sale.profit),
-                  <button className="edit-btn" onClick={() => setEditingSale({ ...sale })}><Pencil size={14} /> Düzenle</button>,
+                  <button className="edit-btn" onClick={() => openSaleEditor(sale)}><Pencil size={14} /> Düzenle</button>,
                   <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
                 ])} />
               </section>
@@ -2087,7 +2135,7 @@ export default function App() {
                   <Stat title="Gider Sonrası Nakit" value={money(cashAfterExpenses)} negative={cashAfterExpenses < 0} />
                 </div>
 
-                <Table headers={["Tarih", "Gider", "Tutar", "Not", "Sil"]} rows={expenses.map((item) => [
+                <Table headers={["Tarih", "Gider", "Tutar", "Not", "Sil"]} rows={activeExpenses.map((item) => [
                   new Date(item.date).toLocaleString("tr-TR"),
                   item.category,
                   item.amount,
@@ -2124,7 +2172,7 @@ export default function App() {
 
                 <button className="primary" onClick={saveCashEntry}><Plus size={16} /> Nakit Girişini Kaydet</button>
 
-                <Table headers={["Tarih", "İşlem", "Yön", "Tutar", "Not"]} rows={cashMovements.map((item) => [
+                <Table headers={["Tarih", "İşlem", "Yön", "Tutar", "Not"]} rows={activeCashMovements.map((item) => [
                   new Date(item.date).toLocaleString("tr-TR"),
                   item.type || "-",
                   item.direction === "out" ? "Çıkış" : "Giriş",
@@ -2329,9 +2377,9 @@ export default function App() {
         {active === "vole" && (
           <section className="section">
             <div className="kasa-subtabs">
-              <button className={karaTab === "alacak" ? "choice active" : "choice"} onClick={() => setKaraTab("alacak")}>Alacaklarım</button>
-              <button className={karaTab === "borc" ? "choice active" : "choice"} onClick={() => setKaraTab("borc")}>Tedarikçi/Firma</button>
-              <button className={karaTab === "banka" ? "choice active" : "choice"} onClick={() => setKaraTab("banka")}>Banka Hesap</button>
+              <button className={karaTab === "alacak" ? "choice active" : "choice"} onClick={() => setKaraTab("alacak")}>ALACAKLARIM</button>
+              <button className={karaTab === "borc" ? "choice active" : "choice"} onClick={() => setKaraTab("borc")}>TEDARİKÇİ / FİRMA</button>
+              <button className={karaTab === "banka" ? "choice active" : "choice"} onClick={() => setKaraTab("banka")}>BANKA HESAP</button>
               <button className={karaTab === "kar" ? "choice active" : "choice"} onClick={openProfitTab}>Kâr</button>
               <button className={karaTab === "sorgu" ? "choice active" : "choice"} onClick={() => setKaraTab("sorgu")}>Sorgula</button>
             </div>
@@ -2340,22 +2388,25 @@ export default function App() {
               <section className="card">
                 {!selectedReceivableMovement ? (
                   <>
+                    <div className="ledger-total-card receivable">
+                      <span>TOPLAM ALACAKLARIM</span>
+                      <b>Alacak: {money(totalReceivableBalance)}</b>
+                    </div>
                     <h2>Kara Defter / Alacaklarım</h2>
-                    <p>Alınan Mal adına tıklayınca o satış/ürün hareketi açılır.</p>
                     <Table headers={["İşlem", "Tarih", "Adı Soyad", "Alınan Mal", "Kalan", "Düzelt", "Sil"]} rows={alacaklarim.map((sale, index) => [
                       index + 1,
                       new Date(sale.date).toLocaleString("tr-TR"),
                       sale.cariPerson || sale.customer,
                       <button className="link-btn" onClick={() => setSelectedReceivableMovement(sale)}>{sale.productName}</button>,
                       money(sale.remaining),
-                      <button className="edit-btn" onClick={() => setEditingSale({ ...sale })}><Pencil size={14} /> Düzenle</button>,
+                      <button className="edit-btn" onClick={() => openSaleEditor(sale)}><Pencil size={14} /> Düzenle</button>,
                       <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
                     ])} />
                   </>
                 ) : (
                   <ReceivableMovementPage
                     sale={selectedReceivableMovement}
-                    stock={stock}
+                    stock={activeStock}
                     saveReceivablePayment={saveReceivablePayment}
                     setSelectedReceivableMovement={setSelectedReceivableMovement}
                   />
@@ -2367,8 +2418,11 @@ export default function App() {
               <section className="card">
                 {!selectedSupplierAccount ? (
                   <>
+                    <div className="ledger-total-card payable">
+                      <span>TOPLAM TEDARİKÇİ / FİRMA BORCU</span>
+                      <b>Borç: {money(totalPayableBalance)}</b>
+                    </div>
                     <h2>Kara Defter / Tedarikçi/Firma</h2>
-                    <p>Hesap detayını görmek için firma adına tıkla.</p>
                     <Table headers={["Cari", "Tür", "Son Alınan Mal", "Alış Toplam", "Ödenen", "Şimdiki Borç", "Sil"]} rows={borclarim.map((row) => [
                       <button className="link-btn" onClick={() => setSelectedSupplierAccount(row.accountKey)}>{row.name}</button>,
                       row.kind === "seller" ? "Satıcı" : row.kind === "supplier" ? "Tedarikçi/Firma" : "Cari",
@@ -2382,7 +2436,7 @@ export default function App() {
                 ) : (
                   <SupplierAccountPage
                     account={borclarim.find((row) => row.accountKey === selectedSupplierAccount) || { accountKey: selectedSupplierAccount, kind: "supplier", name: selectedSupplierAccount, remaining: 0, totalBuy: 0, paid: 0 }}
-                    stock={stock}
+                    stock={activeStock}
                     saveCariPayment={saveCariPayment}
                     setSelectedSupplierAccount={setSelectedSupplierAccount}
                   />
@@ -2410,7 +2464,7 @@ export default function App() {
                   ))}
                 </div>
 
-                <Table headers={["Tarih", "İşlem", "Banka/POS", "Tutar", "Not"]} rows={bankMovements.map((item) => [
+                <Table headers={["Tarih", "İşlem", "Banka/POS", "Tutar", "Not"]} rows={activeBankMovements.map((item) => [
                   new Date(item.date).toLocaleString("tr-TR"),
                   item.type,
                   item.bank || "-",
@@ -2477,7 +2531,7 @@ export default function App() {
                   sale.cash,
                   sale.card,
                   money(sale.remaining),
-                  <button className="edit-btn" onClick={() => setEditingSale({ ...sale })}>Düzenle</button>,
+                  <button className="edit-btn" onClick={() => openSaleEditor(sale)}>Düzenle</button>,
                   <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
                 ])} />
               </section>
@@ -2486,7 +2540,7 @@ export default function App() {
           </section>
         )}
 
-        {editingSale && <SaleEditModal sale={editingSale} setSale={setEditingSale} save={updateSale} />}
+        {editingSale && <SaleEditModal sale={editingSale} setSale={setEditingSale} save={updateSale} bankOptions={bankOptions} />}
         {editingStock && <StockEditModal item={editingStock} setItem={setEditingStock} save={updateStock} />}
         {supplierModalOpen && (
           <div className="modal-bg">
@@ -2962,26 +3016,28 @@ function StockTable({ stock, setEditingStock, deleteStock, deviceView = false })
   );
 }
 
-function SaleEditModal({ sale, setSale, save }) {
-  const remaining = sale.type === "Aksesuar Satışı" ? 0 : Math.max(parseMoneyInput(sale.total) - parseMoneyInput(sale.cash) - parseMoneyInput(sale.card), 0);
+function SaleEditModal({ sale, setSale, save, bankOptions = [] }) {
+  const safeSale = sale || {};
+  const safeBanks = Array.isArray(bankOptions) ? bankOptions : [];
+  const remaining = safeSale.type === "Aksesuar Satışı" ? 0 : Math.max(parseMoneyInput(safeSale.total || 0) - parseMoneyInput(safeSale.cash || 0) - parseMoneyInput(safeSale.card || 0), 0);
   return (
     <div className="modal-bg">
       <div className="modal">
         <h2>Satış Düzelt</h2>
-        <input placeholder="Müşteri adı soyadı / telefon" value={sale.customer || ""} onChange={(e) => setSale({ ...sale, customer: e.target.value, cariPerson: e.target.value })} />
-        <input placeholder="Cari kişi" value={sale.cariPerson || ""} onChange={(e) => setSale({ ...sale, cariPerson: e.target.value })} />
-        <input type="text" inputMode="numeric" placeholder="Satış fiyatı" value={sale.total} onFocus={() => setSale({ ...sale, total: stripMoneyForEdit(sale.total) })} onChange={(e) => setSale({ ...sale, total: cleanMoneyTyping(e.target.value) })} onBlur={() => setSale({ ...sale, total: formatMoneyInput(sale.total) })} />
-        <input type="text" inputMode="numeric" placeholder="Nakit" value={sale.cash} onFocus={() => setSale({ ...sale, cash: stripMoneyForEdit(sale.cash) })} onChange={(e) => setSale({ ...sale, cash: cleanMoneyTyping(e.target.value) })} onBlur={() => setSale({ ...sale, cash: formatMoneyInput(sale.cash) })} />
-        <input type="text" inputMode="numeric" placeholder="Kart" value={sale.card} onFocus={() => setSale({ ...sale, card: stripMoneyForEdit(sale.card) })} onChange={(e) => setSale({ ...sale, card: cleanMoneyTyping(e.target.value) })} onBlur={() => setSale({ ...sale, card: formatMoneyInput(sale.card) })} />
-        <select value={sale.bank || ""} onChange={(e) => {
+        <input placeholder="Müşteri adı soyadı / telefon" value={safeSale.customer || ""} onChange={(e) => setSale({ ...safeSale, customer: e.target.value, cariPerson: e.target.value })} />
+        <input placeholder="Cari kişi" value={safeSale.cariPerson || ""} onChange={(e) => setSale({ ...safeSale, cariPerson: e.target.value })} />
+        <input type="text" inputMode="numeric" placeholder="Satış fiyatı" value={safeSale.total || ""} onFocus={() => setSale({ ...safeSale, total: stripMoneyForEdit(safeSale.total) })} onChange={(e) => setSale({ ...safeSale, total: cleanMoneyTyping(e.target.value) })} onBlur={() => setSale({ ...safeSale, total: formatMoneyInput(safeSale.total) })} />
+        <input type="text" inputMode="numeric" placeholder="Nakit" value={safeSale.cash || ""} onFocus={() => setSale({ ...safeSale, cash: stripMoneyForEdit(safeSale.cash) })} onChange={(e) => setSale({ ...safeSale, cash: cleanMoneyTyping(e.target.value) })} onBlur={() => setSale({ ...safeSale, cash: formatMoneyInput(safeSale.cash) })} />
+        <input type="text" inputMode="numeric" placeholder="Kart" value={safeSale.card || ""} onFocus={() => setSale({ ...safeSale, card: stripMoneyForEdit(safeSale.card) })} onChange={(e) => setSale({ ...safeSale, card: cleanMoneyTyping(e.target.value) })} onBlur={() => setSale({ ...safeSale, card: formatMoneyInput(safeSale.card) })} />
+        <select value={safeSale.bank || ""} onChange={(e) => {
           if (e.target.value === "__add_bank__") {
             alert("Banka ekleme ana satış ekranından yapılacak. Ana bankalar: Ziraatbank, İşbank, Halkbank.");
             return;
           }
-          setSale({ ...sale, bank: e.target.value });
+          setSale({ ...safeSale, bank: e.target.value });
         }}>
           <option value="">Banka seç</option>
-          {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+          {safeBanks.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
           <option value="__add_bank__">+ Banka Ekle</option>
         </select>
         <div className="remaining-box"><span>Yeni Kalan</span><b>{money(remaining)}</b></div>
