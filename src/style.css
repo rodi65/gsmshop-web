@@ -2419,6 +2419,50 @@ select:focus {
   margin-top: 14px;
 }
 
+.security-password-card p {
+  margin: 0 0 14px !important;
+  color: #64748b;
+  font-weight: 800;
+}
+
+.security-password-list {
+  display: grid;
+  gap: 12px;
+}
+
+.security-password-row {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 18px;
+  padding: 12px;
+}
+
+.security-password-row label span {
+  display: block;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 1000;
+  margin-left: 2px;
+}
+
+.security-password-row input {
+  margin-top: 6px;
+  font-weight: 900;
+}
+
+.security-password-actions {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.security-save-btn {
+  min-height: 40px !important;
+  margin-top: 0 !important;
+  background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+}
+
 .backup-btn {
   min-height: 58px !important;
   margin-top: 0 !important;

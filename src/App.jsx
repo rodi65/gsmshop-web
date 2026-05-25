@@ -75,7 +75,17 @@ const stockSellerDebt = (product) => {
 };
 
 const saleTypes = ["Telefon Satışı", "Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı", "Aksesuar Satışı"];
-const ADMIN_EDIT_PASSWORD = "1999";
+const securityPasswordsStorageKey = "ceplog_security_passwords";
+const defaultSecurityPasswords = {
+  editPassword: "1",
+  cancelPassword: "1",
+  deletePassword: "1",
+};
+const securityPasswordFields = [
+  { key: "editPassword", actionType: "edit", label: "Düzenleme Şifresi" },
+  { key: "cancelPassword", actionType: "cancel", label: "İptal Şifresi" },
+  { key: "deletePassword", actionType: "delete", label: "Silme Şifresi" },
+];
 const mainSaleGroups = ["Telefon", "Aksesuar", "Program", "Saat", "Tablet", "Elektronik"];
 const otherSaleTypes = ["Saat Satışı", "PC Satışı", "Elektronik Satışı"];
 const purchasePaymentMovementTypes = [
@@ -340,6 +350,47 @@ const isActiveRecord = (item) => {
 };
 const isActiveMovement = isActiveRecord;
 
+function getSecurityPasswords() {
+  if (typeof window === "undefined") return { ...defaultSecurityPasswords };
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(securityPasswordsStorageKey) || "{}");
+    return {
+      editPassword: saved.editPassword || defaultSecurityPasswords.editPassword,
+      cancelPassword: saved.cancelPassword || defaultSecurityPasswords.cancelPassword,
+      deletePassword: saved.deletePassword || defaultSecurityPasswords.deletePassword,
+    };
+  } catch {
+    return { ...defaultSecurityPasswords };
+  }
+}
+
+function saveSecurityPasswords(passwords) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(securityPasswordsStorageKey, JSON.stringify({
+    ...defaultSecurityPasswords,
+    ...passwords,
+  }));
+}
+
+function requireSecurityPassword(actionType, actionLabel = "") {
+  const passwords = getSecurityPasswords();
+  const config = {
+    edit: { key: "editPassword", prompt: "Düzenleme şifresini girin" },
+    cancel: { key: "cancelPassword", prompt: "İptal şifresini girin" },
+    delete: { key: "deletePassword", prompt: "Silme şifresini girin" },
+  }[actionType];
+
+  if (!config) return false;
+  const promptText = actionLabel ? `${config.prompt}\n${actionLabel}` : config.prompt;
+  const entered = window.prompt(promptText);
+  if (entered === null) return false;
+  if (entered !== passwords[config.key]) {
+    alert("Şifre hatalı. İşlem yapılmadı.");
+    return false;
+  }
+  return true;
+}
+
 
 const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik", "Diğer"];
 const defaultBanks = ["Ziraatbank", "İşbank", "Halkbank"];
@@ -573,6 +624,8 @@ export default function App() {
   const [technicalServiceStorageReadyKey, setTechnicalServiceStorageReadyKey] = useState("");
   const [visibleKasaStats, setVisibleKasaStats] = useState({});
   const [profitUnlocked, setProfitUnlocked] = useState(false);
+  const [securityPasswordDrafts, setSecurityPasswordDrafts] = useState(() => getSecurityPasswords());
+  const [visibleSecurityPasswords, setVisibleSecurityPasswords] = useState({});
   const [profitDateFrom, setProfitDateFrom] = useState("");
   const [profitDateTo, setProfitDateTo] = useState("");
   const [karaTab, setKaraTab] = useState("alacak");
@@ -940,6 +993,31 @@ export default function App() {
     } catch (error) {
       alert(error.message || "Çıkış yapılamadı.");
     }
+  }
+
+  function updateSecurityPasswordDraft(key, value) {
+    setSecurityPasswordDrafts({ ...securityPasswordDrafts, [key]: value });
+  }
+
+  function saveSecurityPasswordField(key) {
+    const value = String(securityPasswordDrafts[key] || "").trim();
+    if (!value) return alert("Şifre boş bırakılamaz.");
+
+    const nextPasswords = {
+      ...getSecurityPasswords(),
+      [key]: value,
+    };
+    saveSecurityPasswords(nextPasswords);
+    setSecurityPasswordDrafts(nextPasswords);
+    setSyncMessage("Güvenlik şifresi güncellendi.");
+    alert("Güvenlik şifresi güncellendi.");
+  }
+
+  function toggleSecurityPasswordVisibility(key) {
+    setVisibleSecurityPasswords({
+      ...visibleSecurityPasswords,
+      [key]: !visibleSecurityPasswords[key],
+    });
   }
 
   const report = {
@@ -1364,25 +1442,10 @@ export default function App() {
     setSupplierModalOpen(false);
   }
 
-  function askDeletePassword() {
-    const password = window.prompt("Silmek için şifre gir");
-    return password === "1";
-  }
-
-  function askAdminEditPassword() {
-    const password = window.prompt("Yönetici şifresi girin");
-    if (password === null) return false;
-    if (password !== ADMIN_EDIT_PASSWORD) {
-      alert("Şifre hatalı. Düzenleme yetkisi verilmedi.");
-      return false;
-    }
-    return true;
-  }
-
   function openSaleEditor(sale) {
     try {
       if (!sale?.id) return alert("Düzenlenecek satış kaydı bulunamadı.");
-      if (!askAdminEditPassword()) return;
+      if (!requireSecurityPassword("edit", "Satış düzenleme")) return;
       setEditingSale({
         ...sale,
         customer: sale.customer || "",
@@ -1404,7 +1467,7 @@ export default function App() {
 
   function openStockEditor(product) {
     if (!product?.id) return alert("Düzenlenecek stok kaydı bulunamadı.");
-    if (!askAdminEditPassword()) return;
+    if (!requireSecurityPassword("edit", "Stok düzenleme")) return;
     setEditingStock({ ...product });
   }
 
@@ -1546,7 +1609,7 @@ export default function App() {
   }
 
   async function deleteSale(id) {
-    if (!askAdminEditPassword()) return;
+    if (!requireSecurityPassword("cancel", "Satış iptali")) return;
     try {
       await cancelRecord("sales", id, "Kullanıcı tarafından satış iptal edildi.");
       await refreshFromDatabase();
@@ -1559,7 +1622,7 @@ export default function App() {
   async function deleteStock(id) {
     const product = activeStock.find((item) => String(item.id) === String(id)) || stock.find((item) => String(item.id) === String(id));
     if (!product) return alert("Silinecek stok kaydı bulunamadı.");
-    if (!askAdminEditPassword()) return;
+    if (!requireSecurityPassword("delete", "Stok kaydı silme")) return;
 
     const links = analyzeStockDeleteLinks(product);
     if (links.linkedSales.length) {
@@ -1605,7 +1668,7 @@ export default function App() {
   }
 
   function deleteSupplierDebt(supplierName) {
-    if (!askAdminEditPassword()) return;
+    if (!requireSecurityPassword("delete", "Tedarikçi/Firma kaydı silme")) return;
     setStock(stock.filter((product) => product.supplier !== supplierName));
   }
 
@@ -1631,7 +1694,7 @@ export default function App() {
   }
 
   async function deleteExpense(id) {
-    if (!askAdminEditPassword()) return;
+    if (!requireSecurityPassword("delete", "Gider kaydı silme")) return;
     try {
       await softDelete("expenses", id);
       setExpenses(expenses.filter((item) => item.id !== id));
@@ -1690,7 +1753,7 @@ export default function App() {
   async function cancelCashEntryMovement(item) {
     if (!item?.id) return alert("İptal edilecek nakit girişi bulunamadı.");
     if (!isCancellableCashEntryMovement(item)) return alert("Sadece nakit girişi kayıtları iptal edilebilir.");
-    if (!askAdminEditPassword()) return;
+    if (!requireSecurityPassword("cancel", "Nakit girişi iptali")) return;
 
     const amount = cashMovementAmount(item);
     if (!amount) return alert("İptal edilecek tutar bulunamadı.");
@@ -1999,13 +2062,9 @@ export default function App() {
       setKaraTab("kar");
       return;
     }
-    const password = window.prompt("Kâr menüsü için şifre gir");
-    if (password === "1") {
-      setProfitUnlocked(true);
-      setKaraTab("kar");
-    } else {
-      alert("Şifre yanlış.");
-    }
+    if (!requireSecurityPassword("edit", "Kâr menüsü")) return;
+    setProfitUnlocked(true);
+    setKaraTab("kar");
   }
 
   function transferProductToSale(product) {
@@ -2184,7 +2243,9 @@ export default function App() {
   }
 
   function updateTechnicalServiceStatus(id, status) {
-    if (!askAdminEditPassword()) return;
+    const actionType = status === "İptal" ? "cancel" : "edit";
+    const actionLabel = status === "İptal" ? "Teknik servis iptali" : "Teknik servis durum düzenleme";
+    if (!requireSecurityPassword(actionType, actionLabel)) return;
     setTechnicalServices(technicalServices.map((item) => (
       item.id === id ? { ...item, status, updatedAt: new Date().toISOString() } : item
     )));
@@ -2203,6 +2264,7 @@ export default function App() {
     if (!isRefund && amount > summary.remaining) return alert("Ödeme kalan servis tutarından fazla olamaz.");
     if (method === "Kart/Banka" && !form.bank) return alert("Banka seçmek zorunludur.");
     if (isRefund) {
+      if (!requireSecurityPassword("cancel", "Teknik servis iadesi")) return;
       const source = method === "Kart/Banka"
         ? summary.refundSources.find((item) => item.method === "Kart/Banka" && item.bank === form.bank)
         : summary.refundSources.find((item) => item.key === "cash");
@@ -2600,11 +2662,6 @@ export default function App() {
   }
 
   function deleteAccessoryShortcut(id) {
-    const password = window.prompt("Kısayolu silmek için şifre gir");
-    if (password !== "1") {
-      alert("Şifre yanlış. Silme işlemi iptal edildi.");
-      return;
-    }
     setAccessoryShortcuts(accessoryShortcuts.filter((item) => item.id !== id));
   }
 
@@ -2966,6 +3023,35 @@ export default function App() {
                 <div className="logout-panel">
                   <span>Giriş yapan kullanıcı: <b>{currentUser?.email || "Kayıtlı Kullanıcı"}</b></span>
                   <button className="logout-btn" type="button" onClick={handleLogout}>ÇIKIŞ YAP</button>
+                </div>
+              </div>
+
+              <div className="card management-card security-password-card">
+                <h2>GÜVENLİK ŞİFRELERİ</h2>
+                <p>Düzenleme, iptal ve silme işlemleri için ayrı güvenlik şifreleri belirleyin.</p>
+
+                <div className="security-password-list">
+                  {securityPasswordFields.map((field) => (
+                    <div className="security-password-row" key={field.key}>
+                      <label>
+                        <span>{field.label}</span>
+                        <input
+                          type={visibleSecurityPasswords[field.key] ? "text" : "password"}
+                          value={securityPasswordDrafts[field.key] || ""}
+                          onChange={(event) => updateSecurityPasswordDraft(field.key, event.target.value)}
+                          placeholder={field.label}
+                        />
+                      </label>
+                      <div className="security-password-actions">
+                        <button className="edit-btn" type="button" onClick={() => toggleSecurityPasswordVisibility(field.key)}>
+                          {visibleSecurityPasswords[field.key] ? "Gizle" : "Göster"}
+                        </button>
+                        <button className="primary security-save-btn" type="button" onClick={() => saveSecurityPasswordField(field.key)}>
+                          Kaydet
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
