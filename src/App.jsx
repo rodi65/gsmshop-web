@@ -78,7 +78,16 @@ const saleTypes = ["Telefon Satışı", "Saat Satışı", "Tablet Satışı", "P
 const ADMIN_EDIT_PASSWORD = "1999";
 const mainSaleGroups = ["Telefon", "Aksesuar", "Program", "Saat", "Tablet", "Elektronik"];
 const otherSaleTypes = ["Saat Satışı", "PC Satışı", "Elektronik Satışı"];
-const purchasePaymentMovementTypes = ["Alım Ödemesi", "Cihaz Alım Ödemesi", "Stok Alım Ödemesi", "Stok Ödemesi", "Tedarikçi Ödemesi", "Telefon Alım Ödemesi"];
+const purchasePaymentMovementTypes = [
+  "Alım Ödemesi",
+  "Cihaz Alım Ödemesi",
+  "Telefon Alım Ödemesi",
+  "Stok Alım Ödemesi",
+  "Stok Ödemesi",
+  "Aksesuar Alım Ödemesi",
+  "Ürün Alım Ödemesi",
+  "Tedarikçi Ödemesi",
+];
 const expenseCategories = ["Yemek", "Kargo", "Borç", "İade", "Ivır Zıvır"];
 const quickAccessoryGroups = {
   "Kılıf": ["A Kılıf", "B Kılıf", "Silikon Kılıf"],
@@ -133,7 +142,9 @@ const emptyTechnicalSummary = {
   history: [],
 };
 const cashEntryTypes = ["Manuel Nakit Girişi", "Devir Nakit"];
-const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Devir Nakit", "Gelen Alacak", "Alacak Ödemesi", "Stok Ödemesi", "Cari Ödeme", "Gider", "Bankaya Yatırılan Nakit", "Düzeltme", ...technicalServiceMovementTypes];
+const cashEntryMovementTypes = ["Manuel Nakit Girişi", "Nakit Girişi", "Kasaya Nakit Girişi"];
+const cashEntryCancellationType = "Nakit Girişi İptali";
+const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Nakit Girişi", "Kasaya Nakit Girişi", cashEntryCancellationType, "Devir Nakit", "Gelen Alacak", "Alacak Ödemesi", "Stok Ödemesi", "Cari Ödeme", "Gider", "Bankaya Yatırılan Nakit", "Düzeltme", ...technicalServiceMovementTypes];
 const receivablePaymentTypes = ["Gelen Alacak", "Alacak Ödemesi"];
 
 const saleGroupRank = (type) => {
@@ -163,15 +174,18 @@ const cashMovementType = (item) => item.movement_type || item.movementType || it
 const cashMovementAmount = (item) => typeof item.amount === "number" ? item.amount : parseMoneyInput(item.amount);
 const bankMovementType = (item) => item.movement_type || item.movementType || item.type || "";
 const bankMovementAmount = (item) => typeof item.amount === "number" ? item.amount : parseMoneyInput(item.amount);
-const bankMovementDirection = (item) => item.direction || (bankMovementType(item) === "Bankadan Çekilen" ? "out" : "in");
-const isPurchasePaymentMovement = (item, movementType, direction) => {
+const bankMovementDirection = (item) => item.direction || (purchasePaymentMovementTypes.includes(bankMovementType(item)) || bankMovementType(item) === "Bankadan Çekilen" ? "out" : "in");
+const isPurchasePaymentMovement = (item, movementType = cashMovementType(item) || bankMovementType(item), direction = item?.direction || "") => {
   const type = String(movementType || "");
   const relatedTable = String(item?.relatedTable || item?.related_table || "");
-  if (direction !== "out") return false;
+  const normalizedDirection = String(direction || "").toLocaleLowerCase("tr-TR");
+  if (normalizedDirection && normalizedDirection !== "out") return false;
   if (!purchasePaymentMovementTypes.includes(type)) return false;
   if (type === "Stok Ödemesi") return relatedTable === "stock_items";
   return !["sales", "technical_services", "expenses"].includes(relatedTable);
 };
+const isCancellableCashEntryMovement = (item) =>
+  cashEntryMovementTypes.includes(cashMovementType(item)) && (item?.direction || "in") === "in";
 const isTechnicalServiceMovement = (type) => technicalServiceMovementTypes.includes(String(type || ""));
 const isTechnicalServiceIncomeMovement = (type) => technicalServiceIncomeTypes.includes(String(type || ""));
 const isTechnicalServiceRefundMovement = (type) => technicalServiceRefundTypes.includes(String(type || ""));
@@ -278,7 +292,7 @@ const fromDbBankMovement = (item) => ({
   id: item.id,
   type: item.movement_type,
   bank: item.bank_name,
-  direction: item.direction || (item.movement_type === "Bankadan Çekilen" ? "out" : "in"),
+  direction: item.direction || (purchasePaymentMovementTypes.includes(item.movement_type) || item.movement_type === "Bankadan Çekilen" ? "out" : "in"),
   amount: money(Number(item.amount || 0)),
   note: item.note || "",
   relatedTable: item.related_table || item.relatedTable || "",
@@ -317,7 +331,14 @@ const fromDbContact = (item) => ({
   status: item.status || "active",
 });
 
-const isActiveRecord = (item) => !["deleted", "cancelled"].includes(String(item?.status || "active").toLocaleLowerCase("tr-TR"));
+const isActiveRecord = (item) => {
+  const status = String(item?.status || "active").toLocaleLowerCase("tr-TR");
+  return !["deleted", "cancelled", "iptal"].includes(status) &&
+    !item?.is_cancelled &&
+    !item?.is_deleted &&
+    !item?.deleted_at;
+};
+const isActiveMovement = isActiveRecord;
 
 
 const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik", "Diğer"];
@@ -382,91 +403,8 @@ const emptyStockForm = {
   note: "",
 };
 
-const initialStock = [
-  {
-    id: 101,
-    module: "Cihaz",
-    deviceType: "Telefon",
-    condition: "Sıfır Garantili",
-    brand: "Apple",
-    model: "iPhone 17 Pro Max",
-    memory: "256 GB",
-    barcode: "356789123456789",
-    buy: "70.000 TL",
-    sell: "85.000 TL",
-    supplierPaid: "70.000 TL",
-    qty: 1,
-    acquisitionType: "Tedarikçi Firma",
-    supplier: "MOBİLTEK İLETİŞİM",
-    sellerPerson: "",
-    sellerPhone: "",
-    saleDate: "",
-    buyerName: "",
-    saleFormImageName: "",
-    sellerCariName: "",
-    sellerCariRemaining: 0,
-    note: "",
-  },
-  {
-    id: 102,
-    module: "Cihaz",
-    deviceType: "Telefon",
-    condition: "Sıfır Spot",
-    brand: "Samsung",
-    model: "Galaxy S26 Ultra",
-    memory: "512 GB",
-    barcode: "356789123456780",
-    buy: "80.000 TL",
-    sell: "98.000 TL",
-    supplierPaid: "80.000 TL",
-    qty: 1,
-    acquisitionType: "Tedarikçi Firma",
-    supplier: "GALAKSİ TEKNOLOJİ",
-    sellerPerson: "",
-    sellerPhone: "",
-    saleDate: "",
-    buyerName: "",
-    saleFormImageName: "",
-    sellerCariName: "",
-    sellerCariRemaining: 0,
-    note: "",
-  },
-  {
-    id: 201,
-    module: "Aksesuar",
-    deviceType: "Aksesuar",
-    category: "KILIF",
-    accessorySubType: "A Kılıf",
-    name: "iPhone 17 Pro Max Kılıf",
-    compatibleModel: "iPhone 17 Pro Max",
-    barcode: "869000000101",
-    buy: "150 TL",
-    sell: "400 TL",
-    supplierPaid: "150 TL",
-    qty: 20,
-    supplier: "BASEUS TÜRKİYE",
-  },
-];
-
-const initialSales = [
-  {
-    id: 1,
-    type: "Telefon Satışı",
-    customer: "Mehmet Kaya 0555 555 55 55",
-    cariPerson: "Mehmet Kaya 0555 555 55 55",
-    bank: "Garanti",
-    productName: "iPhone 17 Pro Max 256 GB",
-    productId: 101,
-    productBuyPrice: "70.000 TL",
-    productBarcode: "356789123456789",
-    total: "85.000 TL",
-    cash: "30.000 TL",
-    card: "40.000 TL",
-    remaining: 15000,
-    profit: 15000,
-    date: new Date().toISOString(),
-  },
-];
+const initialStock = [];
+const initialSales = [];
 
 function productTitle(product) {
   if (!product) return "";
@@ -634,9 +572,7 @@ export default function App() {
   const [bankCashForm, setBankCashForm] = useState({ amount: "", bank: "", note: "" });
   const [cashEntryForm, setCashEntryForm] = useState({ type: "Manuel Nakit Girişi", amount: "", note: "" });
   const [customBanks, setCustomBanks] = useState([]);
-  const [bankMovements, setBankMovements] = useState([
-    { id: 1, type: "Bankaya Giden", amount: "40.000 TL", note: "POSTAN Gelen - Garantibank", bank: "Garantibank", date: new Date().toISOString() },
-  ]);
+  const [bankMovements, setBankMovements] = useState([]);
   const [saleForm, setSaleForm] = useState({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
   const bankOptions = useMemo(() => Array.from(new Set([...defaultBanks, ...customBanks])).filter(Boolean), [customBanks]);
   const [expenses, setExpenses] = useState([]);
@@ -654,8 +590,8 @@ export default function App() {
   const activeStock = safeStock.filter(isActiveRecord);
   const activeSales = safeSales.filter(isActiveRecord);
   const activeExpenses = safeExpenses.filter(isActiveRecord);
-  const activeBankMovements = safeBankMovements.filter(isActiveRecord);
-  const activeCashMovements = safeCashMovements.filter(isActiveRecord);
+  const activeBankMovements = safeBankMovements.filter(isActiveMovement);
+  const activeCashMovements = safeCashMovements.filter(isActiveMovement);
   const activeContacts = safeContacts.filter(isActiveRecord);
   const inStockItems = activeStock.filter((product) => Number(product.quantity || product.qty || 0) > 0);
 
@@ -1082,14 +1018,6 @@ export default function App() {
   const cashSaleMovementIds = new Set(activeCashMovements.filter((item) => cashMovementType(item) === "Satış Nakit" && item.relatedTable === "sales").map((item) => String(item.relatedId)));
   const cashBankMovementIds = new Set(activeCashMovements.filter((item) => cashMovementType(item) === "Bankadan Nakit Gelen" && item.relatedTable === "bank_movements").map((item) => String(item.relatedId)));
   const cashExpenseMovementIds = new Set(activeCashMovements.filter((item) => cashMovementType(item) === "Gider" && item.relatedTable === "expenses").map((item) => String(item.relatedId)));
-  const stockPaymentMovementIds = new Set([
-    ...activeCashMovements
-      .filter((item) => isPurchasePaymentMovement(item, cashMovementType(item), item.direction) && item.relatedTable === "stock_items")
-      .map((item) => String(item.relatedId)),
-    ...activeBankMovements
-      .filter((item) => isPurchasePaymentMovement(item, bankMovementType(item), bankMovementDirection(item)) && item.relatedTable === "stock_items")
-      .map((item) => String(item.relatedId)),
-  ]);
   const legacyCashSales = activeSales
     .filter((sale) => !cashSaleMovementIds.has(String(sale.id)))
     .reduce((sum, sale) => sum + parseMoneyInput(sale.cash), 0);
@@ -1099,9 +1027,7 @@ export default function App() {
   const legacyExpenseOut = activeExpenses
     .filter((item) => !cashExpenseMovementIds.has(String(item.id)))
     .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
-  const legacyStockPaymentOut = activeStock
-    .filter((product) => !stockPaymentMovementIds.has(String(product.id)))
-    .reduce((sum, product) => sum + stockPurchasePaymentAmount(product), 0);
+  const legacyStockPaymentOut = 0;
   const cashMovementNet = activeCashMovements
     .filter((item) => cashLedgerMovementTypes.includes(cashMovementType(item)))
     .reduce((sum, item) => sum + (item.direction === "out" ? -cashMovementAmount(item) : cashMovementAmount(item)), 0);
@@ -1123,19 +1049,17 @@ export default function App() {
   const todayExpenseOut = activeExpenses
     .filter((item) => !cashExpenseMovementIds.has(String(item.id)) && isTodayRecord(item, todayKey))
     .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
-  const todayLegacyStockPaymentOut = activeStock
-    .filter((product) => !stockPaymentMovementIds.has(String(product.id)) && isTodayRecord(product, todayKey))
-    .reduce((sum, product) => sum + stockPurchasePaymentAmount(product), 0);
+  const todayLegacyStockPaymentOut = 0;
   const todayCashMovementOut = activeCashMovements
     .filter((item) => item.direction === "out" && cashLedgerMovementTypes.includes(cashMovementType(item)) && isTodayRecord(item, todayKey))
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
   const todayCashIn = todayBankCashIncoming + todayCashMovementIn;
   const todayCashOut = todayExpenseOut + todayLegacyStockPaymentOut + todayCashMovementOut;
   const stockPurchasePayments = activeCashMovements
-    .filter((item) => isPurchasePaymentMovement(item, cashMovementType(item), item.direction))
-    .reduce((sum, item) => sum + cashMovementAmount(item), 0) + activeBankMovements
-    .filter((item) => isPurchasePaymentMovement(item, bankMovementType(item), bankMovementDirection(item)))
-    .reduce((sum, item) => sum + bankMovementAmount(item), 0) + legacyStockPaymentOut;
+    .filter((item) => isPurchasePaymentMovement(item))
+    .reduce((sum, item) => sum + Math.abs(cashMovementAmount(item)), 0) + activeBankMovements
+    .filter((item) => isPurchasePaymentMovement(item))
+    .reduce((sum, item) => sum + Math.abs(bankMovementAmount(item)), 0) + legacyStockPaymentOut;
   const receivablePayments = activeCashMovements
     .filter((item) => receivablePaymentTypes.includes(cashMovementType(item)) && item.direction === "in")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
@@ -1396,10 +1320,10 @@ export default function App() {
     const linkedCashMovements = activeCashMovements.filter((movement) => movementMatchesStock(product, movement));
     const linkedBankMovements = activeBankMovements.filter((movement) => movementMatchesStock(product, movement));
     const linkedCashPurchases = linkedCashMovements.filter((movement) =>
-      isPurchasePaymentMovement(movement, cashMovementType(movement), movement.direction)
+      isPurchasePaymentMovement(movement)
     );
     const linkedBankPurchases = linkedBankMovements.filter((movement) =>
-      isPurchasePaymentMovement(movement, bankMovementType(movement), bankMovementDirection(movement))
+      isPurchasePaymentMovement(movement)
     );
     const contactLinks = activeContacts.filter((contact) => {
       if (!title || !contact?.note) return false;
@@ -1618,6 +1542,39 @@ export default function App() {
     }
 
     setCashEntryForm({ type: "Manuel Nakit Girişi", amount: "", note: "" });
+  }
+
+  async function cancelCashEntryMovement(item) {
+    if (!item?.id) return alert("İptal edilecek nakit girişi bulunamadı.");
+    if (!isCancellableCashEntryMovement(item)) return alert("Sadece nakit girişi kayıtları iptal edilebilir.");
+    if (!askAdminEditPassword()) return;
+
+    const amount = cashMovementAmount(item);
+    if (!amount) return alert("İptal edilecek tutar bulunamadı.");
+    const ok = window.confirm("Bu nakit girişini iptal etmek istiyor musunuz? Orijinal kayıt silinmez; kasa etkisi ters hareketle geri alınır.");
+    if (!ok) return;
+
+    try {
+      await createCashMovement({
+        movement_type: cashEntryCancellationType,
+        direction: "out",
+        amount,
+        note: `Nakit girişi iptali - ${item.note || cashMovementType(item)}`,
+        related_table: "cash_movements",
+        related_id: item.id,
+      });
+      await refreshFromDatabase();
+      setSyncMessage("Nakit girişi iptal edildi ve kasa etkisi geri alındı.");
+      alert("Nakit girişi iptal edildi ve kasa etkisi geri alındı.");
+    } catch (error) {
+      console.error("Nakit girişi iptal hatası", error);
+      const message = String(error?.message || error || "");
+      if (message.includes("cash_movements_movement_type_check") || message.includes("violates check constraint")) {
+        alert("Nakit Girişi İptali hareket tipi Supabase'de eksik. supabase/cash_entry_cancel_movement_type_20260526.sql dosyasını SQL Editor'da çalıştırın.");
+        return;
+      }
+      alert(error.message || "Nakit girişi iptal edilemedi.");
+    }
   }
 
   async function saveCariPayment(account, amountValue) {
@@ -3316,12 +3273,15 @@ export default function App() {
 
                 <button className="primary" onClick={saveCashEntry}><Plus size={16} /> Nakit Girişini Kaydet</button>
 
-                <Table headers={["Tarih", "İşlem", "Yön", "Tutar", "Not"]} rows={activeCashMovements.map((item) => [
+                <Table headers={["Tarih", "İşlem", "Yön", "Tutar", "Not", "İşlem"]} rows={activeCashMovements.map((item) => [
                   new Date(item.date).toLocaleString("tr-TR"),
                   item.type || "-",
                   item.direction === "out" ? "Çıkış" : "Giriş",
-                  money(item.amount),
+                  item.direction === "out" ? `-${money(item.amount)}` : money(item.amount),
                   item.note || "-",
+                  isCancellableCashEntryMovement(item)
+                    ? <button className="delete-btn" onClick={() => cancelCashEntryMovement(item)}>İptal</button>
+                    : "-",
                 ])} />
               </section>
             )}
