@@ -14,6 +14,7 @@ import {
   createReceivablePayment,
   repairStockSideEffects,
   softDelete,
+  cancelRecord,
   updateSaleRecord,
   updateStockItem,
 } from "./services/dataService";
@@ -392,6 +393,72 @@ function productTitle(product) {
   return [product.brand, product.model, product.memory].filter(Boolean).join(" ");
 }
 
+const stockSearchFilters = ["TÜMÜ", "TELEFON", "AKSESUAR", "DİĞERLERİ", "SAAT", "TABLET", "PC", "BLUETOOTH", "ELEKTRONİK", "PROGRAM"];
+
+function stockSearchGroup(product) {
+  const moduleName = normalizeStockText(product?.module);
+  const deviceName = normalizeStockText(product?.deviceType || product?.device_type);
+  const title = normalizeStockText(productTitle(product));
+
+  if (isPhoneStockItem(product)) return "TELEFON";
+  if (isAccessoryStockItem(product)) return "AKSESUAR";
+  if (deviceName.includes("saat") || title.includes("saat")) return "SAAT";
+  if (deviceName.includes("tablet") || title.includes("tablet")) return "TABLET";
+  if (deviceName === "pc" || deviceName.includes("bilgisayar") || title.includes("pc")) return "PC";
+  if (deviceName.includes("bluetooth") || title.includes("bluetooth")) return "BLUETOOTH";
+  if (deviceName.includes("elektronik") || title.includes("elektronik")) return "ELEKTRONİK";
+  if (moduleName.includes("program") || deviceName.includes("program") || title.includes("program")) return "PROGRAM";
+  return "DİĞERLERİ";
+}
+
+function saleTargetFromStockProduct(product) {
+  const group = stockSearchGroup(product);
+  if (group === "TELEFON") return { saleGroup: "Telefon", saleType: "Telefon Satışı" };
+  if (group === "AKSESUAR") return { saleGroup: "Aksesuar", saleType: "Aksesuar Satışı" };
+  if (group === "SAAT") return { saleGroup: "Saat", saleType: "Saat Satışı" };
+  if (group === "TABLET") return { saleGroup: "Tablet", saleType: "Tablet Satışı" };
+  if (group === "PC") return { saleGroup: "PC", saleType: "PC Satışı" };
+  if (group === "ELEKTRONİK") return { saleGroup: "Elektronik", saleType: "Elektronik Satışı" };
+  if (group === "PROGRAM") return { saleGroup: "Program", saleType: "Program Satışı" };
+  if (group === "BLUETOOTH") return { saleGroup: "Bluetooth", saleType: "Bluetooth Satışı" };
+  return { saleGroup: "Diğerleri", saleType: "Diğerleri Satışı" };
+}
+
+function stockSearchHaystack(product) {
+  return [
+    productTitle(product),
+    product?.product_name,
+    product?.name,
+    product?.brand,
+    product?.model,
+    product?.memory,
+    product?.deviceType,
+    product?.device_type,
+    product?.module,
+    product?.condition,
+    product?.category,
+    product?.accessorySubType,
+    product?.barcode,
+    product?.imei,
+    product?.serial_no,
+    product?.supplier,
+    product?.supplier_name,
+    product?.sellerPerson,
+    product?.seller_person,
+    product?.sellerPhone,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase("tr-TR");
+}
+
+function formatRecordDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
 function cleanBarcode(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 15);
 }
@@ -444,6 +511,9 @@ export default function App() {
   const [cashMovements, setCashMovements] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [kasaTab, setKasaTab] = useState("yeniSatis");
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [stockSearchQuery, setStockSearchQuery] = useState("");
+  const [stockSearchFilter, setStockSearchFilter] = useState("TÜMÜ");
   const [saleGroup, setSaleGroup] = useState("Telefon");
   const [quickAccessoryGroup, setQuickAccessoryGroup] = useState("Kılıf");
   const [quickAccessorySubType, setQuickAccessorySubType] = useState("A Kılıf");
@@ -496,6 +566,16 @@ export default function App() {
     })
     .filter((product) => !saleForm.search || has(productTitle(product), saleForm.search) || has(product.barcode, saleForm.search))
     .filter((product) => Number(product.qty || 0) > 0);
+
+  const stockSearchResults = useMemo(() => {
+    const queryText = stockSearchQuery.trim().toLocaleLowerCase("tr-TR");
+    if (!queryText) return [];
+
+    return stock
+      .filter((product) => stockSearchFilter === "TÜMÜ" || stockSearchGroup(product) === stockSearchFilter)
+      .filter((product) => stockSearchHaystack(product).includes(queryText))
+      .slice(0, 80);
+  }, [stock, stockSearchFilter, stockSearchQuery]);
 
   const selectedProduct = stock.find((product) => String(product.id) === String(saleForm.productId));
   const saleTotal = parseMoneyInput(saleForm.total || selectedProduct?.sell || 0);
@@ -821,9 +901,9 @@ export default function App() {
   async function deleteSale(id) {
     if (!askDeletePassword()) return alert("Şifre yanlış. Silme işlemi iptal edildi.");
     try {
-      await softDelete("sales", id);
-      setSales(sales.filter((sale) => sale.id !== id));
-      setSyncMessage("Satış Supabase'de silindi olarak işaretlendi.");
+      await cancelRecord("sales", id, "Kullanıcı tarafından satış iptal edildi.");
+      await refreshFromDatabase();
+      setSyncMessage("Satış güvenli şekilde iptal edildi ve etkileri yenilendi.");
     } catch (error) {
       alert(error.message || "Satış silinemedi.");
     }
@@ -1125,7 +1205,7 @@ export default function App() {
   async function updateSale() {
     const fixed = calcSale(editingSale);
     try {
-      const savedSale = await updateSaleRecord(fixed.id, {
+      await updateSaleRecord(fixed.id, {
         sale_group: saleGroupName(fixed.type),
         sale_type: fixed.type,
         product_name: fixed.productName,
@@ -1140,7 +1220,7 @@ export default function App() {
         profit_amount: Number(fixed.profit || 0),
         bank_name: fixed.bank || null,
       });
-      setSales(sales.map((sale) => sale.id === fixed.id ? fromDbSale(savedSale) : sale));
+      await refreshFromDatabase();
       setEditingSale(null);
       setSyncMessage("Satış düzeltmesi aktif workspace içinde Supabase'e kaydedildi.");
     } catch (error) {
@@ -1157,7 +1237,7 @@ export default function App() {
       supplierPaid: formatMoneyInput(editingStock.supplierPaid),
     };
     try {
-      const savedStock = await updateStockItem(fixed.id, {
+      await updateStockItem(fixed.id, {
         module: fixed.module,
         device_type: fixed.deviceType,
         category: fixed.module === "Cihaz" ? fixed.condition : fixed.category,
@@ -1179,7 +1259,7 @@ export default function App() {
         seller_cari_remaining: Number(fixed.sellerCariRemaining || 0),
         note: fixed.module === "Aksesuar" ? fixed.compatibleModel : fixed.note,
       });
-      setStock(stock.map((product) => product.id === fixed.id ? fromDbStock(savedStock) : product));
+      await refreshFromDatabase();
       setEditingStock(null);
       setSyncMessage("Stok düzeltmesi aktif workspace içinde Supabase'e kaydedildi.");
     } catch (error) {
@@ -1211,6 +1291,30 @@ export default function App() {
     } else {
       alert("Şifre yanlış.");
     }
+  }
+
+  function transferProductToSale(product) {
+    if (!product) return;
+    const target = saleTargetFromStockProduct(product);
+    const code = product.barcode || product.imei || "";
+    const title = productTitle(product) || product.name || "Ürün";
+
+    setSaleGroup(target.saleGroup);
+    setSaleForm({
+      type: target.saleType,
+      customer: "",
+      cariPerson: "",
+      search: code || title,
+      productId: product.id,
+      total: product.sell || "",
+      cash: product.sell || "",
+      card: "",
+      bank: "",
+    });
+    setKasaTab("yeniSatis");
+    setActive("kasa");
+    setSearchModalOpen(false);
+    setSyncMessage(`${title} satış formuna aktarıldı.`);
   }
 
   function createBackupPayload() {
@@ -1446,6 +1550,14 @@ export default function App() {
           </button>
 
           <button
+            className={searchModalOpen ? "nav-btn active" : "nav-btn"}
+            onClick={() => setSearchModalOpen(true)}
+          >
+            <Search size={22} />
+            <span>SORGULA</span>
+          </button>
+
+          <button
             className={active === "stok" ? "nav-btn active" : "nav-btn"}
             onClick={() => setActive("stok")}
           >
@@ -1478,6 +1590,88 @@ export default function App() {
             <span>Y</span>
           </button>
         </nav>
+
+        {searchModalOpen && (
+          <div className="modal-bg">
+            <div className="modal search-modal">
+              <div className="search-panel">
+                <div className="search-panel-head">
+                  <div>
+                    <h2 className="search-title">SORGULA</h2>
+                    <p>Ürün adı, marka, model, barkod veya IMEI ile stok ara.</p>
+                  </div>
+                  <button className="choice search-close-btn" type="button" onClick={() => setSearchModalOpen(false)}>
+                    <X size={18} /> KAPAT
+                  </button>
+                </div>
+
+                <input
+                  className="global-search-input"
+                  placeholder="Ürün adı, barkod veya IMEI yaz"
+                  value={stockSearchQuery}
+                  onChange={(e) => setStockSearchQuery(e.target.value)}
+                  autoComplete="off"
+                  autoFocus
+                />
+
+                <div className="search-filter-tabs">
+                  {stockSearchFilters.map((filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      className={stockSearchFilter === filter ? "choice active" : "choice"}
+                      onClick={() => setStockSearchFilter(filter)}
+                    >
+                      {filter}
+                    </button>
+                  ))}
+                </div>
+
+                {!stockSearchQuery.trim() ? (
+                  <div className="empty-search-note">Arama yapmak için ürün adı, barkod veya IMEI yaz.</div>
+                ) : !stockSearchResults.length ? (
+                  <div className="empty-search-note">Sonuç bulunamadı.</div>
+                ) : (
+                  <div className="search-results-table">
+                    {stockSearchResults.map((product) => {
+                      const group = stockSearchGroup(product);
+                      const quantity = Number(product.qty || 0);
+                      const code = product.barcode || product.imei || "-";
+                      const supplierOrSeller = sellerNameFromProduct(product) || product.supplier || "-";
+
+                      return (
+                        <button
+                          key={product.id}
+                          type="button"
+                          className={quantity <= 0 ? "search-result-card out-of-stock" : "search-result-card"}
+                          onClick={() => transferProductToSale(product)}
+                        >
+                          <div className="search-result-head">
+                            <div>
+                              <b>{productTitle(product) || product.name || "-"}</b>
+                              <span>{[product.brand, product.model, product.memory].filter(Boolean).join(" / ") || product.deviceType || product.category || "-"}</span>
+                            </div>
+                            <span className="stock-status-badge">{group}</span>
+                          </div>
+
+                          <div className="search-result-grid">
+                            <div><span>Kategori</span><b>{product.category || product.condition || "-"}</b></div>
+                            <div><span>Grup</span><b>{group}</b></div>
+                            <div><span>Barkod / IMEI</span><b>{code}</b></div>
+                            <div><span>Stok</span><b>{quantity}</b></div>
+                            <div><span>Satış</span><b>{product.sell || "0 TL"}</b></div>
+                            <div><span>Alış</span><b>{product.buy || "0 TL"}</b></div>
+                            <div><span>Tedarikçi / Satıcı</span><b>{supplierOrSeller}</b></div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {active === "yonetim" && (
           <section className="section management-section">

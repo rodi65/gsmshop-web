@@ -139,6 +139,30 @@ function isMissingRelationError(error) {
   return error?.code === "42P01" || message.includes("could not find the table") || message.includes("does not exist");
 }
 
+function isMissingRpcError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    error?.code === "PGRST202" ||
+    message.includes("could not find the function") ||
+    message.includes("function") && message.includes("schema cache")
+  );
+}
+
+function financialRpcMissingError(error) {
+  const wrapped = new Error("Finansal güvenlik fonksiyonu kurulmamış. Supabase SQL migration çalıştırılmalı.");
+  wrapped.cause = error;
+  return wrapped;
+}
+
+async function callFinancialRpc(name, payload) {
+  const { data, error } = await supabase.rpc(name, payload);
+  if (error) {
+    if (isMissingRpcError(error)) throw financialRpcMissingError(error);
+    throw error;
+  }
+  return data;
+}
+
 function sellerContactName(value) {
   const clean = String(value || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("tr-TR");
   if (!clean) return "";
@@ -317,64 +341,34 @@ export async function createContactPayment({ kind, name, phone = "", amount, cur
     contact = createdContact;
   }
 
-  const movement = await createCashMovement({
-    movement_type: "Cari Ödeme",
-    direction: "out",
-    amount: paymentAmount,
-    note: `${notePrefix} - ${cleanName}`,
-    related_table: "contacts",
-    related_id: contact.id,
+  const movementId = await callFinancialRpc("record_contact_payment", {
+    p_contact_id: contact.id,
+    p_workspace_id: workspaceId,
+    p_amount: paymentAmount,
+    p_note: `${notePrefix} - ${cleanName}`,
   });
 
-  const { data: updatedContact, error: updateError } = await supabase
-    .from("contacts")
-    .update({
-      balance: toDbNumber(contact.balance) - paymentAmount,
-      balance_type: "payable",
-      status: "active",
-      updated_by: user?.id,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", contact.id)
-    .eq("workspace_id", workspaceId)
-    .select()
-    .single();
-
-  if (updateError) throw updateError;
-  return { contact: updatedContact, movement };
+  return { contact: { ...contact, balance: Math.max(toDbNumber(contact.balance) - paymentAmount, 0) }, movement: { id: movementId } };
 }
 
 export async function createReceivablePayment({ saleId, customerName = "", amount, currentRemaining = 0 }) {
-  const user = await getCurrentUser();
   const workspaceId = await getCurrentWorkspaceId();
   const paymentAmount = toDbNumber(amount);
 
   if (!saleId) throw new Error("Alacak kaydı seçilemedi.");
   if (!paymentAmount) throw new Error("Tahsilat tutarını yaz.");
 
-  const movement = await createCashMovement({
-    movement_type: "Alacak Ödemesi",
-    direction: "in",
-    amount: paymentAmount,
-    note: `Alacak ödemesi - ${customerName || "Müşteri"}`,
-    related_table: "sales",
-    related_id: saleId,
+  const movementId = await callFinancialRpc("record_receivable_payment", {
+    p_sale_id: saleId,
+    p_workspace_id: workspaceId,
+    p_amount: paymentAmount,
+    p_note: `Alacak ödemesi - ${customerName || "Müşteri"}`,
   });
 
-  const { data: sale, error } = await supabase
-    .from("sales")
-    .update({
-      remaining_amount: Math.max(toDbNumber(currentRemaining) - paymentAmount, 0),
-      updated_by: user?.id,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", saleId)
-    .eq("workspace_id", workspaceId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return { sale, movement };
+  return {
+    sale: { id: saleId, remaining_amount: Math.max(toDbNumber(currentRemaining) - paymentAmount, 0) },
+    movement: { id: movementId },
+  };
 }
 
 export async function repairStockSideEffects(stockItems = [], cashMovements = [], contacts = []) {
@@ -626,63 +620,44 @@ export async function createBankWithdrawal(payload) {
 }
 
 export async function updateSaleRecord(id, payload) {
-  const user = await getCurrentUser();
   const workspaceId = await getCurrentWorkspaceId();
-  const numericFields = ["total_amount", "cash_amount", "card_amount", "remaining_amount", "buy_cost", "profit_amount"];
-  const updatePayload = {
-    ...payload,
-    updated_by: user?.id,
-    updated_at: new Date().toISOString(),
-  };
-
-  numericFields.forEach((field) => {
-    if (Object.prototype.hasOwnProperty.call(updatePayload, field)) {
-      updatePayload[field] = toDbNumber(updatePayload[field]);
-    }
+  return callFinancialRpc("update_sale_with_effects", {
+    p_sale_id: id,
+    p_workspace_id: workspaceId,
+    p_total_amount: toDbNumber(payload.total_amount),
+    p_cash_amount: toDbNumber(payload.cash_amount),
+    p_card_amount: toDbNumber(payload.card_amount),
+    p_remaining_amount: toDbNumber(payload.remaining_amount),
+    p_bank_name: payload.bank_name || "",
+    p_customer_name: payload.customer_name || payload.cari_person || "",
+    p_customer_phone: payload.customer_phone || "",
+    p_product_name: payload.product_name || "",
+    p_buy_cost: toDbNumber(payload.buy_cost),
+    p_profit_amount: toDbNumber(payload.profit_amount),
   });
-
-  const { data, error } = await supabase
-    .from("sales")
-    .update(updatePayload)
-    .eq("id", id)
-    .eq("workspace_id", workspaceId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
 }
 
 export async function updateStockItem(id, payload) {
-  const user = await getCurrentUser();
   const workspaceId = await getCurrentWorkspaceId();
-  const numericFields = ["buy_price", "sell_price", "supplier_paid", "seller_cari_remaining"];
-  const updatePayload = {
-    ...payload,
-    quantity: Number(payload.quantity || 0),
-    updated_by: user?.id,
-    updated_at: new Date().toISOString(),
-  };
-
-  numericFields.forEach((field) => {
-    if (Object.prototype.hasOwnProperty.call(updatePayload, field)) {
-      updatePayload[field] = toDbNumber(updatePayload[field]);
-    }
+  return callFinancialRpc("update_stock_with_effects", {
+    p_stock_id: id,
+    p_workspace_id: workspaceId,
+    p_buy_price: toDbNumber(payload.buy_price),
+    p_sell_price: toDbNumber(payload.sell_price),
+    p_quantity: Number(payload.quantity || 0),
+    p_supplier_name: payload.supplier_name || "",
+    p_supplier_paid: toDbNumber(payload.supplier_paid),
+    p_category: payload.category || "",
+    p_seller_person: payload.seller_person || "",
+    p_seller_phone: payload.seller_phone || "",
   });
-
-  const { data, error } = await supabase
-    .from("stock_items")
-    .update(updatePayload)
-    .eq("id", id)
-    .eq("workspace_id", workspaceId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
 }
 
 export async function softDelete(tableName, id) {
+  if (tableName === "sales") {
+    return cancelRecord(tableName, id, "Satış silme/iptal");
+  }
+
   const user = await getCurrentUser();
   const workspaceId = await getCurrentWorkspaceId();
 
@@ -702,9 +677,17 @@ export async function softDelete(tableName, id) {
   return data;
 }
 
-export async function cancelRecord(tableName, id) {
+export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi") {
   const user = await getCurrentUser();
   const workspaceId = await getCurrentWorkspaceId();
+
+  if (tableName === "sales") {
+    return callFinancialRpc("cancel_sale_with_effects", {
+      p_sale_id: id,
+      p_workspace_id: workspaceId,
+      p_reason: reason,
+    });
+  }
 
   const { data, error } = await supabase
     .from(tableName)
