@@ -1096,7 +1096,98 @@ export default function App() {
   const [kasaBrainReason, setKasaBrainReason] = useState("");
   const [kasaBrainPassword, setKasaBrainPassword] = useState("");
 
-  const handleKasaBrainPreAudit = () => {
+  const isManualCashEntryCancelAction = (modal) => {
+    const action = String(modal?.action || "").toLocaleLowerCase("tr-TR");
+    const rowType = String(modal?.row?.type || "").toLocaleLowerCase("tr-TR");
+    const description = String(modal?.row?.description || "").toLocaleLowerCase("tr-TR");
+
+    return (
+      action === "iptal" &&
+      (
+        rowType.includes("nakit girişi") ||
+        rowType.includes("manuel nakit") ||
+        description.includes("manuel nakit")
+      ) &&
+      !rowType.includes("satış")
+    );
+  };
+
+  const handleManualCashEntryCancel = ({ reason, password }) => {
+    const row = kasaBrainModal?.row || {};
+    const targetNo = Number(row.no || 0);
+    const targetAmount = Number(row.cash || row.total || 0);
+
+    if (!targetNo || !targetAmount || targetAmount <= 0) {
+      window.alert("Kasa Beyni: İptal edilecek manuel nakit girişi bulunamadı.");
+      return false;
+    }
+
+    const activeCashRows = dailyCashReportRows || [];
+    const targetReportRow = activeCashRows.find((item) => Number(item.no || 0) === targetNo);
+
+    if (!targetReportRow) {
+      window.alert("Kasa Beyni: Rapor satırı bulunamadı.");
+      return false;
+    }
+
+    const nowIso = new Date().toISOString();
+    const cancelId = `cash-cancel-${Date.now()}`;
+
+    const cancellationMovement = {
+      id: cancelId,
+      date: nowIso,
+      createdAt: nowIso,
+      movement_type: "Nakit Girişi İptal",
+      type: "Nakit Girişi İptal",
+      direction: "out",
+      amount: targetAmount,
+      note: `İptal: ${targetReportRow.description || row.description || "Manuel Nakit Girişi"} | Sebep: ${reason}`,
+      relatedTable: "cash_movements",
+      related_table: "cash_movements",
+      relatedId: String(targetReportRow.id || row.id || targetNo),
+      related_id: String(targetReportRow.id || row.id || targetNo),
+      cancelledByKasaBrain: true,
+      kasaBrainReason: reason,
+      kasaBrainPasswordUsed: Boolean(password)
+    };
+
+    setCashMovements((current) => [cancellationMovement, ...(current || [])]);
+
+    const logRecord = {
+      id: `kasa-brain-real-${Date.now()}`,
+      createdAt: nowIso,
+      action: kasaBrainModal.action || "İptal",
+      recordNo: row.no || null,
+      type: row.type || "",
+      description: row.description || "",
+      party: row.party || "",
+      cash: Number(row.cash || 0),
+      bank: Number(row.bank || 0),
+      debt: Number(row.debt || 0),
+      refund: Number(row.refund || 0),
+      total: Number(row.total || 0),
+      reason,
+      status: "REAL_CASH_ENTRY_CANCEL_PHASE_5A",
+      result: "Reverse cash movement created",
+      reverseMovementId: cancelId
+    };
+
+    try {
+      const currentLogs = JSON.parse(localStorage.getItem("ceplogKasaBrainAuditLogs") || "[]");
+      localStorage.setItem("ceplogKasaBrainAuditLogs", JSON.stringify([logRecord, ...currentLogs]));
+    } catch (error) {
+      console.error("Kasa Beyni gerçek audit log yazılamadı:", error);
+    }
+
+    window.alert(`Kasa Beyni: Manuel nakit girişi iptal edildi.\nTers hareket: -${money(targetAmount)}\nGerçek silme yapılmadı.`);
+    setSyncMessage(`Kasa Beyni: Manuel nakit girişi iptal edildi. Ters hareket oluşturuldu: -${money(targetAmount)}.`);
+    setKasaBrainReason("");
+    setKasaBrainPassword("");
+    setKasaBrainModal(null);
+    return true;
+  };
+
+const handleKasaBrainPreAudit = () => {
     if (!kasaBrainModal) {
       window.alert("Kasa Beyni: Seçili işlem bulunamadı.");
       return;
@@ -1113,6 +1204,11 @@ export default function App() {
     if (!password) {
       window.alert("Kasa Beyni: Yetkili şifresi girilmelidir.");
       return;
+    }
+
+    if (isManualCashEntryCancelAction(kasaBrainModal)) {
+      const done = handleManualCashEntryCancel({ reason, password });
+      if (done) return;
     }
 
     const row = kasaBrainModal.row || {};
