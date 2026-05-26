@@ -1092,7 +1092,6 @@ export default function App() {
   const [profitDateFrom, setProfitDateFrom] = useState("");
   const [profitDateTo, setProfitDateTo] = useState("");
   const [karaTab, setKaraTab] = useState("alacak");
-  const [kasaBrainModal, setKasaBrainModal] = useState(null);
   const [selectedSupplierAccount, setSelectedSupplierAccount] = useState(null);
   const [selectedReceivableMovement, setSelectedReceivableMovement] = useState(null);
   const [stockTab, setStockTab] = useState("liste");
@@ -4392,12 +4391,12 @@ export default function App() {
                       onMouseDown={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        setKasaBrainModal({ action, row });
+                        window.alert(`Kasa Beyni: ${action} seçildi. Kayıt No: ${row.no}. Phase 4'te şifre + sebep + audit log aktif edilecek.`);
                       }}
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        setKasaBrainModal({ action, row });
+                        window.alert(`Kasa Beyni: ${action} seçildi. Kayıt No: ${row.no}. Phase 4'te şifre + sebep + audit log aktif edilecek.`);
                       }}
                       style={{
                         border: "1px solid #d8def0",
@@ -4414,7 +4413,7 @@ export default function App() {
                         pointerEvents: "auto"
                       }}
                       onClick={() =>
-                        setKasaBrainModal({ action, row })
+                        setSyncMessage(`Kasa Beyni: ${action} seçildi. Kayıt No: ${row.no}. Phase 4'te şifre + sebep + audit log aktif edilecek.`)
                       }
                     >
                       {action}
@@ -4437,136 +4436,7 @@ export default function App() {
               </div>
             )}
 
-            {kasaBrainModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15, 23, 42, 0.55)",
-            zIndex: 99999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 20
-          }}
-          onClick={() => setKasaBrainModal(null)}
-        >
-          <div
-            style={{
-              width: "min(560px, 96vw)",
-              background: "#fff",
-              borderRadius: 22,
-              boxShadow: "0 24px 80px rgba(15, 23, 42, 0.35)",
-              padding: 24,
-              color: "#0f172a"
-            }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900 }}>Kasa Beyni</h2>
-                <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 14, fontWeight: 700 }}>
-                  Kritik işlem ön izleme merkezi
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setKasaBrainModal(null)}
-                style={{
-                  border: "none",
-                  background: "#f1f5f9",
-                  borderRadius: 12,
-                  padding: "8px 12px",
-                  cursor: "pointer",
-                  fontWeight: 900
-                }}
-              >
-                Kapat
-              </button>
-            </div>
-
-            <div style={{ marginTop: 18, display: "grid", gap: 10 }}>
-              {[
-                ["İşlem", kasaBrainModal.action],
-                ["Kayıt No", kasaBrainModal.row?.no],
-                ["İşlem Türü", kasaBrainModal.row?.type],
-                ["Ürün / Açıklama", kasaBrainModal.row?.description],
-                ["Müşteri / Tedarikçi", kasaBrainModal.row?.party || "-"],
-                ["Nakit", money(kasaBrainModal.row?.cash || 0)],
-                ["Kart / Banka", money(kasaBrainModal.row?.bank || 0)],
-                ["Borç / Cari", money(kasaBrainModal.row?.debt || 0)],
-                ["Toplam", money(kasaBrainModal.row?.total || 0)]
-              ].map(([label, value]) => (
-                <div
-                  key={label}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "150px 1fr",
-                    gap: 12,
-                    padding: "10px 12px",
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: 14,
-                    fontSize: 14
-                  }}
-                >
-                  <strong style={{ color: "#475569" }}>{label}</strong>
-                  <span style={{ fontWeight: 800 }}>{value || "-"}</span>
-                </div>
-              ))}
-            </div>
-
-            <div
-              style={{
-                marginTop: 18,
-                padding: 14,
-                background: "#fff7ed",
-                border: "1px solid #fed7aa",
-                borderRadius: 16,
-                color: "#9a3412",
-                fontWeight: 800,
-                fontSize: 14
-              }}
-            >
-              Bu buton şu an pasif ön izleme modunda. Phase 4’te yetkili şifresi, işlem sebebi ve audit log ile aktif edilecek.
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
-              <button
-                type="button"
-                onClick={() => setKasaBrainModal(null)}
-                style={{
-                  border: "1px solid #cbd5e1",
-                  background: "#fff",
-                  borderRadius: 12,
-                  padding: "10px 14px",
-                  cursor: "pointer",
-                  fontWeight: 900
-                }}
-              >
-                Vazgeç
-              </button>
-              <button
-                type="button"
-                disabled
-                style={{
-                  border: "none",
-                  background: "#cbd5e1",
-                  color: "#475569",
-                  borderRadius: 12,
-                  padding: "10px 14px",
-                  cursor: "not-allowed",
-                  fontWeight: 900
-                }}
-              >
-                Phase 4’te Aktif Edilecek
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {kasaTab === "bankadanNakit" && (
+            {kasaTab === "bankadanNakit" && (
               <section className="card">
                 <h2>Bankadan Nakit Gelen</h2>
                 <p>Bu bölüm artık Nakit Girişi sekmesi içindeki merkezi banka listesine yönlendirildi. Gerçek banka-kasa aktarımı Phase 3’e kadar pasiftir.</p>
