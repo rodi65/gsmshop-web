@@ -9,7 +9,6 @@ import {
   createStockItem,
   createSale,
   createExpense,
-  createBankWithdrawal,
   createCashMovement,
   createBankMovement,
   createContactPayment,
@@ -271,13 +270,6 @@ const purchaseCancellationMovementTypes = [
 ];
 const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Nakit Girişi", "Kasaya Nakit Girişi", cashEntryCancellationType, "Dünden Devir Nakit", "Devir Nakit", "Gelen Alacak", "Alacak Ödemesi", "Stok Ödemesi", "Cari Ödeme", "Gider", "Bankaya Yatırılan Nakit", "Düzeltme", ...purchaseCancellationMovementTypes, ...technicalServiceMovementTypes];
 const receivablePaymentTypes = ["Gelen Alacak", "Alacak Ödemesi"];
-const defaultBankCashSkeletonRows = [
-  { id: "ziraatbank", name: "Ziraatbank", balance: "", withdraw: "", note: "" },
-  { id: "isbank", name: "İşbank", balance: "", withdraw: "", note: "" },
-  { id: "halkbank", name: "Halkbank", balance: "", withdraw: "", note: "" },
-  { id: "ek-banka-1", name: "Ek Banka 1", balance: "", withdraw: "", note: "" },
-  { id: "ek-banka-2", name: "Ek Banka 2", balance: "", withdraw: "", note: "" },
-];
 
 const saleGroupRank = (type) => {
   if (type === "Telefon Satışı") return 1;
@@ -317,6 +309,68 @@ const normalizeCashEntryText = (value) => String(value || "")
   .replace(/ü/g, "u")
   .normalize("NFD")
   .replace(/[\u0300-\u036f]/g, "");
+const banksStorageKey = "ceplog_banks";
+const DEFAULT_BANKS = [
+  { id: "ziraatbank", name: "Ziraatbank", balance: 0, isDefault: true },
+  { id: "isbank", name: "İşbank", balance: 0, isDefault: true },
+  { id: "halkbank", name: "Halkbank", balance: 0, isDefault: true },
+];
+const normalizeBankName = (name) => normalizeCashEntryText(name).replace(/\s+/g, " ").trim();
+const createBankId = (name) => normalizeBankName(name).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `bank-${Date.now()}`;
+const normalizeBankRecord = (bank) => {
+  const name = String(typeof bank === "string" ? bank : bank?.name || "").trim();
+  return {
+    id: String(typeof bank === "string" ? createBankId(name) : bank?.id || createBankId(name)),
+    name,
+    balance: Math.max(parseMoneyInput(typeof bank === "string" ? 0 : bank?.balance || 0), 0),
+    isDefault: typeof bank === "string" ? false : Boolean(bank?.isDefault),
+  };
+};
+const getBankList = (customBanks = []) => {
+  const merged = [];
+  [...DEFAULT_BANKS, ...(Array.isArray(customBanks) ? customBanks : [])].forEach((bank) => {
+    const cleanBank = normalizeBankRecord(bank);
+    if (!cleanBank.name) return;
+    if (merged.some((item) => normalizeBankName(item.name) === normalizeBankName(cleanBank.name))) return;
+    merged.push(cleanBank);
+  });
+  return merged;
+};
+const getBankById = (banks, id) => {
+  const cleanId = String(id || "");
+  const normalized = normalizeBankName(id);
+  return (Array.isArray(banks) ? banks : []).find((bank) => String(bank.id) === cleanId || normalizeBankName(bank.name) === normalized) || null;
+};
+const loadStoredBanks = () => {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(banksStorageKey) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+const saveStoredBanks = (banks) => {
+  if (typeof window === "undefined") return;
+  const customOnly = (Array.isArray(banks) ? banks : [])
+    .filter((bank) => !bank.isDefault)
+    .map((bank) => normalizeBankRecord(bank));
+  window.localStorage.setItem(banksStorageKey, JSON.stringify(customOnly));
+};
+const addBank = (banks, name, initialBalance = 0) => {
+  const cleanName = String(name || "").trim();
+  const balance = parseMoneyInput(initialBalance);
+  if (!cleanName) return { ok: false, message: "Banka adı boş olamaz." };
+  if (String(initialBalance || "").includes("-") || balance < 0) return { ok: false, message: "Başlangıç bakiyesi negatif olamaz." };
+
+  const currentBanks = getBankList(banks);
+  if (currentBanks.some((bank) => normalizeBankName(bank.name) === normalizeBankName(cleanName))) {
+    return { ok: false, message: "Bu banka zaten listede var." };
+  }
+
+  const bank = { id: createBankId(cleanName), name: cleanName, balance, isDefault: false };
+  return { ok: true, bank, banks: getBankList([...currentBanks, bank]) };
+};
 const cashInflowIncludeTerms = [
   "manuel nakit girisi",
   "nakit girisi",
@@ -687,7 +741,6 @@ function requireSecurityPassword(actionType, actionLabel = "") {
 
 
 const deviceTypes = ["Telefon", "Saat", "Tablet", "PC", "Elektronik", "Diğer"];
-const defaultBanks = ["Ziraatbank", "İşbank", "Halkbank"];
 const memoryOptions = ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB"];
 const categories = ["KILIF", "EKRAN Koruyucu", "USB", "ŞARJ", "KULAKLIK"];
 const accessoryGroups = {
@@ -1050,16 +1103,16 @@ export default function App() {
   const [suppliers, setSuppliers] = useState(["MOBİLTEK İLETİŞİM", "GALAKSİ TEKNOLOJİ", "BASEUS TÜRKİYE"]);
   const [supplierModalOpen, setSupplierModalOpen] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState("");
-  const [bankCashForm, setBankCashForm] = useState({ amount: "", bank: "", note: "" });
   const [cashEntryTab, setCashEntryTab] = useState("Manuel Nakit Girişi");
   const [cashEntryForm, setCashEntryForm] = useState({ amount: "", source: "", note: "" });
   const [cashCarryForm, setCashCarryForm] = useState({ amount: "", note: "" });
-  const [bankCashSkeletonRows, setBankCashSkeletonRows] = useState(defaultBankCashSkeletonRows);
+  const [banks, setBanks] = useState(() => getBankList(loadStoredBanks()));
+  const [bankTransferDrafts, setBankTransferDrafts] = useState({});
   const [bankCashSkeletonForm, setBankCashSkeletonForm] = useState({ name: "", balance: "" });
-  const [customBanks, setCustomBanks] = useState([]);
   const [bankMovements, setBankMovements] = useState([]);
   const [saleForm, setSaleForm] = useState({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
-  const bankOptions = useMemo(() => Array.from(new Set([...defaultBanks, ...customBanks])).filter(Boolean), [customBanks]);
+  const bankList = useMemo(() => getBankList(banks), [banks]);
+  const bankOptions = useMemo(() => bankList.map((bank) => bank.name), [bankList]);
   const [expenses, setExpenses] = useState([]);
   const [expenseForm, setExpenseForm] = useState({ category: "Yemek", amount: "", note: "" });
   const [stockForm, setStockForm] = useState(emptyStockForm);
@@ -1079,10 +1132,10 @@ export default function App() {
   const activeCashMovements = safeCashMovements.filter(isActiveMovement);
   const activeContacts = safeContacts.filter(isActiveRecord);
   const inStockItems = activeStock.filter((product) => Number(product.quantity || product.qty || 0) > 0);
-  const bankCashSkeletonTotal = bankCashSkeletonRows.reduce((sum, row) => sum + parseMoneyInput(row.balance), 0);
+  const bankCashSkeletonTotal = bankList.reduce((sum, bank) => sum + parseMoneyInput(bank.balance), 0);
   const bankCashSkeletonBalanceFor = (name) => {
-    const row = bankCashSkeletonRows.find((item) => normalizeCashEntryText(item.name) === normalizeCashEntryText(name));
-    return parseMoneyInput(row?.balance);
+    const bank = getBankById(bankList, name);
+    return parseMoneyInput(bank?.balance);
   };
 
   const supplierOptions = useMemo(() => {
@@ -1882,9 +1935,12 @@ export default function App() {
 
     const name = window.prompt("Yeni banka adı yaz");
     if (!name) return;
-    const clean = name.trim();
-    if (!clean) return;
-    alert(`${clean} banka ekleme isteği alındı. Kalıcı banka listesi için Yönetim > Banka Ayarları bölümünde Supabase kaydı yapılacak. Şimdilik ana bankalar: Ziraatbank, İşbank, Halkbank.`);
+    const result = addBank(banks, name, 0);
+    if (!result.ok) return alert(result.message);
+    setBanks(result.banks);
+    saveStoredBanks(result.banks);
+    setter(result.bank.name);
+    alert("Banka listeye eklendi.");
   }
 
   function addSupplier() {
@@ -2178,29 +2234,6 @@ export default function App() {
     }
   }
 
-  async function saveBankCashIncoming() {
-    const amount = parseMoneyInput(bankCashForm.amount);
-    if (!bankCashForm.bank) return alert("Banka ismi seçmek zorunludur");
-    if (!amount) return alert("Bankadan gelen nakit tutarını yaz");
-    if (amount > bankReport.remainingInBank) return alert("Bankada kalan tutardan fazla çekim yapılamaz");
-
-    try {
-      const savedMovement = await createBankWithdrawal({
-        bank_name: bankCashForm.bank,
-        amount,
-        note: bankCashForm.note || `Bankadan Nakit Gelen - ${bankCashForm.bank}`,
-      });
-      setBankMovements([fromDbBankMovement(savedMovement), ...bankMovements]);
-      setSyncMessage("Bankadan nakit gelen Supabase'e kaydedildi.");
-    } catch (error) {
-      alert(error.message || "Banka hareketi Supabase'e yazılamadı.");
-      return;
-    }
-
-    setBankCashForm({ amount: "", bank: "", note: "" });
-    alert("Bankadan gelen para nakit kasasına eklendi ve Bankadan Çekilen bölümüne işlendi.");
-  }
-
   async function saveCashEntry() {
     const amount = parseMoneyInput(cashEntryForm.amount);
     const source = cashEntryForm.source.trim();
@@ -2247,38 +2280,47 @@ export default function App() {
     setCashCarryForm({ amount: "", note: "" });
   }
 
-  function updateBankCashSkeletonRow(id, patch) {
-    setBankCashSkeletonRows((rows) => rows.map((row) => row.id === id ? { ...row, ...patch } : row));
+  function updateBankTransferDraft(id, patch) {
+    setBankTransferDrafts((drafts) => ({
+      ...drafts,
+      [id]: { ...(drafts[id] || {}), ...patch },
+    }));
   }
 
-  function handleBankCashSkeletonTransfer(row) {
-    console.log("BANKADAN_GELEN_NAKIT_TEST_ACTION", {
-      bankName: row.name,
-      bankBalance: parseMoneyInput(row.balance),
-      withdrawAmount: parseMoneyInput(row.withdraw),
-      remainingAfterWithdraw: Math.max(parseMoneyInput(row.balance) - parseMoneyInput(row.withdraw), 0),
-      hasNote: Boolean(row.note),
+  function handleBankCashSkeletonTransfer(bank) {
+    const draft = bankTransferDrafts[bank.id] || {};
+    const currentBalance = parseMoneyInput(bank.balance);
+    const withdrawAmount = parseMoneyInput(draft.withdraw);
+    if (!withdrawAmount) return alert("Çekilecek tutar yaz");
+    if (withdrawAmount > currentBalance) return alert("Çekilecek tutar bankada olan tutardan fazla olamaz.");
+
+    console.log("BANK_TRANSFER_TEST_ACTION", {
+      bankId: bank.id,
+      bankName: bank.name,
+      currentBalance,
+      withdrawAmount,
+      remainingBalance: Math.max(currentBalance - withdrawAmount, 0),
+      note: draft.note || "",
       timestamp: new Date().toISOString(),
     });
-    alert("Bankadan gelen nakit motoru Phase 2’de aktif edilecek. Bu aşamada gerçek işlem yapılmadı.");
+    alert("Bankadan kasaya gerçek aktarım Phase 3’te aktif edilecek. Bu aşamada gerçek işlem yapılmadı.");
   }
 
   function addBankCashSkeletonBank() {
     const name = bankCashSkeletonForm.name.trim();
-    const balance = parseMoneyInput(bankCashSkeletonForm.balance);
-    if (!name) return alert("Yeni banka adı yaz");
+    const result = addBank(banks, name, bankCashSkeletonForm.balance);
+    if (!result.ok) return alert(result.message);
 
     console.log("BANKA_EKLE_TEST_ACTION", {
-      bankName: name,
-      openingBalance: balance,
+      bankId: result.bank.id,
+      bankName: result.bank.name,
+      openingBalance: result.bank.balance,
       timestamp: new Date().toISOString(),
     });
-    setBankCashSkeletonRows((rows) => [
-      ...rows,
-      { id: `ek-banka-${Date.now()}`, name, balance: formatMoneyInput(balance), withdraw: "", note: "" },
-    ]);
+    setBanks(result.banks);
+    saveStoredBanks(result.banks);
     setBankCashSkeletonForm({ name: "", balance: "" });
-    alert("Merkezi banka ekleme motoru Phase 2’de aktif edilecek.");
+    alert("Banka listeye eklendi. Gerçek banka bakiyesi motoru Phase 3’te aktif edilecek.");
   }
 
   function cashMovementCancellationFor(item) {
@@ -4229,7 +4271,7 @@ export default function App() {
                 {cashEntryTab === "Bankadan Gelen Nakit" && (
                   <div className="cash-bank-skeleton">
                     <h3>Bankadan Gelen Nakit</h3>
-                    <p>Bu sekme Phase 2 banka motoru için iskelet olarak hazırlandı. Bu aşamada gerçek banka/kasa hareketi oluşturmaz.</p>
+                    <p>Bu sekme merkezi banka listesiyle çalışır. Bankadan kasaya gerçek aktarım Phase 3’te aktif edilecek.</p>
 
                     <div className="stats three">
                       <Stat title="Bankada Toplam Olan" value={money(bankCashSkeletonTotal)} />
@@ -4240,22 +4282,24 @@ export default function App() {
                       <Stat title="Ek Banka 2" value={money(bankCashSkeletonBalanceFor("Ek Banka 2"))} />
                     </div>
 
-                    <Table headers={["Banka Adı", "Bankada Olan", "Çekilecek Tutar", "Çekimden Sonra Kalan", "Not", "Kasaya Aktar"]} rows={bankCashSkeletonRows.map((row) => {
-                      const bankBalance = parseMoneyInput(row.balance);
-                      const withdrawAmount = parseMoneyInput(row.withdraw);
+                    <Table headers={["Banka Adı", "Bankada Olan", "Çekilecek Tutar", "Çekimden Sonra Kalan", "Not", "Kasaya Aktar"]} rows={bankList.map((bank) => {
+                      const draft = bankTransferDrafts[bank.id] || {};
+                      const bankBalance = parseMoneyInput(bank.balance);
+                      const withdrawAmount = parseMoneyInput(draft.withdraw);
+                      const isOverLimit = withdrawAmount > bankBalance;
                       return [
-                        row.name,
-                        <input type="text" inputMode="numeric" value={row.balance} placeholder="0 TL" onFocus={() => updateBankCashSkeletonRow(row.id, { balance: stripMoneyForEdit(row.balance) })} onChange={(event) => updateBankCashSkeletonRow(row.id, { balance: cleanMoneyTyping(event.target.value) })} onBlur={() => updateBankCashSkeletonRow(row.id, { balance: formatMoneyInput(row.balance) })} />,
-                        <input type="text" inputMode="numeric" value={row.withdraw} placeholder="0 TL" onFocus={() => updateBankCashSkeletonRow(row.id, { withdraw: stripMoneyForEdit(row.withdraw) })} onChange={(event) => updateBankCashSkeletonRow(row.id, { withdraw: cleanMoneyTyping(event.target.value) })} onBlur={() => updateBankCashSkeletonRow(row.id, { withdraw: formatMoneyInput(row.withdraw) })} />,
-                        money(Math.max(bankBalance - withdrawAmount, 0)),
-                        <input placeholder="Not" value={row.note} onChange={(event) => updateBankCashSkeletonRow(row.id, { note: event.target.value })} />,
-                        <button className="edit-btn" type="button" onClick={() => handleBankCashSkeletonTransfer(row)}>Kasaya Aktar</button>,
+                        bank.name,
+                        money(bankBalance),
+                        <input type="text" inputMode="numeric" value={draft.withdraw || ""} placeholder="0 TL" onFocus={() => updateBankTransferDraft(bank.id, { withdraw: stripMoneyForEdit(draft.withdraw || "") })} onChange={(event) => updateBankTransferDraft(bank.id, { withdraw: cleanMoneyTyping(event.target.value) })} onBlur={() => updateBankTransferDraft(bank.id, { withdraw: formatMoneyInput(draft.withdraw || "") })} />,
+                        isOverLimit ? <span className="money-negative">Bakiye yetersiz</span> : money(Math.max(bankBalance - withdrawAmount, 0)),
+                        <input placeholder="Not" value={draft.note || ""} onChange={(event) => updateBankTransferDraft(bank.id, { note: event.target.value })} />,
+                        <button className="edit-btn" type="button" onClick={() => handleBankCashSkeletonTransfer(bank)}>Kasaya Aktar</button>,
                       ];
                     })} />
 
                     <div className="cash-bank-add-panel">
                       <h3>Banka Ekle</h3>
-                      <p>Varsayılan bankalar: Ziraatbank, İşbank, Halkbank. Merkezi banka ekleme motoru Phase 2’de aktif edilecek.</p>
+                      <p>Varsayılan bankalar: Ziraatbank, İşbank, Halkbank. Eklenen bankalar tüm banka seçimlerinde görünür.</p>
                       <div className="form-grid">
                         <input placeholder="Yeni Banka Adı" value={bankCashSkeletonForm.name} onChange={(event) => setBankCashSkeletonForm({ ...bankCashSkeletonForm, name: event.target.value })} />
                         <input type="text" inputMode="numeric" placeholder="Başlangıç Bakiyesi" value={bankCashSkeletonForm.balance} onFocus={() => setBankCashSkeletonForm({ ...bankCashSkeletonForm, balance: stripMoneyForEdit(bankCashSkeletonForm.balance) })} onChange={(event) => setBankCashSkeletonForm({ ...bankCashSkeletonForm, balance: cleanMoneyTyping(event.target.value) })} onBlur={() => setBankCashSkeletonForm({ ...bankCashSkeletonForm, balance: formatMoneyInput(bankCashSkeletonForm.balance) })} />
@@ -4348,23 +4392,11 @@ export default function App() {
             {kasaTab === "bankadanNakit" && (
               <section className="card">
                 <h2>Bankadan Nakit Gelen</h2>
-                <p>Bankadan kasaya para çekildiğinde nakit kasasına eklenir ve Kara Defter içindeki Bankadan Çekilen bölümüne otomatik işlenir.</p>
-<div className="stats three">
-                  <Stat title="Bankaya Toplam Giden" value={money(bankReport.totalToBank)} />
-                  <Stat title="Bankadan Çekilen" value={money(bankReport.withdrawnFromBank)} />
-                  <Stat title="Bankada Kalan" value={money(bankReport.remainingInBank)} />
-                </div>
-
-                <div className="form-grid">
-                  <select value={bankCashForm.bank} onChange={(e) => handleBankSelect(e.target.value, (bank) => setBankCashForm({ ...bankCashForm, bank }))}>
-                    <option value="">Banka seçmek zorunlu</option>
-                    {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
-                  </select>
-                  <input type="text" inputMode="numeric" placeholder="Bankadan gelen tutar" value={bankCashForm.amount} onFocus={() => setBankCashForm({ ...bankCashForm, amount: stripMoneyForEdit(bankCashForm.amount) })} onChange={(e) => setBankCashForm({ ...bankCashForm, amount: cleanMoneyTyping(e.target.value) })} onBlur={() => setBankCashForm({ ...bankCashForm, amount: formatMoneyInput(bankCashForm.amount) })} />
-                  <input placeholder="Açıklama / Not" value={bankCashForm.note} onChange={(e) => setBankCashForm({ ...bankCashForm, note: e.target.value })} />
-                </div>
-
-                <button className="primary" onClick={saveBankCashIncoming}>Kasaya Nakit Girişi Kaydet</button>
+                <p>Bu bölüm artık Nakit Girişi sekmesi içindeki merkezi banka listesine yönlendirildi. Gerçek banka-kasa aktarımı Phase 3’e kadar pasiftir.</p>
+                <button className="primary" type="button" onClick={() => {
+                  setKasaTab("nakitGirisi");
+                  setCashEntryTab("Bankadan Gelen Nakit");
+                }}>Nakit Girişi &gt; Bankadan Gelen Nakit Aç</button>
               </section>
             )}
           </section>
@@ -4762,7 +4794,7 @@ export default function App() {
           </section>
         )}
 
-        {editingSale && <SaleEditModal sale={editingSale} setSale={setEditingSale} save={updateSale} bankOptions={bankOptions} />}
+        {editingSale && <SaleEditModal sale={editingSale} setSale={setEditingSale} save={updateSale} bankOptions={bankOptions} onBankSelect={handleBankSelect} />}
         {editingStock && <StockEditModal item={editingStock} setItem={setEditingStock} save={updateStock} />}
         {supplierModalOpen && (
           <div className="modal-bg">
@@ -5238,7 +5270,7 @@ function StockTable({ stock, setEditingStock, deleteStock, deviceView = false })
   );
 }
 
-function SaleEditModal({ sale, setSale, save, bankOptions = [] }) {
+function SaleEditModal({ sale, setSale, save, bankOptions = [], onBankSelect }) {
   const safeSale = sale || {};
   const safeBanks = Array.isArray(bankOptions) ? bankOptions : [];
   const remaining = safeSale.type === "Aksesuar Satışı" ? 0 : Math.max(parseMoneyInput(safeSale.total || 0) - parseMoneyInput(safeSale.cash || 0) - parseMoneyInput(safeSale.card || 0), 0);
@@ -5253,7 +5285,9 @@ function SaleEditModal({ sale, setSale, save, bankOptions = [] }) {
         <input type="text" inputMode="numeric" placeholder="Kart" value={safeSale.card || ""} onFocus={() => setSale({ ...safeSale, card: stripMoneyForEdit(safeSale.card) })} onChange={(e) => setSale({ ...safeSale, card: cleanMoneyTyping(e.target.value) })} onBlur={() => setSale({ ...safeSale, card: formatMoneyInput(safeSale.card) })} />
         <select value={safeSale.bank || ""} onChange={(e) => {
           if (e.target.value === "__add_bank__") {
-            alert("Banka ekleme ana satış ekranından yapılacak. Ana bankalar: Ziraatbank, İşbank, Halkbank.");
+            if (onBankSelect) {
+              onBankSelect(e.target.value, (bank) => setSale({ ...safeSale, bank }));
+            }
             return;
           }
           setSale({ ...safeSale, bank: e.target.value });
