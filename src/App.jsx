@@ -1130,6 +1130,41 @@ export default function App() {
       return false;
     }
 
+    const rowType = String(targetReportRow.type || row.type || "").toLocaleLowerCase("tr-TR");
+    const rowDescription = String(targetReportRow.description || row.description || "").toLocaleLowerCase("tr-TR");
+
+    if (rowType.includes("iptal")) {
+      window.alert("Kasa Beyni: Bu kayıt zaten iptal kaydıdır. Tekrar iptal edilemez.");
+      return false;
+    }
+
+    if (rowType.includes("satış")) {
+      window.alert("Kasa Beyni: Satıştan gelen nakit bu fazda iptal edilemez. Satış iptali Phase 5B'de yapılacak.");
+      return false;
+    }
+
+    const originalRef = String(targetReportRow.id || row.id || targetNo);
+
+    const alreadyCancelled = (cashMovements || []).some((movement) => {
+      const movementType = String(movement.movement_type || movement.type || "").toLocaleLowerCase("tr-TR");
+      const relatedId = String(movement.relatedId || movement.related_id || "");
+      const note = String(movement.note || "").toLocaleLowerCase("tr-TR");
+
+      return (
+        movementType.includes("nakit girişi iptal") &&
+        (
+          relatedId === originalRef ||
+          note.includes(`kayıt no: ${targetNo}`) ||
+          note.includes(String(targetReportRow.description || row.description || "").toLocaleLowerCase("tr-TR"))
+        )
+      );
+    });
+
+    if (alreadyCancelled) {
+      window.alert("Kasa Beyni: Bu manuel nakit girişi daha önce iptal edilmiş. İkinci kez iptal edilemez.");
+      return false;
+    }
+
     const nowIso = new Date().toISOString();
     const cancelId = `cash-cancel-${Date.now()}`;
 
@@ -1138,17 +1173,20 @@ export default function App() {
       date: nowIso,
       createdAt: nowIso,
       movement_type: "Nakit Girişi İptal",
+      movementType: "Nakit Girişi İptal",
       type: "Nakit Girişi İptal",
       direction: "out",
       amount: targetAmount,
-      note: `İptal: ${targetReportRow.description || row.description || "Manuel Nakit Girişi"} | Sebep: ${reason}`,
+      note: `İptal: ${targetReportRow.description || row.description || "Manuel Nakit Girişi"} | Kayıt No: ${targetNo} | Sebep: ${reason}`,
       relatedTable: "cash_movements",
       related_table: "cash_movements",
-      relatedId: String(targetReportRow.id || row.id || targetNo),
-      related_id: String(targetReportRow.id || row.id || targetNo),
+      relatedId: originalRef,
+      related_id: originalRef,
+      originalRecordNo: targetNo,
       cancelledByKasaBrain: true,
       kasaBrainReason: reason,
-      kasaBrainPasswordUsed: Boolean(password)
+      kasaBrainPasswordUsed: Boolean(password),
+      status: "cancelled_reverse_movement"
     };
 
     setCashMovements((current) => [cancellationMovement, ...(current || [])]);
@@ -1169,7 +1207,8 @@ export default function App() {
       reason,
       status: "REAL_CASH_ENTRY_CANCEL_PHASE_5A",
       result: "Reverse cash movement created",
-      reverseMovementId: cancelId
+      reverseMovementId: cancelId,
+      duplicateProtected: true
     };
 
     try {
@@ -1179,8 +1218,11 @@ export default function App() {
       console.error("Kasa Beyni gerçek audit log yazılamadı:", error);
     }
 
-    window.alert(`Kasa Beyni: Manuel nakit girişi iptal edildi.\nTers hareket: -${money(targetAmount)}\nGerçek silme yapılmadı.`);
-    setSyncMessage(`Kasa Beyni: Manuel nakit girişi iptal edildi. Ters hareket oluşturuldu: -${money(targetAmount)}.`);
+    window.alert(`Kasa Beyni: Manuel nakit girişi iptal edildi.
+Ters hareket: -${money(targetAmount)}
+Gerçek silme yapılmadı.
+Bu kayıt ikinci kez iptal edilemez.`);
+    setSyncMessage(`Kasa Beyni: Manuel nakit girişi iptal edildi. Ters hareket oluşturuldu: -${money(targetAmount)}. İkinci iptal engellendi.`);
     setKasaBrainReason("");
     setKasaBrainPassword("");
     setKasaBrainModal(null);
