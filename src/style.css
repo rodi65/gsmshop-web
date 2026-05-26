@@ -270,6 +270,18 @@ small { color: #64748b; }
 .conditional-panel h3 { margin: 0 0 10px; }
 .mini-note { margin: -4px 0 10px; color: #64748b; font-size: 13px; }
 .input-label strong { display: block; margin: 0 0 -2px 2px; color: #020617; }
+.cash-bank-skeleton { display: flex; flex-direction: column; gap: 14px; }
+.cash-bank-skeleton h3 { margin: 8px 0 0; }
+.cash-bank-skeleton table input { margin-top: 0; min-width: 130px; }
+.cash-bank-add-panel {
+  margin-top: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #f8fafc;
+  padding: 16px;
+}
+.cash-bank-add-panel h3 { margin: 0 0 8px; }
+.cash-bank-add-panel p { margin: 0 0 12px; }
 
 .modal-bg {
   position: fixed; inset: 0; background: rgba(2, 6, 23, .55);

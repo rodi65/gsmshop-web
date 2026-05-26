@@ -258,8 +258,8 @@ const emptyTechnicalSummary = {
   refundSources: [],
   history: [],
 };
-const cashEntryTypes = ["Manuel Nakit Girişi", "Devir Nakit"];
-const cashEntryMovementTypes = ["Manuel Nakit Girişi", "Nakit Girişi", "Kasaya Nakit Girişi"];
+const cashEntryTabs = ["Manuel Nakit Girişi", "Dünden Devir", "Bankadan Gelen Nakit"];
+const cashEntryMovementTypes = ["Manuel Nakit Girişi", "Nakit Girişi", "Kasaya Nakit Girişi", "Dünden Devir Nakit", "Devir Nakit"];
 const cashEntryCancellationType = "Nakit Girişi İptali";
 const purchaseCancellationMovementTypes = [
   "Stok Alış İptali",
@@ -269,8 +269,15 @@ const purchaseCancellationMovementTypes = [
   "Alım Ödemesi İptali",
   "Tedarikçi Ödemesi İptali",
 ];
-const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Nakit Girişi", "Kasaya Nakit Girişi", cashEntryCancellationType, "Devir Nakit", "Gelen Alacak", "Alacak Ödemesi", "Stok Ödemesi", "Cari Ödeme", "Gider", "Bankaya Yatırılan Nakit", "Düzeltme", ...purchaseCancellationMovementTypes, ...technicalServiceMovementTypes];
+const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Nakit Girişi", "Kasaya Nakit Girişi", cashEntryCancellationType, "Dünden Devir Nakit", "Devir Nakit", "Gelen Alacak", "Alacak Ödemesi", "Stok Ödemesi", "Cari Ödeme", "Gider", "Bankaya Yatırılan Nakit", "Düzeltme", ...purchaseCancellationMovementTypes, ...technicalServiceMovementTypes];
 const receivablePaymentTypes = ["Gelen Alacak", "Alacak Ödemesi"];
+const defaultBankCashSkeletonRows = [
+  { id: "ziraatbank", name: "Ziraatbank", balance: "", withdraw: "", note: "" },
+  { id: "isbank", name: "İşbank", balance: "", withdraw: "", note: "" },
+  { id: "halkbank", name: "Halkbank", balance: "", withdraw: "", note: "" },
+  { id: "ek-banka-1", name: "Ek Banka 1", balance: "", withdraw: "", note: "" },
+  { id: "ek-banka-2", name: "Ek Banka 2", balance: "", withdraw: "", note: "" },
+];
 
 const saleGroupRank = (type) => {
   if (type === "Telefon Satışı") return 1;
@@ -300,6 +307,75 @@ const cashMovementAmount = (item) => typeof item.amount === "number" ? item.amou
 const bankMovementType = (item) => item.movement_type || item.movementType || item.type || "";
 const bankMovementAmount = (item) => typeof item.amount === "number" ? item.amount : parseMoneyInput(item.amount);
 const bankMovementDirection = (item) => item.direction || (purchasePaymentMovementTypes.includes(bankMovementType(item)) || bankMovementType(item) === "Bankadan Çekilen" ? "out" : "in");
+const normalizeCashEntryText = (value) => String(value || "")
+  .toLocaleLowerCase("tr-TR")
+  .replace(/ı/g, "i")
+  .replace(/ç/g, "c")
+  .replace(/ğ/g, "g")
+  .replace(/ö/g, "o")
+  .replace(/ş/g, "s")
+  .replace(/ü/g, "u")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "");
+const cashInflowIncludeTerms = [
+  "manuel nakit girisi",
+  "nakit girisi",
+  "kasaya nakit girisi",
+  "dunden devir",
+  "devir nakit",
+  "bankadan gelen nakit",
+  "satis nakit",
+  "telefon nakit satis",
+  "aksesuar nakit satis",
+  "digerleri nakit satis",
+  "nakit tahsilat",
+  "teknik servis nakit",
+  "teknik servis tahsilat",
+  "teknik servis kaparo",
+  "cari nakit tahsilat",
+  "cari tahsilat",
+  "alacak tahsilati",
+  "gelen alacak",
+  "alacak odemesi",
+];
+const cashInflowExcludeTerms = [
+  "stok odemesi",
+  "alim odemesi",
+  "cihaz alim odemesi",
+  "telefon alim odemesi",
+  "aksesuar alim odemesi",
+  "urun alim odemesi",
+  "tedarikci odemesi",
+  "tedarikci odeme",
+  "saticiya odeme",
+  "satici odeme",
+  "gider",
+  "nakit cikisi",
+  "cikis",
+  "iade cikisi",
+  "satis iadesi",
+  "teknik servis iade",
+  "cari odeme",
+  "stok alis iptali",
+  "alis iptali",
+  "odeme iptali",
+  "nakit girisi iptali",
+];
+const isCashInflowEntry = (entry) => {
+  const direction = normalizeCashEntryText(entry?.direction || entry?.yon || entry?.directionLabel || "");
+  if (direction === "out" || direction === "cikis") return false;
+
+  const text = normalizeCashEntryText([
+    cashMovementType(entry),
+    entry?.operation,
+    entry?.note,
+    entry?.description,
+  ].filter(Boolean).join(" "));
+
+  if (cashInflowExcludeTerms.some((term) => text.includes(term))) return false;
+  if (cashInflowIncludeTerms.some((term) => text.includes(term))) return true;
+  return direction === "in" || direction === "giris";
+};
 const isPurchasePaymentMovement = (item, movementType = cashMovementType(item) || bankMovementType(item), direction = item?.direction || "") => {
   const type = String(movementType || "");
   const normalizedDirection = String(direction || "").toLocaleLowerCase("tr-TR");
@@ -975,7 +1051,11 @@ export default function App() {
   const [supplierModalOpen, setSupplierModalOpen] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState("");
   const [bankCashForm, setBankCashForm] = useState({ amount: "", bank: "", note: "" });
-  const [cashEntryForm, setCashEntryForm] = useState({ type: "Manuel Nakit Girişi", amount: "", note: "" });
+  const [cashEntryTab, setCashEntryTab] = useState("Manuel Nakit Girişi");
+  const [cashEntryForm, setCashEntryForm] = useState({ amount: "", source: "", note: "" });
+  const [cashCarryForm, setCashCarryForm] = useState({ amount: "", note: "" });
+  const [bankCashSkeletonRows, setBankCashSkeletonRows] = useState(defaultBankCashSkeletonRows);
+  const [bankCashSkeletonForm, setBankCashSkeletonForm] = useState({ name: "", balance: "" });
   const [customBanks, setCustomBanks] = useState([]);
   const [bankMovements, setBankMovements] = useState([]);
   const [saleForm, setSaleForm] = useState({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
@@ -999,6 +1079,11 @@ export default function App() {
   const activeCashMovements = safeCashMovements.filter(isActiveMovement);
   const activeContacts = safeContacts.filter(isActiveRecord);
   const inStockItems = activeStock.filter((product) => Number(product.quantity || product.qty || 0) > 0);
+  const bankCashSkeletonTotal = bankCashSkeletonRows.reduce((sum, row) => sum + parseMoneyInput(row.balance), 0);
+  const bankCashSkeletonBalanceFor = (name) => {
+    const row = bankCashSkeletonRows.find((item) => normalizeCashEntryText(item.name) === normalizeCashEntryText(name));
+    return parseMoneyInput(row?.balance);
+  };
 
   const supplierOptions = useMemo(() => {
     return Array.from(new Set([...suppliers, ...activeStock.map((product) => product.supplier).filter((supplier) => supplier && !isSellerLabel(supplier))])).sort();
@@ -2118,25 +2203,82 @@ export default function App() {
 
   async function saveCashEntry() {
     const amount = parseMoneyInput(cashEntryForm.amount);
+    const source = cashEntryForm.source.trim();
     const note = cashEntryForm.note.trim();
     if (!amount) return alert("Nakit giriş tutarını yaz");
-    if (!note) return alert("Nakit nerden geldi? Not alanını yaz");
+    if (!source) return alert("Nakit nereden geldi? Alanını yaz");
 
     try {
       await createCashMovement({
-        movement_type: cashEntryForm.type,
+        movement_type: "Manuel Nakit Girişi",
         direction: "in",
         amount,
-        note,
+        note: note ? `${source} - ${note}` : source,
       });
       await refreshFromDatabase();
-      setSyncMessage(`${cashEntryForm.type} Supabase'e kaydedildi.`);
+      setSyncMessage("Manuel Nakit Girişi Supabase'e kaydedildi.");
     } catch (error) {
       alert(error.message || "Nakit girişi Supabase'e yazılamadı.");
       return;
     }
 
-    setCashEntryForm({ type: "Manuel Nakit Girişi", amount: "", note: "" });
+    setCashEntryForm({ amount: "", source: "", note: "" });
+  }
+
+  async function saveCashCarryOver() {
+    const amount = parseMoneyInput(cashCarryForm.amount);
+    const note = cashCarryForm.note.trim();
+    if (!amount) return alert("Dünden kalan nakit tutarını yaz");
+
+    try {
+      await createCashMovement({
+        movement_type: "Dünden Devir Nakit",
+        direction: "in",
+        amount,
+        note,
+      });
+      await refreshFromDatabase();
+      setSyncMessage("Dünden Devir Nakit Supabase'e kaydedildi.");
+    } catch (error) {
+      alert(error.message || "Dünden devir Supabase'e yazılamadı.");
+      return;
+    }
+
+    setCashCarryForm({ amount: "", note: "" });
+  }
+
+  function updateBankCashSkeletonRow(id, patch) {
+    setBankCashSkeletonRows((rows) => rows.map((row) => row.id === id ? { ...row, ...patch } : row));
+  }
+
+  function handleBankCashSkeletonTransfer(row) {
+    console.log("BANKADAN_GELEN_NAKIT_TEST_ACTION", {
+      bankName: row.name,
+      bankBalance: parseMoneyInput(row.balance),
+      withdrawAmount: parseMoneyInput(row.withdraw),
+      remainingAfterWithdraw: Math.max(parseMoneyInput(row.balance) - parseMoneyInput(row.withdraw), 0),
+      hasNote: Boolean(row.note),
+      timestamp: new Date().toISOString(),
+    });
+    alert("Bankadan gelen nakit motoru Phase 2’de aktif edilecek. Bu aşamada gerçek işlem yapılmadı.");
+  }
+
+  function addBankCashSkeletonBank() {
+    const name = bankCashSkeletonForm.name.trim();
+    const balance = parseMoneyInput(bankCashSkeletonForm.balance);
+    if (!name) return alert("Yeni banka adı yaz");
+
+    console.log("BANKA_EKLE_TEST_ACTION", {
+      bankName: name,
+      openingBalance: balance,
+      timestamp: new Date().toISOString(),
+    });
+    setBankCashSkeletonRows((rows) => [
+      ...rows,
+      { id: `ek-banka-${Date.now()}`, name, balance: formatMoneyInput(balance), withdraw: "", note: "" },
+    ]);
+    setBankCashSkeletonForm({ name: "", balance: "" });
+    alert("Merkezi banka ekleme motoru Phase 2’de aktif edilecek.");
   }
 
   function cashMovementCancellationFor(item) {
@@ -3643,9 +3785,15 @@ export default function App() {
               <button className={kasaTab === "yeniSatis" ? "choice active" : "choice"} onClick={() => setKasaTab("yeniSatis")}>YENİ SATIŞ</button>
               <button className={kasaTab === "satisListesi" ? "choice active" : "choice"} onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
               <button className={kasaTab === "giderler" ? "choice active" : "choice"} onClick={() => setKasaTab("giderler")}>GİDERLER</button>
-              <button className={kasaTab === "nakitGirisi" ? "choice active" : "choice"} onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
+              <button className={kasaTab === "nakitGirisi" && cashEntryTab !== "Bankadan Gelen Nakit" ? "choice active" : "choice"} onClick={() => {
+                setKasaTab("nakitGirisi");
+                setCashEntryTab("Manuel Nakit Girişi");
+              }}>NAKİT GİRİŞİ</button>
               <button className={kasaTab === "kapanis" ? "choice active" : "choice"} onClick={() => setKasaTab("kapanis")}>KASA KAPANIŞ</button>
-              <button className={kasaTab === "bankadanNakit" ? "choice active" : "choice"} onClick={() => setKasaTab("bankadanNakit")}>BANKADAN NAKİT GELEN</button>
+              <button className={kasaTab === "nakitGirisi" && cashEntryTab === "Bankadan Gelen Nakit" ? "choice active" : "choice"} onClick={() => {
+                setKasaTab("nakitGirisi");
+                setCashEntryTab("Bankadan Gelen Nakit");
+              }}>BANKADAN NAKİT GELEN</button>
               <div className={cashWithBankIncoming < 0 ? "kasa-cash-total negative" : "kasa-cash-total"}>
                 <span>TOPLAM KASANDA OLMASI GEREKEN</span>
                 <b>{money(cashWithBankIncoming)}</b>
@@ -4036,36 +4184,95 @@ export default function App() {
                 <h2>Nakit Girişi</h2>
 
                 <div className="button-grid">
-                  {cashEntryTypes.map((type) => (
+                  {cashEntryTabs.map((type) => (
                     <button
                       key={type}
-                      className={cashEntryForm.type === type ? "choice active" : "choice"}
-                      onClick={() => setCashEntryForm({ ...cashEntryForm, type })}
+                      className={cashEntryTab === type ? "choice active" : "choice"}
+                      onClick={() => setCashEntryTab(type)}
                     >
-                      {type === "Devir Nakit" ? "Dünden Devir Nakit" : type}
+                      {type}
                     </button>
                   ))}
                 </div>
 
-                <div className="form-grid">
-                  <input type="text" inputMode="numeric" placeholder="Tutar" value={cashEntryForm.amount} onFocus={() => setCashEntryForm({ ...cashEntryForm, amount: stripMoneyForEdit(cashEntryForm.amount) })} onChange={(e) => setCashEntryForm({ ...cashEntryForm, amount: cleanMoneyTyping(e.target.value) })} onBlur={() => setCashEntryForm({ ...cashEntryForm, amount: formatMoneyInput(cashEntryForm.amount) })} />
-                  <input placeholder="Nakit nerden geldi?" value={cashEntryForm.note} onChange={(e) => setCashEntryForm({ ...cashEntryForm, note: e.target.value })} />
-                  <div className="remaining-input">
-                    <span>Nakit Kasa</span>
-                    <b className={cashWithBankIncoming < 0 ? "money-negative" : ""}>{money(cashWithBankIncoming)}</b>
+                {cashEntryTab === "Manuel Nakit Girişi" && (
+                  <>
+                    <div className="form-grid">
+                      <input type="text" inputMode="numeric" placeholder="Tutar" value={cashEntryForm.amount} onFocus={() => setCashEntryForm({ ...cashEntryForm, amount: stripMoneyForEdit(cashEntryForm.amount) })} onChange={(e) => setCashEntryForm({ ...cashEntryForm, amount: cleanMoneyTyping(e.target.value) })} onBlur={() => setCashEntryForm({ ...cashEntryForm, amount: formatMoneyInput(cashEntryForm.amount) })} />
+                      <input placeholder="Nakit nereden geldi?" value={cashEntryForm.source} onChange={(e) => setCashEntryForm({ ...cashEntryForm, source: e.target.value })} />
+                      <input placeholder="Not" value={cashEntryForm.note} onChange={(e) => setCashEntryForm({ ...cashEntryForm, note: e.target.value })} />
+                      <div className="remaining-input">
+                        <span>Nakit Kasa</span>
+                        <b className={cashWithBankIncoming < 0 ? "money-negative" : ""}>{money(cashWithBankIncoming)}</b>
+                      </div>
+                    </div>
+
+                    <button className="primary" onClick={saveCashEntry}><Plus size={16} /> Nakit Girişini Kaydet</button>
+                  </>
+                )}
+
+                {cashEntryTab === "Dünden Devir" && (
+                  <>
+                    <div className="form-grid">
+                      <input type="text" inputMode="numeric" placeholder="Dünden Kalan Nakit" value={cashCarryForm.amount} onFocus={() => setCashCarryForm({ ...cashCarryForm, amount: stripMoneyForEdit(cashCarryForm.amount) })} onChange={(e) => setCashCarryForm({ ...cashCarryForm, amount: cleanMoneyTyping(e.target.value) })} onBlur={() => setCashCarryForm({ ...cashCarryForm, amount: formatMoneyInput(cashCarryForm.amount) })} />
+                      <input placeholder="Not" value={cashCarryForm.note} onChange={(e) => setCashCarryForm({ ...cashCarryForm, note: e.target.value })} />
+                      <div className="remaining-input">
+                        <span>İşlem Adı</span>
+                        <b>Dünden Devir Nakit</b>
+                      </div>
+                    </div>
+
+                    <button className="primary" onClick={saveCashCarryOver}><Plus size={16} /> Dünden Devri Kaydet</button>
+                  </>
+                )}
+
+                {cashEntryTab === "Bankadan Gelen Nakit" && (
+                  <div className="cash-bank-skeleton">
+                    <h3>Bankadan Gelen Nakit</h3>
+                    <p>Bu sekme Phase 2 banka motoru için iskelet olarak hazırlandı. Bu aşamada gerçek banka/kasa hareketi oluşturmaz.</p>
+
+                    <div className="stats three">
+                      <Stat title="Bankada Toplam Olan" value={money(bankCashSkeletonTotal)} />
+                      <Stat title="Ziraatbankta Olan" value={money(bankCashSkeletonBalanceFor("Ziraatbank"))} />
+                      <Stat title="İşbankta Olan" value={money(bankCashSkeletonBalanceFor("İşbank"))} />
+                      <Stat title="Halkbankta Olan" value={money(bankCashSkeletonBalanceFor("Halkbank"))} />
+                      <Stat title="Ek Banka 1" value={money(bankCashSkeletonBalanceFor("Ek Banka 1"))} />
+                      <Stat title="Ek Banka 2" value={money(bankCashSkeletonBalanceFor("Ek Banka 2"))} />
+                    </div>
+
+                    <Table headers={["Banka Adı", "Bankada Olan", "Çekilecek Tutar", "Çekimden Sonra Kalan", "Not", "Kasaya Aktar"]} rows={bankCashSkeletonRows.map((row) => {
+                      const bankBalance = parseMoneyInput(row.balance);
+                      const withdrawAmount = parseMoneyInput(row.withdraw);
+                      return [
+                        row.name,
+                        <input type="text" inputMode="numeric" value={row.balance} placeholder="0 TL" onFocus={() => updateBankCashSkeletonRow(row.id, { balance: stripMoneyForEdit(row.balance) })} onChange={(event) => updateBankCashSkeletonRow(row.id, { balance: cleanMoneyTyping(event.target.value) })} onBlur={() => updateBankCashSkeletonRow(row.id, { balance: formatMoneyInput(row.balance) })} />,
+                        <input type="text" inputMode="numeric" value={row.withdraw} placeholder="0 TL" onFocus={() => updateBankCashSkeletonRow(row.id, { withdraw: stripMoneyForEdit(row.withdraw) })} onChange={(event) => updateBankCashSkeletonRow(row.id, { withdraw: cleanMoneyTyping(event.target.value) })} onBlur={() => updateBankCashSkeletonRow(row.id, { withdraw: formatMoneyInput(row.withdraw) })} />,
+                        money(Math.max(bankBalance - withdrawAmount, 0)),
+                        <input placeholder="Not" value={row.note} onChange={(event) => updateBankCashSkeletonRow(row.id, { note: event.target.value })} />,
+                        <button className="edit-btn" type="button" onClick={() => handleBankCashSkeletonTransfer(row)}>Kasaya Aktar</button>,
+                      ];
+                    })} />
+
+                    <div className="cash-bank-add-panel">
+                      <h3>Banka Ekle</h3>
+                      <p>Varsayılan bankalar: Ziraatbank, İşbank, Halkbank. Merkezi banka ekleme motoru Phase 2’de aktif edilecek.</p>
+                      <div className="form-grid">
+                        <input placeholder="Yeni Banka Adı" value={bankCashSkeletonForm.name} onChange={(event) => setBankCashSkeletonForm({ ...bankCashSkeletonForm, name: event.target.value })} />
+                        <input type="text" inputMode="numeric" placeholder="Başlangıç Bakiyesi" value={bankCashSkeletonForm.balance} onFocus={() => setBankCashSkeletonForm({ ...bankCashSkeletonForm, balance: stripMoneyForEdit(bankCashSkeletonForm.balance) })} onChange={(event) => setBankCashSkeletonForm({ ...bankCashSkeletonForm, balance: cleanMoneyTyping(event.target.value) })} onBlur={() => setBankCashSkeletonForm({ ...bankCashSkeletonForm, balance: formatMoneyInput(bankCashSkeletonForm.balance) })} />
+                      </div>
+                      <button className="primary" type="button" onClick={addBankCashSkeletonBank}>Banka Ekle</button>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <button className="primary" onClick={saveCashEntry}><Plus size={16} /> Nakit Girişini Kaydet</button>
-
-                <Table headers={["Tarih", "İşlem", "Yön", "Tutar", "Not", "İşlem"]} rows={activeCashMovements.map((item) => {
+                <Table headers={["Tarih", "İşlem", "Yön", "Tutar", "Not", "İşlem"]} rows={activeCashMovements.filter(isCashInflowEntry).map((item) => {
                   const cancellation = cashMovementCancellationFor(item);
                   const isCancellationRow = isCashMovementCancellation(item);
                   return [
                     new Date(item.date).toLocaleString("tr-TR"),
-                    item.type || "-",
-                    item.direction === "out" ? "Çıkış" : "Giriş",
-                    <span className={item.direction === "out" ? "technical-money-out" : "technical-money-in"}>{`${item.direction === "out" ? "-" : "+"}${money(item.amount)}`}</span>,
+                    cashMovementType(item) || "-",
+                    "Giriş",
+                    <span className="technical-money-in">+{money(item.amount)}</span>,
                     item.note || "-",
                     isCancellationRow
                       ? "İptal Kaydı"
