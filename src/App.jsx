@@ -1072,6 +1072,7 @@ export default function App() {
   const [contacts, setContacts] = useState([]);
   const [kasaTab, setKasaTab] = useState("yeniSatis");
   const [dailyReportDate, setDailyReportDate] = useState(() => localDateKey(new Date()));
+  const [salesListDate, setSalesListDate] = useState(() => localDateKey(new Date()));
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [stockSearchQuery, setStockSearchQuery] = useState("");
   const [stockSearchFilter, setStockSearchFilter] = useState("TÜMÜ");
@@ -1463,7 +1464,18 @@ const isSaleCancelAction = (modal) => {
     return true;
   };
 
-const handleKasaBrainPreAudit = () => {
+const isSameSalesListDay = (item, dateKey) => {
+    const rawDate = item?.date || item?.createdAt || item?.created_at || item?.saleDate || item?.sale_date;
+    if (!rawDate || !dateKey) return false;
+
+    try {
+      return localDateKey(new Date(rawDate)) === dateKey;
+    } catch (error) {
+      return String(rawDate).slice(0, 10) === dateKey;
+    }
+  };
+
+  const handleKasaBrainPreAudit = () => {
     if (!kasaBrainModal) {
       window.alert("Kasa Beyni: Seçili işlem bulunamadı.");
       return;
@@ -2352,6 +2364,10 @@ const handleKasaBrainPreAudit = () => {
 
   const sortedSales = sortSalesForList(activeSales);
   const sortedFilteredSales = sortSalesForList(filteredSales);
+
+  const visibleSalesListRows = sortedFilteredSales.filter((sale) =>
+    isSameSalesListDay(sale, salesListDate)
+  );
   const combinedSalesListRows = [
     ...sortedSales.map((sale) => ({ kind: "sale", date: sale.date, sale })),
     ...technicalServiceMovements.map((movement) => {
@@ -4562,7 +4578,52 @@ const handleKasaBrainPreAudit = () => {
             {kasaTab === "satisListesi" && (
               <section className="card">
                 <h2>Satış Listesi</h2>
-                <p>Normal satışlar ve teknik servis kaparo/tahsilat/iade hareketleri aynı listede görünür.</p>
+            <div
+              className="sales-list-date-filter"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                margin: "10px 0 16px",
+                padding: "12px 14px",
+                border: "1px solid #e2e8f0",
+                borderRadius: 16,
+                background: "#f8fafc"
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 900, color: "#0f172a" }}>Satış günü filtresi</div>
+                <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+                  Sadece seçilen güne ait satışlar listelenir.
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <label style={{ fontWeight: 900, color: "#475569" }}>Tarih</label>
+                <input
+                  type="date"
+                  value={salesListDate}
+                  onChange={(event) => setSalesListDate(event.target.value)}
+                  style={{
+                    border: "1px solid #d8def0",
+                    borderRadius: 12,
+                    padding: "10px 12px",
+                    fontWeight: 900,
+                    color: "#0f172a",
+                    background: "#fff"
+                  }}
+                />
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => setSyncMessage(`Satış listesi yenilendi: ${salesListDate}`)}
+                >
+                  Listeyi Yenile
+                </button>
+              </div>
+            </div>
+                <p>Seçilen tarihteki satışlar listelenir. Geçmiş gün satışları bugünün listesinde görünmez.</p>
                 <Table headers={["No", "Tarih/Saat", "İşlem Türü", "Müşteri", "Ürün / Cihaz", "Yöntem", "Tutar", "Nakit", "Kart/Banka", "Kalan/Cari", "Kâr", "Durum", "Detay", "Sil"]} rows={combinedSalesListRows.map((row, index) => {
                   if (row.kind === "technical") {
                     const { movement, service } = row;
@@ -5426,7 +5487,7 @@ const handleKasaBrainPreAudit = () => {
                 <h3>Stok Sonuçları</h3>
                 <StockTable stock={filteredStock} setEditingStock={openStockEditor} deleteStock={deleteStock} />
                 <h3>Satış Sonuçları</h3>
-                <Table headers={["Grup", "Ürün", "Müşteri / Cari Kişi", "Satış", "Nakit", "Kart", "Kalan", "Düzelt", "Sil"]} rows={sortedFilteredSales.map((sale) => [
+                <Table headers={["Grup", "Ürün", "Müşteri / Cari Kişi", "Satış", "Nakit", "Kart", "Kalan", "Düzelt", "Sil"]} rows={visibleSalesListRows.map((sale) => [
                   saleGroupName(sale.type),
                   sale.productName,
                   sale.cariPerson || sale.customer || "-",
