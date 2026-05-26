@@ -1716,6 +1716,23 @@ const isSameSalesListDay = (item, dateKey) => {
     }
   };
 
+  const showKasaBrainRowDetail = (row) => {
+    const lines = [
+      `Kayıt No: ${row?.no || "-"}`,
+      `Tarih: ${row?.date ? new Date(row.date).toLocaleString("tr-TR") : "-"}`,
+      `İşlem Türü: ${row?.type || "-"}`,
+      `Açıklama: ${row?.description || "-"}`,
+      `Kişi/Cari: ${row?.party || row?.customer || row?.cariPerson || "-"}`,
+      `Nakit: ${money(row?.cash || 0)}`,
+      `Kart/Banka: ${money(row?.bank || 0)}`,
+      `Cari/Kalan: ${money(row?.debt || 0)}`,
+      `İade: ${money(row?.refund || 0)}`,
+      `Toplam: ${money(row?.total || 0)}`,
+    ];
+
+    window.alert(`Kasa Beyni Detay\n\n${lines.join("\n")}`);
+  };
+
   const handleKasaBrainPreAudit = () => {
     if (!kasaBrainModal) {
       window.alert("Kasa Beyni: Seçili işlem bulunamadı.");
