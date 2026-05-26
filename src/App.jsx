@@ -5504,7 +5504,7 @@ const isSameSalesListDay = (item, dateKey) => {
                 </div>
               </div>
 
-              <StockTable stock={currentStockList} setEditingStock={openStockEditor} deviceView={stockView === "cihaz"} />
+              <StockTable stock={currentStockList} setEditingStock={openStockEditor} deleteStock={deleteStock} deviceView={stockView === "cihaz"} />
 
               {stockView === "tum" && (
                 <div className="grouped-stock">
@@ -6213,7 +6213,7 @@ function ReceivableMovementPage({ sale, stock, saveReceivablePayment, setSelecte
   );
 }
 
-function StockTable({ stock, setEditingStock, deviceView = false }) {
+function StockTable({ stock, setEditingStock, deleteStock, deviceView = false }) {
   if (deviceView) {
     return (
       <Table
@@ -6229,6 +6229,7 @@ function StockTable({ stock, setEditingStock, deviceView = false }) {
           product.qty,
           product.supplier || product.sellerCariName || product.sellerPerson || "-",
           <button className="edit-btn" onClick={() => setEditingStock({ ...product })}><Pencil size={14} /> Düzenle</button>,
+          <button className="delete-btn" onClick={() => { window.alert("Stok silme kapatıldı. Stok kaydı silinmez; gerekli olursa arşiv/iptal mantığı Kasa Beyni üzerinden yapılacak."); }}>Sil</button>,
         ])}
       />
     );
@@ -6247,6 +6248,7 @@ function StockTable({ stock, setEditingStock, deviceView = false }) {
         product.supplier || product.sellerCariName || product.sellerPerson || "-",
         money(product.sellerCariRemaining || 0),
         <button className="edit-btn" onClick={() => setEditingStock({ ...product })}><Pencil size={14} /> Düzenle</button>,
+        <button className="delete-btn" onClick={() => { window.alert("Stok silme kapatıldı. Stok kaydı silinmez; gerekli olursa arşiv/iptal mantığı Kasa Beyni üzerinden yapılacak."); }}>Sil</button>,
       ])}
     />
   );
