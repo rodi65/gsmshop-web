@@ -1093,6 +1093,61 @@ export default function App() {
   const [profitDateTo, setProfitDateTo] = useState("");
   const [karaTab, setKaraTab] = useState("alacak");
   const [kasaBrainModal, setKasaBrainModal] = useState(null);
+  const [kasaBrainReason, setKasaBrainReason] = useState("");
+  const [kasaBrainPassword, setKasaBrainPassword] = useState("");
+
+  const handleKasaBrainPreAudit = () => {
+    if (!kasaBrainModal) {
+      window.alert("Kasa Beyni: Seçili işlem bulunamadı.");
+      return;
+    }
+
+    const reason = String(kasaBrainReason || "").trim();
+    const password = String(kasaBrainPassword || "").trim();
+
+    if (reason.length < 3) {
+      window.alert("Kasa Beyni: İşlem sebebi en az 3 karakter olmalıdır.");
+      return;
+    }
+
+    if (!password) {
+      window.alert("Kasa Beyni: Yetkili şifresi girilmelidir.");
+      return;
+    }
+
+    const row = kasaBrainModal.row || {};
+    const logRecord = {
+      id: `kasa-brain-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      action: kasaBrainModal.action || "",
+      recordNo: row.no || null,
+      type: row.type || "",
+      description: row.description || "",
+      party: row.party || "",
+      cash: Number(row.cash || 0),
+      bank: Number(row.bank || 0),
+      debt: Number(row.debt || 0),
+      refund: Number(row.refund || 0),
+      total: Number(row.total || 0),
+      reason,
+      status: "PRE_AUDIT_ONLY_PHASE_4"
+    };
+
+    try {
+      const currentLogs = JSON.parse(localStorage.getItem("ceplogKasaBrainAuditLogs") || "[]");
+      localStorage.setItem("ceplogKasaBrainAuditLogs", JSON.stringify([logRecord, ...currentLogs]));
+    } catch (error) {
+      console.error("Kasa Beyni audit log yazılamadı:", error);
+      window.alert("Kasa Beyni: Audit log yazılamadı.");
+      return;
+    }
+
+    window.alert(`Kasa Beyni ön audit log oluşturuldu.\nİşlem: ${logRecord.action}\nKayıt No: ${logRecord.recordNo}\nGerçek finansal işlem yapılmadı.`);
+    setSyncMessage(`Kasa Beyni ön audit log oluşturuldu: ${logRecord.action} / Kayıt No: ${logRecord.recordNo}. Gerçek finansal işlem yapılmadı.`);
+    setKasaBrainReason("");
+    setKasaBrainPassword("");
+    setKasaBrainModal(null);
+  };
   const [selectedSupplierAccount, setSelectedSupplierAccount] = useState(null);
   const [selectedReceivableMovement, setSelectedReceivableMovement] = useState(null);
   const [stockTab, setStockTab] = useState("liste");
@@ -4516,6 +4571,45 @@ export default function App() {
               ))}
             </div>
 
+            <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
+              <label style={{ display: "grid", gap: 6, fontWeight: 900, color: "#334155" }}>
+                İşlem Sebebi
+                <textarea
+                  value={kasaBrainReason}
+                  onChange={(event) => setKasaBrainReason(event.target.value)}
+                  placeholder="Örn: Müşteri iade istedi, yanlış satış kaydı, hatalı tahsilat..."
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 14,
+                    padding: 12,
+                    fontSize: 14,
+                    resize: "vertical",
+                    outline: "none"
+                  }}
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 6, fontWeight: 900, color: "#334155" }}>
+                Yetkili Şifresi
+                <input
+                  type="password"
+                  value={kasaBrainPassword}
+                  onChange={(event) => setKasaBrainPassword(event.target.value)}
+                  placeholder="Yetkili şifresini gir"
+                  style={{
+                    width: "100%",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 14,
+                    padding: 12,
+                    fontSize: 14,
+                    outline: "none"
+                  }}
+                />
+              </label>
+            </div>
+
             <div
               style={{
                 marginTop: 18,
@@ -4528,7 +4622,7 @@ export default function App() {
                 fontSize: 14
               }}
             >
-              Bu buton şu an pasif ön izleme modunda. Phase 4’te yetkili şifresi, işlem sebebi ve audit log ile aktif edilecek.
+              Phase 4 güvenli mod: Onayla butonu sadece ön audit log oluşturur. Satış, kasa, stok, cari veya iade kaydı değiştirmez.
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
@@ -4548,18 +4642,19 @@ export default function App() {
               </button>
               <button
                 type="button"
-                disabled
+                onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); handleKasaBrainPreAudit(); }}
+                onClick={(event) => { event.preventDefault(); event.stopPropagation(); handleKasaBrainPreAudit(); }}
                 style={{
                   border: "none",
-                  background: "#cbd5e1",
-                  color: "#475569",
+                  background: "#0f172a",
+                  color: "#fff",
                   borderRadius: 12,
                   padding: "10px 14px",
-                  cursor: "not-allowed",
+                  cursor: "pointer",
                   fontWeight: 900
                 }}
               >
-                Phase 4’te Aktif Edilecek
+                Ön Audit Log Oluştur
               </button>
             </div>
           </div>
