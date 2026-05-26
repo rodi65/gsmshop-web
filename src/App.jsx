@@ -4961,12 +4961,11 @@ const isSameSalesListDay = (item, dateKey) => {
                   <Stat title="Gider Sonrası Nakit" value={money(cashAfterExpenses)} negative={cashAfterExpenses < 0} />
                 </div>
 
-                <Table headers={["Tarih", "Gider", "Tutar", "Not", "Sil"]} rows={activeExpenses.map((item) => [
+                <Table headers={["Tarih", "Gider", "Tutar", "Not"]} rows={activeExpenses.map((item) => [
                   new Date(item.date).toLocaleString("tr-TR"),
                   item.category,
                   item.amount,
                   item.note || "-",
-                  <button className="delete-btn" onClick={() => deleteExpense(item.id)}>Sil</button>,
                 ])} />
               </section>
             )}
@@ -6199,7 +6198,7 @@ function StockTable({ stock, setEditingStock, deviceView = false }) {
   if (deviceView) {
     return (
       <Table
-        headers={["No", "Durum", "Marka", "Model", "Hafıza", "Alış", "Satış", "Stok", "Tedarikçi/Satıcı", "Düzelt", "Sil"]}
+        headers={["No", "Durum", "Marka", "Model", "Hafıza", "Alış", "Satış", "Stok", "Tedarikçi/Satıcı", "Düzelt"]}
         rows={stock.map((product, index) => [
           index + 1,
           product.condition || product.category || "-",
@@ -6211,7 +6210,6 @@ function StockTable({ stock, setEditingStock, deviceView = false }) {
           product.qty,
           product.supplier || product.sellerCariName || product.sellerPerson || "-",
           <button className="edit-btn" onClick={() => setEditingStock({ ...product })}><Pencil size={14} /> Düzenle</button>,
-          <button className="delete-btn" onClick={() => deleteStock(product.id)}>Sil</button>,
         ])}
       />
     );
@@ -6219,7 +6217,7 @@ function StockTable({ stock, setEditingStock, deviceView = false }) {
 
   return (
     <Table
-      headers={["Tür", "Ürün", "Barkod/IMEI", "Stok", "Alış", "Satış", "Tedarikçi/Satıcı", "Cari Kalan", "Düzelt", "Sil"]}
+      headers={["Tür", "Ürün", "Barkod/IMEI", "Stok", "Alış", "Satış", "Tedarikçi/Satıcı", "Cari Kalan", "Düzelt"]}
       rows={stock.map((product) => [
         product.deviceType,
         productTitle(product),
@@ -6230,7 +6228,6 @@ function StockTable({ stock, setEditingStock, deviceView = false }) {
         product.supplier || product.sellerCariName || product.sellerPerson || "-",
         money(product.sellerCariRemaining || 0),
         <button className="edit-btn" onClick={() => setEditingStock({ ...product })}><Pencil size={14} /> Düzenle</button>,
-        <button className="delete-btn" onClick={() => deleteStock(product.id)}>Sil</button>,
       ])}
     />
   );
