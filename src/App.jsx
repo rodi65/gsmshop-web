@@ -4538,15 +4538,10 @@ const isSameSalesListDay = (item, dateKey) => {
               <button className={kasaTab === "yeniSatis" ? "choice active" : "choice"} onClick={() => setKasaTab("yeniSatis")}>YENİ SATIŞ</button>
               <button className={kasaTab === "satisListesi" ? "choice active" : "choice"} onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
               <button className={kasaTab === "giderler" ? "choice active" : "choice"} onClick={() => setKasaTab("giderler")}>GİDERLER</button>
-              <button className={kasaTab === "nakitGirisi" && cashEntryTab !== "Bankadan Gelen Nakit" ? "choice active" : "choice"} onClick={() => {
+              <button className={kasaTab === "nakitGirisi" ? "choice active" : "choice"} onClick={() => {
                 setKasaTab("nakitGirisi");
-                setCashEntryTab("Manuel Nakit Girişi");
               }}>NAKİT GİRİŞİ</button>
               <button className={kasaTab === "kapanis" ? "choice active" : "choice"} onClick={() => setKasaTab("kapanis")}>KASA KAPANIŞ</button>
-              <button className={kasaTab === "nakitGirisi" && cashEntryTab === "Bankadan Gelen Nakit" ? "choice active" : "choice"} onClick={() => {
-                setKasaTab("nakitGirisi");
-                setCashEntryTab("Bankadan Gelen Nakit");
-              }}>BANKADAN NAKİT GELEN</button>
               <div className={cashWithBankIncoming < 0 ? "kasa-cash-total negative" : "kasa-cash-total"}>
                 <span>TOPLAM KASANDA OLMASI GEREKEN</span>
                 <b>{money(cashWithBankIncoming)}</b>
