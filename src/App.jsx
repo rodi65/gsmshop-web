@@ -142,6 +142,14 @@ const formatPhoneDisplay = (value, masked = false) => {
   const padded = digits.padEnd(11, "_");
   return `${padded.slice(0, 1)} (${padded.slice(1, 4)}) ${padded.slice(4, 7)} ${padded.slice(7, 9)} ${padded.slice(9, 11)}`.replace(/_/g, "");
 };
+const formatSupabaseSaleError = (error) => {
+  const message = String(error?.message || error || "");
+  if (message.includes("bank_movements_movement_type_check")) {
+    return "Satış kaydı sırasında banka hareket türü Supabase kuralına takıldı. Satış kart/banka tahsilatı sales kaydında tutulacak şekilde düzeltilmelidir.";
+  }
+  return message;
+};
+
 const money = (value) => `${new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 0 }).format(parseMoneyInput(value))} TL`;
 const has = (a, b) => String(a || "").toLowerCase().includes(String(b || "").toLowerCase());
 const isLocalhostRuntime = () => {
