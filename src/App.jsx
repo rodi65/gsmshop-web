@@ -2,43 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import Login from "./components/Login";
 import CashClosingPanel from "./components/CashClosingPanel";
 
-
-// ceplogBankMovementAlertGuard
-if (typeof window !== "undefined" && !window.__ceplogBankMovementAlertGuard) {
-  window.__ceplogBankMovementAlertGuard = true;
-
-  const originalAlert = window.alert.bind(window);
-
-  window.alert = (message) => {
-    const text = String(message || "");
-
-    if (
-      text.includes("bank_movements_movement_type_check") ||
-      (text.includes("bank_movements") && text.includes("movement_type")) ||
-      (text.includes("violates check constraint") && text.includes("bank_movements"))
-    ) {
-      console.warn("CELOG güvenli mod: bank_movements constraint uyarısı kullanıcıya gösterilmedi:", text);
-      return;
-    }
-
-    originalAlert(message);
-  };
-
-  window.addEventListener("unhandledrejection", (event) => {
-    const text = String(event?.reason?.message || event?.reason || "");
-
-    if (
-      text.includes("bank_movements_movement_type_check") ||
-      (text.includes("bank_movements") && text.includes("movement_type")) ||
-      (text.includes("violates check constraint") && text.includes("bank_movements"))
-    ) {
-      console.warn("CELOG güvenli mod: bank_movements promise hatası bastırıldı:", event.reason);
-      event.preventDefault();
-    }
-  });
-}
-
-
 // ceplog-bank-movement-constraint-global-guard
 if (typeof window !== "undefined" && !window.__ceplogBankMovementConstraintGuard) {
   window.__ceplogBankMovementConstraintGuard = true;
@@ -323,13 +286,13 @@ const makeEmptyTechnicalServiceForm = () => ({
 });
 const emptyTechnicalPaymentForm = { amount: "", method: "Nakit", bank: "", note: "" };
 const emptyTechnicalSummary = {
-  total: "",
+  total: 0,
   collected: 0,
   cashCollected: 0,
   bankCollected: 0,
   refunded: 0,
   net: 0,
-  remaining: "",
+  remaining: 0,
   cashRefundAvailable: 0,
   bankRefundAvailable: 0,
   refundSources: [],
@@ -373,9 +336,9 @@ const isSecondHandPhonePurchase = (form, module = form.module) =>
 const recordDate = (item) => item.created_at || item.createdAt || item.date || "";
 const isTodayRecord = (item, todayKey) => recordDate(item).slice(0, 10) === todayKey;
 const cashMovementType = (item) => item.movement_type || item.movementType || item.type || "";
-const cashMovementAmount = (item) => typeof item.amount === "number" ? item.amount : ""
+const cashMovementAmount = (item) => typeof item.amount === "number" ? item.amount : parseMoneyInput(item.amount);
 const bankMovementType = (item) => item.movement_type || item.movementType || item.type || "";
-const bankMovementAmount = (item) => typeof item.amount === "number" ? item.amount : ""
+const bankMovementAmount = (item) => typeof item.amount === "number" ? item.amount : parseMoneyInput(item.amount);
 const bankMovementDirection = (item) => item.direction || (purchasePaymentMovementTypes.includes(bankMovementType(item)) || bankMovementType(item) === "Bankadan Çekilen" ? "out" : "in");
 const normalizeCashEntryText = (value) => String(value || "")
   .toLocaleLowerCase("tr-TR")
@@ -604,7 +567,7 @@ const getCashNetEffect = (item) => {
   const direction = movementDirection(item, type);
   const amount = movementAmount(item);
   if (!direction || !amount) return 0;
-  return direction === "out" ? -amount : ""
+  return direction === "out" ? -amount : amount;
 };
 const isRealCashIncome = (item) => isActiveRecord(item) && classifyFinancialMovement(item) === "income" && movementDirection(item) === "in";
 const isRealCashExpense = (item) => isActiveRecord(item) && classifyFinancialMovement(item) === "expense" && movementDirection(item) === "out";
@@ -696,11 +659,11 @@ const fromDbSale = (sale) => ({
   customer: sale.customer_name || "",
   customerPhone: sale.customer_phone || "",
   cariPerson: sale.cari_person || "",
-  total: "",
-  cash: "",
-  card: "",
-  bank: "",
-  remaining: "",
+  total: money(Number(sale.total_amount || 0)),
+  cash: money(Number(sale.cash_amount || 0)),
+  card: money(Number(sale.card_amount || 0)),
+  bank: sale.bank_name || "",
+  remaining: Number(sale.remaining_amount || 0),
   profit: Number(sale.profit_amount || 0),
   date: sale.created_at || new Date().toISOString(),
   status: sale.status || "active",
@@ -709,7 +672,7 @@ const fromDbSale = (sale) => ({
 const fromDbExpense = (item) => ({
   id: item.id,
   category: item.category,
-  amount: "",
+  amount: money(Number(item.amount || 0)),
   note: item.note || "",
   date: item.created_at || new Date().toISOString(),
   status: item.status || "active",
@@ -718,9 +681,9 @@ const fromDbExpense = (item) => ({
 const fromDbBankMovement = (item) => ({
   id: item.id,
   type: item.movement_type,
-  bank: "",
+  bank: item.bank_name,
   direction: item.direction || (purchasePaymentMovementTypes.includes(item.movement_type) || item.movement_type === "Bankadan Çekilen" ? "out" : "in"),
-  amount: "",
+  amount: money(Number(item.amount || 0)),
   note: item.note || "",
   relatedTable: item.related_table || item.relatedTable || "",
   relatedId: item.related_id || item.relatedId || item.related_sale_id || "",
@@ -735,7 +698,7 @@ const fromDbCashMovement = (item) => ({
   id: item.id,
   type: item.movement_type || item.type || "",
   direction: item.direction || "",
-  amount: "",
+  amount: Number(item.amount || 0),
   note: item.note || "",
   relatedTable: item.related_table || item.relatedTable || "",
   relatedId: item.related_id || item.relatedId || "",
@@ -1067,7 +1030,7 @@ function calcSale(sale) {
   const card = parseMoneyInput(sale.card);
   const remaining = sale.type === "Aksesuar Satışı" ? 0 : Math.max(total - cash - card, 0);
   const profit = total - parseMoneyInput(sale.productBuyPrice || 0);
-  return { ...sale, total: "", cash: "", card: "", remaining, profit };
+  return { ...sale, total: money(total), cash: money(cash), card: money(card), remaining, profit };
 }
 
 function normalizeSalePaymentDistributionForReport(sale) {
@@ -1095,8 +1058,8 @@ function normalizeSalePaymentDistributionForReport(sale) {
 
   return {
     total,
-    cash: "",
-    card: "",
+    cash: rawCash,
+    card: rawCard,
     debt: Math.max(total - paidTotal, 0),
     overpaid: 0,
   };
@@ -1150,7 +1113,7 @@ export default function App() {
   const [quickAccessoryGroup, setQuickAccessoryGroup] = useState("Kılıf");
   const [quickAccessorySubType, setQuickAccessorySubType] = useState("A Kılıf");
   const [accessoryShortcuts, setAccessoryShortcuts] = useState([]);
-  const [accessoryShortcutForm, setAccessoryShortcutForm] = useState({ group: "Kılıf", sub: "A Kılıf", price: ""});
+  const [accessoryShortcutForm, setAccessoryShortcutForm] = useState({ group: "Kılıf", sub: "A Kılıf", price: "" });
   const [technicalServices, setTechnicalServices] = useState([]);
   const [technicalServiceForm, setTechnicalServiceForm] = useState(() => makeEmptyTechnicalServiceForm());
   const [selectedTechnicalServiceId, setSelectedTechnicalServiceId] = useState("");
@@ -1255,7 +1218,7 @@ export default function App() {
       movementType: "Nakit Girişi İptal",
       type: "Nakit Girişi İptal",
       direction: "out",
-      amount: "",
+      amount: targetAmount,
       note: `İptal: ${targetReportRow.description || row.description || "Manuel Nakit Girişi"} | Kayıt No: ${targetNo} | Sebep: ${reason}`,
       relatedTable: "cash_movements",
       related_table: "cash_movements",
@@ -1278,11 +1241,11 @@ export default function App() {
       type: row.type || "",
       description: row.description || "",
       party: row.party || "",
-      cash: "",
-      bank: "",
+      cash: Number(row.cash || 0),
+      bank: Number(row.bank || 0),
       debt: Number(row.debt || 0),
       refund: Number(row.refund || 0),
-      total: "",
+      total: Number(row.total || 0),
       reason,
       status: "REAL_CASH_ENTRY_CANCEL_PHASE_5A",
       result: "Reverse cash movement created",
@@ -1593,7 +1556,7 @@ const isSaleCancelAction = (modal) => {
         movementType: "Satış İptal Nakit",
         type: "Satış İptal Nakit",
         direction: "out",
-        amount: "",
+        amount: rowCash,
         note: `Satış iptal nakit ters hareket | Kayıt No: ${row.no || "-"} | ${row.description || ""} | Sebep: ${reason}`,
         relatedTable: "sales",
         related_table: "sales",
@@ -1616,7 +1579,7 @@ const isSaleCancelAction = (modal) => {
         movementType: "Satış İptal Kart/Banka",
         type: "Satış İptal Kart/Banka",
         direction: "out",
-        amount: "",
+        amount: rowBank,
         note: `Satış iptal kart/banka ters hareket | Kayıt No: ${row.no || "-"} | ${row.description || ""} | Sebep: ${reason}`,
         relatedTable: "sales",
         related_table: "sales",
@@ -1639,7 +1602,7 @@ const isSaleCancelAction = (modal) => {
         movementType: "Satış İptal Cari",
         type: "Satış İptal Cari",
         direction: "out",
-        amount: "",
+        amount: rowDebt,
         note: `Satış iptal cari/kalan borç kapama | Kayıt No: ${row.no || "-"} | ${row.description || ""} | Sebep: ${reason}`,
         relatedTable: "sales",
         related_table: "sales",
@@ -1671,11 +1634,11 @@ const isSaleCancelAction = (modal) => {
       type: row.type || "Satış",
       description: row.description || "",
       party: row.party || "",
-      cash: "",
-      bank: "",
+      cash: rowCash,
+      bank: rowBank,
       debt: rowDebt,
       refund: numberValue(row.refund),
-      total: "",
+      total: rowTotal,
       reason,
       status: "REAL_SALE_CANCEL_PHASE_5B3_REPORT_ROW_REVERSAL",
       result: "Sale cancel applied from cash report row; reverse cash/bank/debt movements created; stock restore attempted; no hard delete",
@@ -1766,11 +1729,11 @@ const isSameSalesListDay = (item, dateKey) => {
       type: row.type || "",
       description: row.description || "",
       party: row.party || "",
-      cash: "",
-      bank: "",
+      cash: Number(row.cash || 0),
+      bank: Number(row.bank || 0),
       debt: Number(row.debt || 0),
       refund: Number(row.refund || 0),
-      total: "",
+      total: Number(row.total || 0),
       reason,
       status: "PRE_AUDIT_ONLY_PHASE_4"
     };
@@ -1808,7 +1771,7 @@ const isSameSalesListDay = (item, dateKey) => {
   const [bankTransferDrafts, setBankTransferDrafts] = useState({});
   const [bankCashSkeletonForm, setBankCashSkeletonForm] = useState({ name: "", balance: "" });
   const [bankMovements, setBankMovements] = useState([]);
-  const [saleForm, setSaleForm] = useState({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: ""});
+  const [saleForm, setSaleForm] = useState({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
   const bankList = useMemo(() => getBankList(banks), [banks]);
   const bankOptions = useMemo(() => bankList.map((bank) => bank.name), [bankList]);
   const [expenses, setExpenses] = useState([]);
@@ -1905,7 +1868,7 @@ const isSameSalesListDay = (item, dateKey) => {
       const totalBuy = parseMoneyInput(product.buy) * Number(product.qty || 0);
       const paid = parseMoneyInput(product.supplierPaid || 0);
       const accountKey = `supplier:${product.supplier.toLocaleLowerCase("tr-TR")}`;
-      const row = map.get(accountKey) || { accountKey, kind: "supplier", name: product.supplier, phone: "", contactId: "", lastProduct: "", totalBuy: 0, paid: 0, remaining: ""};
+      const row = map.get(accountKey) || { accountKey, kind: "supplier", name: product.supplier, phone: "", contactId: "", lastProduct: "", totalBuy: 0, paid: 0, remaining: 0 };
       row.lastProduct = productTitle(product);
       row.totalBuy += totalBuy;
       row.paid += paid;
@@ -1928,7 +1891,7 @@ const isSameSalesListDay = (item, dateKey) => {
         lastProduct: "",
         totalBuy: 0,
         paid: 0,
-        remaining: "",
+        remaining: 0,
       };
 
       row.lastProduct = productTitle(product);
@@ -1952,7 +1915,7 @@ const isSameSalesListDay = (item, dateKey) => {
           lastProduct: contact.note || "Cari bakiye",
           totalBuy: Math.max(Number(contact.balance || 0), 0),
           paid: 0,
-          remaining: "",
+          remaining: 0,
         };
         row.kind = contact.kind;
         row.name = contact.name;
@@ -2008,7 +1971,7 @@ const isSameSalesListDay = (item, dateKey) => {
           method: "Nakit",
           bank: "",
           direction: item.direction || (isTechnicalServiceRefundMovement(cashMovementType(item)) ? "out" : "in"),
-          amount: "",
+          amount: cashMovementAmount(item),
           note: item.note || "",
         })),
       ...activeBankMovements
@@ -2018,9 +1981,9 @@ const isSameSalesListDay = (item, dateKey) => {
           date: item.date,
           type: bankMovementType(item),
           method: "Kart/Banka",
-          bank: "",
+          bank: item.bank || "",
           direction: bankMovementDirection(item),
-          amount: "",
+          amount: bankMovementAmount(item),
           note: item.note || "",
         })),
     ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
@@ -2034,12 +1997,12 @@ const isSameSalesListDay = (item, dateKey) => {
     history.forEach((item) => {
       const isBank = item.method === "Kart/Banka";
       const bank = isBank ? item.bank || "Banka" : "";
-      const key = isBank ? `bank:""}` : "cash";
+      const key = isBank ? `bank:${bank}` : "cash";
       const row = sourceMap.get(key) || {
         key,
         method: isBank ? "Kart/Banka" : "Nakit",
         bank,
-        label: isBank ? bank : "",
+        label: isBank ? bank : "Nakit / Kasa",
         collected: 0,
         refunded: 0,
       };
@@ -2070,7 +2033,7 @@ const isSameSalesListDay = (item, dateKey) => {
       bankCollected,
       refunded,
       net,
-      remaining: "",
+      remaining: Math.max(total - net, 0),
       cashRefundAvailable: cashSource?.available || 0,
       bankRefundAvailable: refundSources
         .filter((source) => source.method === "Kart/Banka")
@@ -2093,7 +2056,7 @@ const isSameSalesListDay = (item, dateKey) => {
         method: "Nakit",
         bank: "",
         direction: item.direction || (isTechnicalServiceRefundMovement(cashMovementType(item)) ? "out" : "in"),
-        amount: "",
+        amount: cashMovementAmount(item),
         note: item.note || "",
       })),
     ...activeBankMovements
@@ -2105,9 +2068,9 @@ const isSameSalesListDay = (item, dateKey) => {
         date: item.date,
         type: bankMovementType(item),
         method: "Kart/Banka",
-        bank: "",
+        bank: item.bank || "",
         direction: bankMovementDirection(item),
-        amount: "",
+        amount: bankMovementAmount(item),
         note: item.note || "",
       })),
   ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
@@ -2239,10 +2202,10 @@ const isSameSalesListDay = (item, dateKey) => {
   }
 
   const report = {
-    total: sales.reduce((sum, sale) => sum + parseMoneyInput(sale.total), 0),
-    cash: sales.reduce((sum, sale) => sum + parseMoneyInput(sale.cash), 0),
-    card: sales.reduce((sum, sale) => sum + parseMoneyInput(sale.card), 0),
-    remaining: sales.reduce((sum, sale) => sum + Number(sale.remaining || 0), 0),
+    total: activeSales.reduce((sum, sale) => sum + parseMoneyInput(sale.total), 0),
+    cash: activeSales.reduce((sum, sale) => sum + parseMoneyInput(sale.cash), 0),
+    card: activeSales.reduce((sum, sale) => sum + parseMoneyInput(sale.card), 0),
+    remaining: activeSales.reduce((sum, sale) => sum + Number(sale.remaining || 0), 0),
     profit: activeSales.reduce((sum, sale) => sum + Number(sale.profit || 0), 0),
   };
   const saleTotalByType = (predicate) => activeSales
@@ -2259,7 +2222,7 @@ const isSameSalesListDay = (item, dateKey) => {
     const debt = rows.reduce((sum, sale) => sum + sale.debt, 0);
     const refund = 0;
     const total = rows.reduce((sum, sale) => sum + sale.total, 0);
-    return { cash, card, debt, refund, total: "" };
+    return { cash, card, debt, refund, total: Math.max(total - refund, 0) };
   };
   const phoneIncomeSummary = saleIncomeSummary((sale) => sale.type === "Telefon Satışı");
   const accessoryIncomeSummary = saleIncomeSummary((sale) => sale.type === "Aksesuar Satışı");
@@ -2279,15 +2242,15 @@ const isSameSalesListDay = (item, dateKey) => {
   const technicalServiceDebtTotal = technicalServicesForFinance
     .reduce((sum, service) => sum + technicalServiceSummary(service).remaining, 0);
   const technicalIncomeSummary = {
-    cash: "",
-    card: "",
+    cash: technicalCashIncomeTotal + technicalSaleIncomeSummary.cash,
+    card: technicalBankIncomeTotal + technicalSaleIncomeSummary.card,
     debt: technicalServiceDebtTotal + technicalSaleIncomeSummary.debt,
     refund: technicalRefundTotal,
-    total: "",
+    total: Math.max(technicalCashIncomeTotal + technicalBankIncomeTotal + technicalSaleIncomeSummary.total - technicalRefundTotal, 0),
   };
 
   const expenseReport = {
-    total: items.reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
+    total: activeExpenses.reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
   };
 
   const isBankIncomingMovement = (item) =>
@@ -2318,7 +2281,7 @@ const isSameSalesListDay = (item, dateKey) => {
       bank,
       totalToBank,
       withdrawnFromBank,
-      remaining: "",
+      remaining: Math.max(totalToBank - withdrawnFromBank, 0),
       commission: (Math.max(totalToBank - withdrawnFromBank, 0) / 100) * 3.5,
     };
   });
@@ -2390,11 +2353,11 @@ const isSameSalesListDay = (item, dateKey) => {
         party: sale.customer || sale.customer_name || sale.cariPerson || sale.cari_person || "",
         buy: inactive ? 0 : parseMoneyInput(sale.productBuyPrice || sale.buy_cost || 0),
         sale: inactive ? 0 : total,
-        cash: "",
-        bank: "",
+        cash: inactive ? 0 : cash,
+        bank: inactive ? 0 : card,
         debt: inactive ? 0 : remaining,
-        refund: inactive ? total : "",
-        total: "",
+        refund: inactive ? total : 0,
+        total: inactive ? -total : total,
       });
     });
 
@@ -2414,13 +2377,13 @@ const isSameSalesListDay = (item, dateKey) => {
         type: reportType.label,
         description: item.note || type || "-",
         party: "",
-        buy: !inactive && classification === "purchase_payment" ? amount : "",
+        buy: !inactive && classification === "purchase_payment" ? amount : 0,
         sale: 0,
-        cash: "",
-        bank: "",
-        debt: !inactive && ["Cari Ödeme"].includes(type) ? amount : "",
-        refund: inactive || ["correction", "refund"].includes(classification) ? amount : "",
-        total: "",
+        cash: signedCash,
+        bank: 0,
+        debt: !inactive && ["Cari Ödeme"].includes(type) ? amount : 0,
+        refund: inactive || ["correction", "refund"].includes(classification) ? amount : 0,
+        total: signedCash,
       });
     });
 
@@ -2433,20 +2396,20 @@ const isSameSalesListDay = (item, dateKey) => {
       const inactive = !isActiveMovement(item);
       const classification = classifyFinancialMovement(item);
       const reportType = inactive ? { label: "İptal", tone: "cancel" } : dailyReportRowType(item);
-      const signedBank = direction === "out" ? -amount : ""
+      const signedBank = direction === "out" ? -amount : amount;
       rows.push({
         date: reportDateValue(item),
         tone: reportType.tone === "cash-in" ? "bank" : reportType.tone,
         type: isTechnicalServiceMovement(type) ? reportType.label : "Banka Hareketi",
         description: item.note || type || "-",
         party: item.bank || item.bank_name || "",
-        buy: !inactive && classification === "purchase_payment" ? amount : "",
+        buy: !inactive && classification === "purchase_payment" ? amount : 0,
         sale: 0,
-        cash: "",
-        bank: "",
+        cash: 0,
+        bank: inactive ? 0 : signedBank,
         debt: 0,
-        refund: inactive || ["correction", "refund"].includes(classification) || direction === "out" ? amount : "",
-        total: "",
+        refund: inactive || ["correction", "refund"].includes(classification) || direction === "out" ? amount : 0,
+        total: inactive ? -amount : signedBank,
       });
     });
 
@@ -2462,11 +2425,11 @@ const isSameSalesListDay = (item, dateKey) => {
         party: contact.name || "",
         buy: 0,
         sale: 0,
-        cash: "",
-        bank: "",
+        cash: 0,
+        bank: 0,
         debt: inactive ? 0 : balance,
         refund: inactive ? balance : 0,
-        total: "",
+        total: inactive ? -balance : balance,
       });
     });
 
@@ -2500,12 +2463,12 @@ const isSameSalesListDay = (item, dateKey) => {
   const dailyCashReportTotals = dailyCashReportRows.reduce((totals, row) => ({
     buy: totals.buy + Number(row.buy || 0),
     sale: totals.sale + Number(row.sale || 0),
-    cash: "",
-    bank: "",
+    cash: totals.cash + Number(row.cash || 0),
+    bank: totals.bank + Number(row.bank || 0),
     debt: totals.debt + Number(row.debt || 0),
     refund: totals.refund + Number(row.refund || 0),
     netCash: totals.netCash + Number(row.cash || 0),
-  }), { buy: 0, sale: 0, cash: "", bank: "", debt: 0, refund: 0, netCash: 0 });
+  }), { buy: 0, sale: 0, cash: 0, bank: 0, debt: 0, refund: 0, netCash: 0 });
 
   const cashWithBankIncoming = financeSummary.expectedCash;
   const alertFinancialValidation = (validation) => {
@@ -2528,7 +2491,7 @@ const isSameSalesListDay = (item, dateKey) => {
         ["Borç Verilen", phoneIncomeSummary.debt],
         ["İade Alınan", phoneIncomeSummary.refund],
       ],
-      total: "",
+      total: phoneIncomeSummary.total,
     },
     {
       key: "accessory",
@@ -2541,7 +2504,7 @@ const isSameSalesListDay = (item, dateKey) => {
         ["Borç Verilen", accessoryIncomeSummary.debt],
         ["İade Alınan", accessoryIncomeSummary.refund],
       ],
-      total: "",
+      total: accessoryIncomeSummary.total,
     },
     {
       key: "other",
@@ -2554,7 +2517,7 @@ const isSameSalesListDay = (item, dateKey) => {
         ["Borç Verilen", otherIncomeSummary.debt],
         ["İade Alınan", otherIncomeSummary.refund],
       ],
-      total: "",
+      total: otherIncomeSummary.total,
     },
     {
       key: "technical",
@@ -2567,7 +2530,7 @@ const isSameSalesListDay = (item, dateKey) => {
         ["Borç Verilen", technicalIncomeSummary.debt],
         ["İade Alınan", technicalIncomeSummary.refund],
       ],
-      total: "",
+      total: technicalIncomeSummary.total,
     },
     {
       key: "total",
@@ -2583,7 +2546,7 @@ const isSameSalesListDay = (item, dateKey) => {
         ["Gelen Alacak", receivablePayments],
         ["Giderler", cashExpensePayments],
       ],
-      total: "",
+      total: null,
       negative: cashWithBankIncoming < 0,
     },
   ];
@@ -2686,11 +2649,11 @@ const isSameSalesListDay = (item, dateKey) => {
         cariPerson: sale.cariPerson || sale.customer || "",
         productName: sale.productName || "",
         productBuyPrice: sale.productBuyPrice || 0,
-        total: "",
-        cash: "",
-        card: "",
-        bank: "",
-        remaining: "",
+        total: sale.total || "0 TL",
+        cash: sale.cash || "0 TL",
+        card: sale.card || "0 TL",
+        bank: sale.bank || "",
+        remaining: Number(sale.remaining || 0),
         profit: Number(sale.profit || 0),
       });
     } catch (error) {
@@ -3195,7 +3158,7 @@ const isSameSalesListDay = (item, dateKey) => {
     const purchaseTotal = parseMoneyInput(stockForm.buy) * (isDevice ? 1 : Number(stockForm.qty || 0));
     const paidTotal = parseMoneyInput(stockForm.supplierPaid);
     const paymentLimit = validateFinancialLimit({
-      amount: "",
+      amount: paidTotal || 1,
       maxAllowed: purchaseTotal,
       label: "Alım ödemesi",
       messages: {
@@ -3220,7 +3183,7 @@ const isSameSalesListDay = (item, dateKey) => {
     const purchaseTotal = parseMoneyInput(stockForm.buy) * qty;
     const supplierPaid = parseMoneyInput(stockForm.supplierPaid);
     if (supplierPaid > 0 && !alertFinancialValidation(validateFinancialLimit({
-      amount: "",
+      amount: supplierPaid,
       maxAllowed: purchaseTotal,
       availableCash: cashWithBankIncoming,
       paymentMethod: "Nakit",
@@ -3248,7 +3211,7 @@ const isSameSalesListDay = (item, dateKey) => {
       sellerPhone: cleanPhone(stockForm.sellerPhone),
       acquisitionType: isSecondHandPhone ? "Müşteri" : "Tedarikçi Firma",
       sellerCariName: isSecondHandPhone ? sellerCariName(stockForm.sellerPerson) : "",
-      sellerCariRemaining: isSecondHandPhone ? remaining : "",
+      sellerCariRemaining: isSecondHandPhone ? remaining : 0,
     };
 
     try {
@@ -3306,14 +3269,14 @@ const isSameSalesListDay = (item, dateKey) => {
       type: saleForm.type,
       customer: isAccessorySale ? "" : saleForm.customer.trim(),
       cariPerson: isAccessorySale ? "" : (saleForm.cariPerson.trim() || saleForm.customer.trim()),
-      bank: "",
+      bank: saleForm.bank,
       productName: isProgramSale ? saleForm.search.trim() : (selectedProduct ? productTitle(selectedProduct) : saleForm.search.trim()),
       productId: isProgramSale || !selectedProduct ? null : selectedProduct.id,
       productBuyPrice: isProgramSale || !selectedProduct ? 0 : selectedProduct.buy,
       productBarcode: isProgramSale || !selectedProduct ? "" : selectedProduct.barcode,
-      total: "",
-      cash: "",
-      card: "",
+      total: saleForm.total || (isProgramSale || !selectedProduct ? "" : selectedProduct.sell),
+      cash: saleForm.cash,
+      card: saleForm.card,
       date: new Date().toISOString(),
     });
 
@@ -3343,7 +3306,7 @@ const isSameSalesListDay = (item, dateKey) => {
       return;
     }
 
-    setSaleForm({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: ""});
+    setSaleForm({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
   }
 
   async function updateSale() {
@@ -5631,7 +5594,7 @@ const isSameSalesListDay = (item, dateKey) => {
                       <b>Alacak: {money(totalReceivableBalance)}</b>
                     </div>
                     <h2>Kara Defter / Alacaklarım</h2>
-                    <Table headers={["İşlem", "Tarih", "Adı Soyad", "Alınan Mal", "Kalan", "Düzelt"]} rows={alacaklarim.map((sale, index) => [
+                    <Table headers={["İşlem", "Tarih", "Adı Soyad", "Alınan Mal", "Kalan", "Düzelt", "Sil"]} rows={alacaklarim.map((sale, index) => [
                       index + 1,
                       new Date(sale.date).toLocaleString("tr-TR"),
                       sale.cariPerson || sale.customer,
@@ -5661,7 +5624,7 @@ const isSameSalesListDay = (item, dateKey) => {
                       <b>Borç: {money(totalPayableBalance)}</b>
                     </div>
                     <h2>Kara Defter / Tedarikçi/Firma</h2>
-                    <Table headers={["Cari", "Tür", "Son Alınan Mal", "Alış Toplam", "Ödenen", "Şimdiki Borç"]} rows={borclarim.map((row) => [
+                    <Table headers={["Cari", "Tür", "Son Alınan Mal", "Alış Toplam", "Ödenen", "Şimdiki Borç", "Sil"]} rows={borclarim.map((row) => [
                       <button className="link-btn" onClick={() => setSelectedSupplierAccount(row.accountKey)}>{row.name}</button>,
                       row.kind === "seller" ? "Satıcı" : row.kind === "supplier" ? "Tedarikçi/Firma" : "Cari",
                       row.lastProduct,
@@ -5761,7 +5724,7 @@ const isSameSalesListDay = (item, dateKey) => {
                 <h3>Stok Sonuçları</h3>
                 <StockTable stock={filteredStock} setEditingStock={openStockEditor} deleteStock={deleteStock} />
                 <h3>Satış Sonuçları</h3>
-                <Table headers={["Grup", "Ürün", "Müşteri / Cari Kişi", "Satış", "Nakit", "Kart", "Kalan", "Düzelt"]} rows={visibleSalesListRows.map((sale) => [
+                <Table headers={["Grup", "Ürün", "Müşteri / Cari Kişi", "Satış", "Nakit", "Kart", "Kalan", "Düzelt", "Sil"]} rows={visibleSalesListRows.map((sale) => [
                   saleGroupName(sale.type),
                   sale.productName,
                   sale.cariPerson || sale.customer || "-",
@@ -6217,7 +6180,7 @@ function StockTable({ stock, setEditingStock, deleteStock, deviceView = false })
   if (deviceView) {
     return (
       <Table
-        headers={["No", "Durum", "Marka", "Model", "Hafıza", "Alış", "Satış", "Stok", "Tedarikçi/Satıcı", "Düzelt"]}
+        headers={["No", "Durum", "Marka", "Model", "Hafıza", "Alış", "Satış", "Stok", "Tedarikçi/Satıcı", "Düzelt", "Sil"]}
         rows={stock.map((product, index) => [
           index + 1,
           product.condition || product.category || "-",
@@ -6229,7 +6192,7 @@ function StockTable({ stock, setEditingStock, deleteStock, deviceView = false })
           product.qty,
           product.supplier || product.sellerCariName || product.sellerPerson || "-",
           <button className="edit-btn" onClick={() => setEditingStock({ ...product })}><Pencil size={14} /> Düzenle</button>,
-          <button className="delete-btn" onClick={() => { window.alert("Stok silme kapatıldı. Stok kaydı silinmez; gerekli olursa arşiv/iptal mantığı Kasa Beyni üzerinden yapılacak."); }}>Sil</button>,
+          <button className="delete-btn" onClick={() => deleteStock(product.id)}>Sil</button>,
         ])}
       />
     );
@@ -6237,7 +6200,7 @@ function StockTable({ stock, setEditingStock, deleteStock, deviceView = false })
 
   return (
     <Table
-      headers={["Tür", "Ürün", "Barkod/IMEI", "Stok", "Alış", "Satış", "Tedarikçi/Satıcı", "Cari Kalan", "Düzelt"]}
+      headers={["Tür", "Ürün", "Barkod/IMEI", "Stok", "Alış", "Satış", "Tedarikçi/Satıcı", "Cari Kalan", "Düzelt", "Sil"]}
       rows={stock.map((product) => [
         product.deviceType,
         productTitle(product),
@@ -6248,7 +6211,7 @@ function StockTable({ stock, setEditingStock, deleteStock, deviceView = false })
         product.supplier || product.sellerCariName || product.sellerPerson || "-",
         money(product.sellerCariRemaining || 0),
         <button className="edit-btn" onClick={() => setEditingStock({ ...product })}><Pencil size={14} /> Düzenle</button>,
-        <button className="delete-btn" onClick={() => { window.alert("Stok silme kapatıldı. Stok kaydı silinmez; gerekli olursa arşiv/iptal mantığı Kasa Beyni üzerinden yapılacak."); }}>Sil</button>,
+        <button className="delete-btn" onClick={() => deleteStock(product.id)}>Sil</button>,
       ])}
     />
   );
@@ -6314,6 +6277,3 @@ function StockEditModal({ item, setItem, save }) {
     </div>
   );
 }
-
-
-// CELOG_AUTO_PRICE_DISABLED_FOR_PHONE_SALE: Telefon satışında cihaz seçimi satış fiyatını otomatik doldurmaz.
