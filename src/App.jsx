@@ -4639,8 +4639,8 @@ const isSameSalesListDay = (item, dateKey) => {
                             ...saleForm,
                             productId: e.target.value,
                             search: product?.barcode || product?.imei || "",
-                            total: product?.sell || "",
-                            cash: product?.sell || "",
+                            total: "",
+                            cash: "",
                             card: ""
                           });
                         }}>
