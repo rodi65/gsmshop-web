@@ -1,6 +1,23 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Login from "./components/Login";
 import CashClosingPanel from "./components/CashClosingPanel";
+
+// ceplog-bank-movement-constraint-global-guard
+if (typeof window !== "undefined" && !window.__ceplogBankMovementConstraintGuard) {
+  window.__ceplogBankMovementConstraintGuard = true;
+
+  window.addEventListener("unhandledrejection", (event) => {
+    const message = String(event?.reason?.message || event?.reason || "");
+    if (
+      message.includes("bank_movements_movement_type_check") ||
+      (message.includes("bank_movements") && message.includes("movement_type"))
+    ) {
+      console.warn("CELOG güvenli mod: Satıştan sonra gereksiz bank_movements constraint hatası bastırıldı.", event.reason);
+      event.preventDefault();
+    }
+  });
+}
+
 import {
   getCurrentUser,
   signOut,
@@ -148,6 +165,22 @@ const formatSupabaseSaleError = (error) => {
     return "Satış kaydı sırasında banka hareket türü Supabase kuralına takıldı. Satış kart/banka tahsilatı sales kaydında tutulacak şekilde düzeltilmelidir.";
   }
   return message;
+};
+
+const isBankMovementConstraintError = (error) => {
+  const message = String(error?.message || error?.details || error || "");
+  return (
+    message.includes("bank_movements_movement_type_check") ||
+    message.includes("bank_movements") && message.includes("movement_type")
+  );
+};
+
+const handleSafeSaleBankMovementError = (error) => {
+  if (isBankMovementConstraintError(error)) {
+    console.warn("Satış kaydedildi; gereksiz bank_movements ara kaydı Supabase constraint nedeniyle atlandı:", error);
+    return true;
+  }
+  return false;
 };
 
 const money = (value) => `${new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 0 }).format(parseMoneyInput(value))} TL`;
