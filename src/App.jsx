@@ -664,17 +664,21 @@ function calculateFinanceSummary({ cashMovements = [], bankMovements = [], sales
   const activeBank = bankMovements.filter(isActiveRecord);
   const activeSalesRows = sales.filter(isActiveRecord);
   const activeExpenseRows = expenses.filter(isActiveRecord);
-  const cashSaleMovementIds = new Set(activeCash.filter((item) => cashMovementType(item) === "Satış Nakit" && String(item.relatedTable || item.related_table || "") === "sales").map((item) => String(item.relatedId || item.related_id || "")));
+  const activeSaleIds = new Set(activeSalesRows.map((sale) => String(sale.id || "")));
+  const isLinkedSaleCashMovement = (item) =>
+    cashMovementType(item) === "Satış Nakit" &&
+    String(item.relatedTable || item.related_table || "") === "sales" &&
+    activeSaleIds.has(String(item.relatedId || item.related_id || ""));
+  const cashSaleMovementIds = new Set(activeCash.filter(isLinkedSaleCashMovement).map((item) => String(item.relatedId || item.related_id || "")));
   const cashBankMovementIds = new Set(activeCash.filter((item) => cashMovementType(item) === "Bankadan Nakit Gelen" && String(item.relatedTable || item.related_table || "") === "bank_movements").map((item) => String(item.relatedId || item.related_id || "")));
   const cashExpenseMovementIds = new Set(activeCash.filter((item) => cashMovementType(item) === "Gider" && String(item.relatedTable || item.related_table || "") === "expenses").map((item) => String(item.relatedId || item.related_id || "")));
   const purchasePaymentCashMovementIds = new Set(activeCash.filter((item) => isPurchasePaymentMovement(item)).map((item) => String(item.id || "")));
 
-  const legacyCashSales = activeSalesRows
-    .filter((sale) => !cashSaleMovementIds.has(String(sale.id)))
-    .reduce((sum, sale) => sum + parseMoneyInput(sale.cash || sale.cash_amount || 0), 0);
-  const todayLegacyCashSales = activeSalesRows
-    .filter((sale) => !cashSaleMovementIds.has(String(sale.id)) && isSameReportDay(sale, todayKey))
-    .reduce((sum, sale) => sum + parseMoneyInput(sale.cash || sale.cash_amount || 0), 0);
+  const normalizedCashSales = activeSalesRows
+    .reduce((sum, sale) => sum + normalizeSalePaymentDistributionForReport(sale).cash, 0);
+  const todayNormalizedCashSales = activeSalesRows
+    .filter((sale) => isSameReportDay(sale, todayKey))
+    .reduce((sum, sale) => sum + normalizeSalePaymentDistributionForReport(sale).cash, 0);
   const legacyBankCashIncoming = activeBank
     .filter((item) => bankMovementType(item) === "Bankadan Çekilen" && !cashBankMovementIds.has(String(item.id)))
     .reduce((sum, item) => sum + Math.abs(bankMovementAmount(item)), 0);
@@ -685,10 +689,12 @@ function calculateFinanceSummary({ cashMovements = [], bankMovements = [], sales
     .filter((item) => !cashExpenseMovementIds.has(String(item.id)))
     .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
 
-  const cashNetEffect = activeCash.reduce((sum, item) => sum + getCashNetEffect(item), 0);
+  const cashNetEffect = activeCash
+    .filter((item) => !isLinkedSaleCashMovement(item))
+    .reduce((sum, item) => sum + getCashNetEffect(item), 0);
   const todayRealCashIncome = activeCash
-    .filter((item) => isSameReportDay(item, todayKey) && isRealCashIncome(item))
-    .reduce((sum, item) => sum + movementAmount(item), 0) + todayLegacyCashSales;
+    .filter((item) => !isLinkedSaleCashMovement(item) && isSameReportDay(item, todayKey) && isRealCashIncome(item))
+    .reduce((sum, item) => sum + movementAmount(item), 0) + todayNormalizedCashSales;
   const todayCashIncomeCorrections = activeCash
     .filter((item) => isSameReportDay(item, todayKey) && cashMovementType(item) === cashEntryCancellationType && movementDirection(item) === "out")
     .reduce((sum, item) => sum + movementAmount(item), 0);
@@ -724,14 +730,14 @@ function calculateFinanceSummary({ cashMovements = [], bankMovements = [], sales
     cashBankMovementIds,
     cashExpenseMovementIds,
     cashNetEffect,
-    expectedCash: cashNetEffect + legacyCashSales + legacyBankCashIncoming - legacyExpenseOut,
+    expectedCash: cashNetEffect + normalizedCashSales + legacyBankCashIncoming - legacyExpenseOut,
     todayCashIncome,
     todayBankCashIncoming,
     todayCashExpense,
     cashExpenseTotal,
     purchasePaymentsNet: Math.max(purchasePaymentTotal - purchasePaymentCancelTotal, 0),
     receivablePaymentsTotal,
-    legacyCashSales,
+    legacyCashSales: normalizedCashSales,
     legacyBankCashIncoming,
     legacyExpenseOut,
   };
@@ -748,6 +754,38 @@ function calcSale(sale) {
   const remaining = sale.type === "Aksesuar Satışı" ? 0 : Math.max(total - cash - card, 0);
   const profit = total - parseMoneyInput(sale.productBuyPrice || 0);
   return { ...sale, total: money(total), cash: money(cash), card: money(card), remaining, profit };
+}
+
+function normalizeSalePaymentDistributionForReport(sale) {
+  const total = parseMoneyInput(sale?.total || sale?.total_amount || 0);
+  const rawCash = parseMoneyInput(sale?.cash || sale?.cash_amount || 0);
+  const rawCard = parseMoneyInput(sale?.card || sale?.card_amount || 0);
+  const rawDebt = parseMoneyInput(sale?.remaining || sale?.remaining_amount || 0);
+  const paidTotal = rawCash + rawCard;
+
+  if (total > 0 && paidTotal > total) {
+    const card = Math.min(rawCard, total);
+    const cash = Math.max(total - card, 0);
+    console.warn("Satış ödeme dağılımı raporda normalize edildi.", {
+      saleId: sale?.id || "",
+      total,
+      rawCash,
+      rawCard,
+      rawDebt,
+      normalizedCash: cash,
+      normalizedCard: card,
+      overpaid: paidTotal - total,
+    });
+    return { total, cash, card, debt: 0, overpaid: paidTotal - total };
+  }
+
+  return {
+    total,
+    cash: rawCash,
+    card: rawCard,
+    debt: Math.max(total - paidTotal, 0),
+    overpaid: 0,
+  };
 }
 
 function Stat({ title, value, negative = false }) {
@@ -1231,12 +1269,13 @@ export default function App() {
   const technicalServiceTotal = saleTotalByType((sale) => sale.type === "Teknik Servis") + technicalServiceMovementTotal;
   const otherSalesTotal = saleTotalByType((sale) => !["Telefon Satışı", "Aksesuar Satışı", "Teknik Servis"].includes(sale.type));
   const saleIncomeSummary = (predicate) => {
-    const rows = activeSales.filter(predicate);
-    const cash = rows.reduce((sum, sale) => sum + parseMoneyInput(sale.cash), 0);
-    const card = rows.reduce((sum, sale) => sum + parseMoneyInput(sale.card), 0);
-    const debt = rows.reduce((sum, sale) => sum + Number(sale.remaining || 0), 0);
+    const rows = activeSales.filter(predicate).map(normalizeSalePaymentDistributionForReport);
+    const cash = rows.reduce((sum, sale) => sum + sale.cash, 0);
+    const card = rows.reduce((sum, sale) => sum + sale.card, 0);
+    const debt = rows.reduce((sum, sale) => sum + sale.debt, 0);
     const refund = 0;
-    return { cash, card, debt, refund, total: Math.max(cash + card + debt - refund, 0) };
+    const total = rows.reduce((sum, sale) => sum + sale.total, 0);
+    return { cash, card, debt, refund, total: Math.max(total - refund, 0) };
   };
   const phoneIncomeSummary = saleIncomeSummary((sale) => sale.type === "Telefon Satışı");
   const accessoryIncomeSummary = saleIncomeSummary((sale) => sale.type === "Aksesuar Satışı");
@@ -1322,7 +1361,7 @@ export default function App() {
   const todayCashIn = financeSummary.todayCashIncome;
   const stockPurchasePayments = financeSummary.purchasePaymentsNet;
   const receivablePayments = financeSummary.receivablePaymentsTotal;
-  const cardSalesTotal = activeSales.reduce((sum, sale) => sum + parseMoneyInput(sale.card || sale.card_amount || 0), 0) + technicalBankMovementNet;
+  const cardSalesTotal = activeSales.reduce((sum, sale) => sum + normalizeSalePaymentDistributionForReport(sale).card, 0) + technicalBankMovementNet;
   const cashExpensePayments = financeSummary.cashExpenseTotal;
 
   function dailyReportRowType(item) {
@@ -1354,10 +1393,11 @@ export default function App() {
 
     safeSales.filter((sale) => isSameReportDay(sale, selectedDate)).forEach((sale) => {
       const inactive = !isActiveRecord(sale);
-      const total = parseMoneyInput(sale.total || sale.total_amount || 0);
-      const cash = parseMoneyInput(sale.cash || sale.cash_amount || 0);
-      const card = parseMoneyInput(sale.card || sale.card_amount || 0);
-      const remaining = parseMoneyInput(sale.remaining || sale.remaining_amount || 0);
+      const paymentDistribution = normalizeSalePaymentDistributionForReport(sale);
+      const total = paymentDistribution.total;
+      const cash = paymentDistribution.cash;
+      const card = paymentDistribution.card;
+      const remaining = paymentDistribution.debt;
       rows.push({
         date: reportDateValue(sale),
         tone: inactive ? "cancel" : "sale",
@@ -2137,6 +2177,7 @@ export default function App() {
     if (!isAccessorySale && saleRemaining > 0 && !saleForm.cariPerson.trim()) return alert("Kalan varsa Cari Ekle zorunludur");
     if (saleCard > 0 && !saleForm.bank) return alert("Kart ödeme varsa banka seç");
     if (!saleTotal) return alert(isProgramSale ? "Ne kadar olduğunu yaz" : "Satış fiyatını yaz");
+    if (saleCash + saleCard > saleTotal) return alert("Nakit + kart toplamı satış fiyatını aşamaz.");
 
     const sale = calcSale({
       id: Date.now(),
@@ -2185,6 +2226,13 @@ export default function App() {
 
   async function updateSale() {
     const fixed = calcSale(editingSale);
+    const editTotal = parseMoneyInput(fixed.total);
+    const editCash = parseMoneyInput(fixed.cash);
+    const editCard = parseMoneyInput(fixed.card);
+    if (editCash + editCard > editTotal) {
+      alert("Nakit + kart toplamı satış fiyatını aşamaz.");
+      return;
+    }
     const editCustomerName = String(fixed.customer || fixed.cariPerson || "").trim();
     if (Number(fixed.remaining || 0) > 0 && !editCustomerName) {
       alert("Kalan bakiye varsa müşteri adı zorunludur.");
