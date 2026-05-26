@@ -1407,51 +1407,222 @@ const isSaleCancelAction = (modal) => {
     return restored;
   };
 
+  const restoreStockForKasaBrainRowFallback = (row) => {
+    const clean = (value) =>
+      String(value || "")
+        .toLocaleLowerCase("tr-TR")
+        .replace(/\s+/g, " ")
+        .replace(/[|,;:]/g, " ")
+        .trim();
+
+    const rowText = clean(row?.description || row?.product || row?.model || row?.title);
+    if (!rowText) return false;
+
+    let restored = false;
+
+    setStock((currentStock) =>
+      (currentStock || []).map((product) => {
+        const productText = clean(
+          product?.name ||
+          product?.productName ||
+          product?.model ||
+          product?.title ||
+          product?.description ||
+          product?.imei
+        );
+
+        const productImei = clean(product?.imei || product?.serial || product?.barcode);
+        const rowHasProduct =
+          productText &&
+          (
+            rowText.includes(productText) ||
+            productText.includes(rowText) ||
+            rowText.split(" ").filter((w) => w.length > 2).some((w) => productText.includes(w))
+          );
+
+        const imeiMatch = productImei && rowText.includes(productImei);
+
+        if (!rowHasProduct && !imeiMatch) return product;
+
+        restored = true;
+
+        const currentQuantity = Number(product?.quantity ?? product?.stock ?? product?.adet ?? 0);
+        const nextQuantity = Number.isFinite(currentQuantity) ? currentQuantity + 1 : 1;
+
+        return {
+          ...product,
+          quantity: nextQuantity,
+          stock: product?.stock !== undefined ? nextQuantity : product?.stock,
+          adet: product?.adet !== undefined ? nextQuantity : product?.adet,
+          status: product?.status === "sold" || product?.status === "Satıldı" ? "active" : product?.status,
+          restoredByKasaBrain: true,
+          restoredAt: new Date().toISOString()
+        };
+      })
+    );
+
+    return restored;
+  };
+
   const handleSaleCancel = ({ reason, password }) => {
     const row = kasaBrainModal?.row || {};
     const targetSale = findSaleForKasaBrainRow(row);
 
-    if (!targetSale) {
-      window.alert("Kasa Beyni: İptal edilecek satış kaydı bulunamadı. İşlem durduruldu.");
-      return false;
-    }
+    const nowIso = new Date().toISOString();
+    const fallbackSaleId = `report-row-${row?.no || Date.now()}-${String(row?.description || "").slice(0, 20)}`;
+    const saleId = String(targetSale?.id || targetSale?.saleId || row?.id || row?.saleId || row?.relatedId || row?.related_id || fallbackSaleId);
+    const cancelId = `sale-cancel-${Date.now()}`;
+
+    const numberValue = (value) => {
+      if (typeof value === "number") return value;
+      return Number(
+        String(value || "0")
+          .replace(/\./g, "")
+          .replace(",", ".")
+          .replace(/[^0-9.-]/g, "")
+      ) || 0;
+    };
+
+    const rowCash = numberValue(row.cash || targetSale?.cash || targetSale?.cash_amount);
+    const rowBank = numberValue(row.bank || targetSale?.card || targetSale?.bank || targetSale?.bank_amount || targetSale?.card_amount);
+    const rowDebt = numberValue(row.debt || targetSale?.remaining || targetSale?.debt || targetSale?.cari);
+    const rowTotal = numberValue(row.total || targetSale?.total || targetSale?.totalAmount || targetSale?.salePrice || targetSale?.price || targetSale?.amount);
 
     const saleStatus = String(targetSale?.status || "").toLocaleLowerCase("tr-TR");
     if (
-      saleStatus.includes("cancel") ||
-      saleStatus.includes("iptal") ||
-      targetSale?.cancelledByKasaBrain
+      targetSale &&
+      (
+        saleStatus.includes("cancel") ||
+        saleStatus.includes("iptal") ||
+        targetSale?.cancelledByKasaBrain
+      )
     ) {
       window.alert("Kasa Beyni: Bu satış daha önce iptal edilmiş. İkinci kez iptal edilemez.");
       return false;
     }
 
-    const nowIso = new Date().toISOString();
-    const saleId = String(targetSale?.id || targetSale?.saleId || row?.id || row?.no || Date.now());
-    const cancelId = `sale-cancel-${Date.now()}`;
+    const alreadyReversed = (cashMovements || []).some((movement) => {
+      const movementType = String(movement.movement_type || movement.movementType || movement.type || "").toLocaleLowerCase("tr-TR");
+      const relatedId = String(movement.relatedId || movement.related_id || "");
+      const note = String(movement.note || "").toLocaleLowerCase("tr-TR");
+      const rowNo = String(row.no || "");
 
-    setSales((currentSales) =>
-      (currentSales || []).map((sale) => {
-        const currentId = String(sale?.id || sale?.saleId || "");
-        const sameSale =
-          currentId === saleId ||
-          sale === targetSale;
+      return (
+        movementType.includes("satış iptal") &&
+        (
+          relatedId === saleId ||
+          (rowNo && note.includes(`kayıt no: ${rowNo}`)) ||
+          note.includes(String(row.description || "").toLocaleLowerCase("tr-TR"))
+        )
+      );
+    });
 
-        if (!sameSale) return sale;
+    if (alreadyReversed) {
+      window.alert("Kasa Beyni: Bu satış için iptal ters hareketi daha önce oluşturulmuş. İkinci kez iptal edilemez.");
+      return false;
+    }
 
-        return {
-          ...sale,
-          status: "cancelled",
-          cancelled: true,
-          cancelledAt: nowIso,
-          cancelledByKasaBrain: true,
-          cancellationReason: reason,
-          kasaBrainCancelId: cancelId
-        };
-      })
-    );
+    if (targetSale) {
+      setSales((currentSales) =>
+        (currentSales || []).map((sale) => {
+          const currentId = String(sale?.id || sale?.saleId || "");
+          const sameSale = currentId === saleId || sale === targetSale;
 
-    const stockRestored = restoreStockForCancelledSale(targetSale);
+          if (!sameSale) return sale;
+
+          return {
+            ...sale,
+            status: "cancelled",
+            cancelled: true,
+            cancelledAt: nowIso,
+            cancelledByKasaBrain: true,
+            cancellationReason: reason,
+            kasaBrainCancelId: cancelId
+          };
+        })
+      );
+    } else {
+      console.warn("Kasa Beyni: Satış kaydı sales içinde bulunamadı; rapor satırı üzerinden finansal ters hareket uygulanıyor.", row);
+    }
+
+    const reverseMovements = [];
+
+    if (rowCash > 0) {
+      reverseMovements.push({
+        id: `${cancelId}-cash`,
+        date: nowIso,
+        createdAt: nowIso,
+        movement_type: "Satış İptal Nakit",
+        movementType: "Satış İptal Nakit",
+        type: "Satış İptal Nakit",
+        direction: "out",
+        amount: rowCash,
+        note: `Satış iptal nakit ters hareket | Kayıt No: ${row.no || "-"} | ${row.description || ""} | Sebep: ${reason}`,
+        relatedTable: "sales",
+        related_table: "sales",
+        relatedId: saleId,
+        related_id: saleId,
+        originalRecordNo: row.no || null,
+        cancelledByKasaBrain: true,
+        kasaBrainReason: reason,
+        kasaBrainPasswordUsed: Boolean(password),
+        status: "sale_cancel_reverse_cash"
+      });
+    }
+
+    if (rowBank > 0) {
+      reverseMovements.push({
+        id: `${cancelId}-bank-shadow`,
+        date: nowIso,
+        createdAt: nowIso,
+        movement_type: "Satış İptal Kart/Banka",
+        movementType: "Satış İptal Kart/Banka",
+        type: "Satış İptal Kart/Banka",
+        direction: "out",
+        amount: rowBank,
+        note: `Satış iptal kart/banka ters hareket | Kayıt No: ${row.no || "-"} | ${row.description || ""} | Sebep: ${reason}`,
+        relatedTable: "sales",
+        related_table: "sales",
+        relatedId: saleId,
+        related_id: saleId,
+        originalRecordNo: row.no || null,
+        cancelledByKasaBrain: true,
+        kasaBrainReason: reason,
+        kasaBrainPasswordUsed: Boolean(password),
+        status: "sale_cancel_reverse_bank_shadow"
+      });
+    }
+
+    if (rowDebt > 0) {
+      reverseMovements.push({
+        id: `${cancelId}-debt-shadow`,
+        date: nowIso,
+        createdAt: nowIso,
+        movement_type: "Satış İptal Cari",
+        movementType: "Satış İptal Cari",
+        type: "Satış İptal Cari",
+        direction: "out",
+        amount: rowDebt,
+        note: `Satış iptal cari/kalan borç kapama | Kayıt No: ${row.no || "-"} | ${row.description || ""} | Sebep: ${reason}`,
+        relatedTable: "sales",
+        related_table: "sales",
+        relatedId: saleId,
+        related_id: saleId,
+        originalRecordNo: row.no || null,
+        cancelledByKasaBrain: true,
+        kasaBrainReason: reason,
+        kasaBrainPasswordUsed: Boolean(password),
+        status: "sale_cancel_reverse_debt_shadow"
+      });
+    }
+
+    if (reverseMovements.length) {
+      setCashMovements((current) => [...reverseMovements, ...(current || [])]);
+    }
+
+    const stockRestored = targetSale
+      ? restoreStockForCancelledSale(targetSale) || restoreStockForKasaBrainRowFallback(row)
+      : restoreStockForKasaBrainRowFallback(row);
 
     const logRecord = {
       id: `kasa-brain-real-${Date.now()}`,
@@ -1459,17 +1630,19 @@ const isSaleCancelAction = (modal) => {
       action: kasaBrainModal.action || "Satış İptal",
       recordNo: row.no || null,
       saleId,
+      saleFound: Boolean(targetSale),
       type: row.type || "Satış",
       description: row.description || "",
       party: row.party || "",
-      cash: Number(row.cash || 0),
-      bank: Number(row.bank || 0),
-      debt: Number(row.debt || 0),
-      refund: Number(row.refund || 0),
-      total: Number(row.total || 0),
+      cash: rowCash,
+      bank: rowBank,
+      debt: rowDebt,
+      refund: numberValue(row.refund),
+      total: rowTotal,
       reason,
-      status: "REAL_SALE_CANCEL_PHASE_5B",
-      result: "Sale soft-cancelled, stock restore attempted, no hard delete",
+      status: "REAL_SALE_CANCEL_PHASE_5B3_REPORT_ROW_REVERSAL",
+      result: "Sale cancel applied from cash report row; reverse cash/bank/debt movements created; stock restore attempted; no hard delete",
+      reverseMovementIds: reverseMovements.map((item) => item.id),
       stockRestored,
       cancelId,
       passwordUsed: Boolean(password)
@@ -1483,14 +1656,24 @@ const isSaleCancelAction = (modal) => {
     }
 
     window.alert(
-      `Kasa Beyni: Satış iptal edildi.\n` +
-      `Kayıt No: ${row.no || "-"}\n` +
-      `Toplam: ${money(Number(row.total || 0))}\n` +
-      `Stok geri alma: ${stockRestored ? "denendi/uygulandı" : "eşleşen stok bulunamadı"}\n` +
+      `Kasa Beyni: Satış iptal edildi.
+` +
+      `Kayıt No: ${row.no || "-"}
+` +
+      `Nakit ters hareket: -${money(rowCash)}
+` +
+      `Kart/Banka ters hareket: -${money(rowBank)}
+` +
+      `Cari/Kalan kapama: -${money(rowDebt)}
+` +
+      `Stok geri alma: ${stockRestored ? "denendi/uygulandı" : "eşleşen stok bulunamadı"}
+` +
+      `Satış kaydı eşleşmesi: ${targetSale ? "bulundu" : "rapor satırı üzerinden yapıldı"}
+` +
       `Gerçek silme yapılmadı.`
     );
 
-    setSyncMessage(`Kasa Beyni: Satış iptal edildi. Kayıt No: ${row.no}. Gerçek silme yapılmadı.`);
+    setSyncMessage(`Kasa Beyni: Satış iptal edildi. Nakit/Kart/Cari ters hareket oluşturuldu. Kayıt No: ${row.no}.`);
     setKasaBrainReason("");
     setKasaBrainPassword("");
     setKasaBrainModal(null);
@@ -2254,6 +2437,27 @@ const isSameSalesListDay = (item, dateKey) => {
       .sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime())
       .map((row, index) => ({ ...row, no: index + 1 }));
   }
+
+  const kasaBrainActionsForRow = (row) => {
+    const type = String(row?.type || "").toLocaleLowerCase("tr-TR");
+    const isCancelled = type.includes("iptal") || type.includes("iade") || row?.cancelled || row?.cancelledByKasaBrain;
+
+    if (isCancelled) return ["Detay"];
+
+    if (type.includes("satış")) {
+      return ["Detay", "Düzelt", "Satış İptal", "Satış İade"];
+    }
+
+    if (type.includes("nakit girişi") || type.includes("manuel nakit")) {
+      return ["Detay", "İptal"];
+    }
+
+    if (type.includes("alım ödemesi")) {
+      return ["Detay", "Alım İptal"];
+    }
+
+    return ["Detay"];
+  };
 
   const dailyCashReportRows = normalizeDailyCashReportRows(dailyReportDate);
   const dailyCashReportTotals = dailyCashReportRows.reduce((totals, row) => ({
@@ -4657,7 +4861,7 @@ const isSameSalesListDay = (item, dateKey) => {
               </div>
             </div>
                 <p>Seçilen tarihteki satışlar listelenir. Geçmiş gün satışları bugünün listesinde görünmez.</p>
-                <Table headers={["No", "Tarih/Saat", "İşlem Türü", "Müşteri", "Ürün / Cihaz", "Yöntem", "Tutar", "Nakit", "Kart/Banka", "Kalan/Cari", "Kâr", "Durum", "Detay", "Sil"]} rows={combinedSalesListRows.map((row, index) => {
+                <Table headers={["No", "Tarih/Saat", "İşlem Türü", "Müşteri", "Ürün / Cihaz", "Yöntem", "Tutar", "Nakit", "Kart/Banka", "Kalan/Cari", "Kâr", "Durum", "Detay"]} rows={combinedSalesListRows.map((row, index) => {
                   if (row.kind === "technical") {
                     const { movement, service } = row;
                     const signedAmount = movement.direction === "out" ? -movement.amount : movement.amount;
@@ -4702,7 +4906,7 @@ const isSameSalesListDay = (item, dateKey) => {
                     money(sale.profit),
                     sale.status || "active",
                     <button className="edit-btn" onClick={() => openSaleEditor(sale)}><Pencil size={14} /> Düzenle</button>,
-                    <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
+                    <button className="delete-btn" onClick={() => { window.alert("Satış silme kapatıldı. Satış iptal/iade/düzeltme sadece Kasa > Kasa Kapanış > Günlük Kasa Raporu > Kasa Beyni üzerinden yapılır."); }}>Sil</button>,
                   ];
                 })} />
               </section>
@@ -5397,7 +5601,7 @@ const isSameSalesListDay = (item, dateKey) => {
                       <button className="link-btn" onClick={() => setSelectedReceivableMovement(sale)}>{sale.productName}</button>,
                       money(sale.remaining),
                       <button className="edit-btn" onClick={() => openSaleEditor(sale)}><Pencil size={14} /> Düzenle</button>,
-                      <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
+                      <button className="delete-btn" onClick={() => { window.alert("Satış silme kapatıldı. Satış iptal/iade/düzeltme sadece Kasa > Kasa Kapanış > Günlük Kasa Raporu > Kasa Beyni üzerinden yapılır."); }}>Sil</button>,
                     ])} />
                   </>
                 ) : (
@@ -5529,7 +5733,7 @@ const isSameSalesListDay = (item, dateKey) => {
                   sale.card,
                   money(sale.remaining),
                   <button className="edit-btn" onClick={() => openSaleEditor(sale)}>Düzenle</button>,
-                  <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
+                  <button className="delete-btn" onClick={() => { window.alert("Satış silme kapatıldı. Satış iptal/iade/düzeltme sadece Kasa > Kasa Kapanış > Günlük Kasa Raporu > Kasa Beyni üzerinden yapılır."); }}>Sil</button>,
                 ])} />
               </section>
             )}
