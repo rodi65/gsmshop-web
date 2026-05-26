@@ -1229,6 +1229,232 @@ Bu kayıt ikinci kez iptal edilemez.`);
     return true;
   };
 
+const isSaleCancelAction = (modal) => {
+    const action = String(modal?.action || "").toLocaleLowerCase("tr-TR");
+    const rowType = String(modal?.row?.type || "").toLocaleLowerCase("tr-TR");
+
+    return action === "satış iptal" && rowType.includes("satış");
+  };
+
+  const normalizeKasaBrainText = (value) =>
+    String(value || "")
+      .toLocaleLowerCase("tr-TR")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const findSaleForKasaBrainRow = (row) => {
+    const rowId = String(row?.id || row?.saleId || row?.relatedId || row?.related_id || "");
+    const rowDescription = normalizeKasaBrainText(row?.description);
+    const rowParty = normalizeKasaBrainText(row?.party);
+    const rowTotal = Number(row?.total || 0);
+    const rowCash = Number(row?.cash || 0);
+    const rowBank = Number(row?.bank || 0);
+    const rowDebt = Number(row?.debt || 0);
+
+    return (sales || []).find((sale) => {
+      const saleId = String(sale?.id || sale?.saleId || "");
+      const saleDescription = normalizeKasaBrainText(
+        sale?.description ||
+        sale?.productName ||
+        sale?.product ||
+        sale?.deviceName ||
+        sale?.model ||
+        sale?.name ||
+        sale?.title
+      );
+      const saleParty = normalizeKasaBrainText(
+        sale?.customer ||
+        sale?.customerName ||
+        sale?.cariPerson ||
+        sale?.buyer ||
+        sale?.party
+      );
+
+      const saleTotal = Number(
+        sale?.total ||
+        sale?.totalAmount ||
+        sale?.salePrice ||
+        sale?.price ||
+        sale?.amount ||
+        0
+      );
+
+      const saleCash = Number(sale?.cash || sale?.cash_amount || 0);
+      const saleBank = Number(sale?.card || sale?.bank || sale?.bank_amount || sale?.card_amount || 0);
+      const saleDebt = Number(sale?.remaining || sale?.debt || sale?.cari || 0);
+
+      const idMatch = rowId && saleId && rowId === saleId;
+      const descriptionMatch =
+        rowDescription &&
+        saleDescription &&
+        (rowDescription.includes(saleDescription) || saleDescription.includes(rowDescription));
+
+      const partyMatch =
+        !rowParty ||
+        !saleParty ||
+        rowParty.includes(saleParty) ||
+        saleParty.includes(rowParty);
+
+      const totalMatch = !rowTotal || !saleTotal || Math.abs(rowTotal - saleTotal) < 1;
+      const cashMatch = !rowCash || Math.abs(rowCash - saleCash) < 1;
+      const bankMatch = !rowBank || Math.abs(rowBank - saleBank) < 1;
+      const debtMatch = !rowDebt || Math.abs(rowDebt - saleDebt) < 1;
+
+      return idMatch || (descriptionMatch && partyMatch && totalMatch && cashMatch && bankMatch && debtMatch);
+    });
+  };
+
+  const restoreStockForCancelledSale = (targetSale) => {
+    const productId = String(
+      targetSale?.productId ||
+      targetSale?.product_id ||
+      targetSale?.stockId ||
+      targetSale?.stock_id ||
+      ""
+    );
+
+    const saleDescription = normalizeKasaBrainText(
+      targetSale?.description ||
+      targetSale?.productName ||
+      targetSale?.product ||
+      targetSale?.deviceName ||
+      targetSale?.model ||
+      targetSale?.name ||
+      targetSale?.title
+    );
+
+    let restored = false;
+
+    setStock((currentStock) =>
+      (currentStock || []).map((product) => {
+        const currentProductId = String(product?.id || product?.productId || product?.stockId || "");
+        const productText = normalizeKasaBrainText(
+          product?.name ||
+          product?.productName ||
+          product?.model ||
+          product?.title ||
+          product?.description
+        );
+
+        const idMatch = productId && currentProductId && productId === currentProductId;
+        const textMatch =
+          !productId &&
+          saleDescription &&
+          productText &&
+          (saleDescription.includes(productText) || productText.includes(saleDescription));
+
+        if (!idMatch && !textMatch) return product;
+
+        restored = true;
+
+        const currentQuantity = Number(product?.quantity ?? product?.stock ?? product?.adet ?? 0);
+        const nextQuantity = Number.isFinite(currentQuantity) ? currentQuantity + 1 : 1;
+
+        return {
+          ...product,
+          quantity: nextQuantity,
+          stock: product?.stock !== undefined ? nextQuantity : product?.stock,
+          adet: product?.adet !== undefined ? nextQuantity : product?.adet,
+          status: product?.status === "sold" || product?.status === "Satıldı" ? "active" : product?.status,
+          restoredByKasaBrain: true,
+          restoredAt: new Date().toISOString()
+        };
+      })
+    );
+
+    return restored;
+  };
+
+  const handleSaleCancel = ({ reason, password }) => {
+    const row = kasaBrainModal?.row || {};
+    const targetSale = findSaleForKasaBrainRow(row);
+
+    if (!targetSale) {
+      window.alert("Kasa Beyni: İptal edilecek satış kaydı bulunamadı. İşlem durduruldu.");
+      return false;
+    }
+
+    const saleStatus = String(targetSale?.status || "").toLocaleLowerCase("tr-TR");
+    if (
+      saleStatus.includes("cancel") ||
+      saleStatus.includes("iptal") ||
+      targetSale?.cancelledByKasaBrain
+    ) {
+      window.alert("Kasa Beyni: Bu satış daha önce iptal edilmiş. İkinci kez iptal edilemez.");
+      return false;
+    }
+
+    const nowIso = new Date().toISOString();
+    const saleId = String(targetSale?.id || targetSale?.saleId || row?.id || row?.no || Date.now());
+    const cancelId = `sale-cancel-${Date.now()}`;
+
+    setSales((currentSales) =>
+      (currentSales || []).map((sale) => {
+        const currentId = String(sale?.id || sale?.saleId || "");
+        const sameSale =
+          currentId === saleId ||
+          sale === targetSale;
+
+        if (!sameSale) return sale;
+
+        return {
+          ...sale,
+          status: "cancelled",
+          cancelled: true,
+          cancelledAt: nowIso,
+          cancelledByKasaBrain: true,
+          cancellationReason: reason,
+          kasaBrainCancelId: cancelId
+        };
+      })
+    );
+
+    const stockRestored = restoreStockForCancelledSale(targetSale);
+
+    const logRecord = {
+      id: `kasa-brain-real-${Date.now()}`,
+      createdAt: nowIso,
+      action: kasaBrainModal.action || "Satış İptal",
+      recordNo: row.no || null,
+      saleId,
+      type: row.type || "Satış",
+      description: row.description || "",
+      party: row.party || "",
+      cash: Number(row.cash || 0),
+      bank: Number(row.bank || 0),
+      debt: Number(row.debt || 0),
+      refund: Number(row.refund || 0),
+      total: Number(row.total || 0),
+      reason,
+      status: "REAL_SALE_CANCEL_PHASE_5B",
+      result: "Sale soft-cancelled, stock restore attempted, no hard delete",
+      stockRestored,
+      cancelId,
+      passwordUsed: Boolean(password)
+    };
+
+    try {
+      const currentLogs = JSON.parse(localStorage.getItem("ceplogKasaBrainAuditLogs") || "[]");
+      localStorage.setItem("ceplogKasaBrainAuditLogs", JSON.stringify([logRecord, ...currentLogs]));
+    } catch (error) {
+      console.error("Kasa Beyni satış iptal audit log yazılamadı:", error);
+    }
+
+    window.alert(
+      `Kasa Beyni: Satış iptal edildi.\n` +
+      `Kayıt No: ${row.no || "-"}\n` +
+      `Toplam: ${money(Number(row.total || 0))}\n` +
+      `Stok geri alma: ${stockRestored ? "denendi/uygulandı" : "eşleşen stok bulunamadı"}\n` +
+      `Gerçek silme yapılmadı.`
+    );
+
+    setSyncMessage(`Kasa Beyni: Satış iptal edildi. Kayıt No: ${row.no}. Gerçek silme yapılmadı.`);
+    setKasaBrainReason("");
+    setKasaBrainPassword("");
+    setKasaBrainModal(null);
+    return true;
+  };
+
 const handleKasaBrainPreAudit = () => {
     if (!kasaBrainModal) {
       window.alert("Kasa Beyni: Seçili işlem bulunamadı.");
@@ -1250,6 +1476,11 @@ const handleKasaBrainPreAudit = () => {
 
     if (isManualCashEntryCancelAction(kasaBrainModal)) {
       const done = handleManualCashEntryCancel({ reason, password });
+      if (done) return;
+    }
+
+    if (isSaleCancelAction(kasaBrainModal)) {
+      const done = handleSaleCancel({ reason, password });
       if (done) return;
     }
 
