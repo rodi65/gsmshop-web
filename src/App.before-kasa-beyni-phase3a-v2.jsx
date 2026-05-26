@@ -4361,7 +4361,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <Table headers={["No", "Tarih / Saat", "İşlem Türü", "Ürün / Açıklama", "Müşteri / Tedarikçi", "Alış Fiyatı", "Satış Fiyatı", "Nakit", "Kart / Banka", "Borç / Cari", "İade / İptal", "Toplam", "İşlem"]} rows={dailyCashReportRows.map((row) => [
+                  <Table headers={["No", "Tarih / Saat", "İşlem Türü", "Ürün / Açıklama", "Müşteri / Tedarikçi", "Alış Fiyatı", "Satış Fiyatı", "Nakit", "Kart / Banka", "Borç / Cari", "İade / İptal", "Toplam"]} rows={dailyCashReportRows.map((row) => [
                     row.no,
                     formatRecordDate(row.date),
                     reportTypeBadge(row),
@@ -4374,53 +4374,6 @@ export default function App() {
                     reportMoneyCell(row.debt),
                     reportMoneyCell(row.refund, { negative: true }),
                     reportMoneyCell(row.total),
-              (
-                <div className="kasa-brain-actions" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {(
-                    String(row.type || "").toLocaleLowerCase("tr-TR").includes("satış")
-                      ? ["Detay", "Düzelt", "Satış İptal", "Satış İade"]
-                      : String(row.type || "").toLocaleLowerCase("tr-TR").includes("alım ödemesi")
-                        ? ["Detay", "Alım İptal"]
-                        : String(row.type || "").toLocaleLowerCase("tr-TR").includes("nakit")
-                          ? ["Detay", "İptal"]
-                          : ["Detay"]
-                  ).map((action) => (
-                    <button
-                      key={action}
-                      type="button"
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        window.alert(`Kasa Beyni: ${action} seçildi. Kayıt No: ${row.no}. Phase 4'te şifre + sebep + audit log aktif edilecek.`);
-                      }}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        window.alert(`Kasa Beyni: ${action} seçildi. Kayıt No: ${row.no}. Phase 4'te şifre + sebep + audit log aktif edilecek.`);
-                      }}
-                      style={{
-                        border: "1px solid #d8def0",
-                        borderRadius: 8,
-                        padding: "4px 7px",
-                        background: "#fff",
-                        color: "#111827",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        position: "relative",
-                        zIndex: 9999,
-                        pointerEvents: "auto"
-                      }}
-                      onClick={() =>
-                        setSyncMessage(`Kasa Beyni: ${action} seçildi. Kayıt No: ${row.no}. Phase 4'te şifre + sebep + audit log aktif edilecek.`)
-                      }
-                    >
-                      {action}
-                    </button>
-                  ))}
-                </div>
-              ),
                   ])} />
 
                   <div className="daily-report-totals">
