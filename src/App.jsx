@@ -1468,6 +1468,31 @@ const isSaleCancelAction = (modal) => {
     const row = kasaBrainModal?.row || {};
     const targetSale = findSaleForKasaBrainRow(row);
 
+    const duplicateSaleCancel = (cashMovements || []).some((movement) => {
+      const movementType = String(movement.movement_type || movement.movementType || movement.type || "").toLocaleLowerCase("tr-TR");
+      const note = String(movement.note || "").toLocaleLowerCase("tr-TR");
+      const originalRecordNo = String(movement.originalRecordNo || movement.recordNo || "");
+      const rowNo = String(row?.no || "");
+      const rowDescription = String(row?.description || "").toLocaleLowerCase("tr-TR");
+
+      return (
+        movementType.includes("satış iptal") &&
+        (
+          (rowNo && originalRecordNo && rowNo === originalRecordNo) ||
+          (rowNo && note.includes(`kayıt no: ${rowNo}`)) ||
+          (rowDescription && note.includes(rowDescription.slice(0, Math.min(rowDescription.length, 30))))
+        )
+      );
+    });
+
+    if (duplicateSaleCancel) {
+      window.alert("Kasa Beyni: Bu satış daha önce iptal edilmiş. Kasa tekrar etkilenmez.");
+      setKasaBrainReason("");
+      setKasaBrainPassword("");
+      setKasaBrainModal(null);
+      return true;
+    }
+
     const nowIso = new Date().toISOString();
     const fallbackSaleId = `report-row-${row?.no || Date.now()}-${String(row?.description || "").slice(0, 20)}`;
     const saleId = String(targetSale?.id || targetSale?.saleId || row?.id || row?.saleId || row?.relatedId || row?.related_id || fallbackSaleId);
@@ -4906,7 +4931,6 @@ const isSameSalesListDay = (item, dateKey) => {
                     money(sale.profit),
                     sale.status || "active",
                     <button className="edit-btn" onClick={() => openSaleEditor(sale)}><Pencil size={14} /> Düzenle</button>,
-                    <button className="delete-btn" onClick={() => { window.alert("Satış silme kapatıldı. Satış iptal/iade/düzeltme sadece Kasa > Kasa Kapanış > Günlük Kasa Raporu > Kasa Beyni üzerinden yapılır."); }}>Sil</button>,
                   ];
                 })} />
               </section>
@@ -5467,7 +5491,7 @@ const isSameSalesListDay = (item, dateKey) => {
                 </div>
               </div>
 
-              <StockTable stock={currentStockList} setEditingStock={openStockEditor} deleteStock={deleteStock} deviceView={stockView === "cihaz"} />
+              <StockTable stock={currentStockList} setEditingStock={openStockEditor} deviceView={stockView === "cihaz"} />
 
               {stockView === "tum" && (
                 <div className="grouped-stock">
@@ -6176,7 +6200,7 @@ function ReceivableMovementPage({ sale, stock, saveReceivablePayment, setSelecte
   );
 }
 
-function StockTable({ stock, setEditingStock, deleteStock, deviceView = false }) {
+function StockTable({ stock, setEditingStock, deviceView = false }) {
   if (deviceView) {
     return (
       <Table
