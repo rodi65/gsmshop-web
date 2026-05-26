@@ -29,6 +29,87 @@ const formatMoneyInput = (value) => {
   return `${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".")} TL`;
 };
 
+const normalizeMoney = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  return parseMoneyInput(value);
+};
+const formatMoney = (value) => money(value);
+const getAvailableCashBalance = (value = 0) => normalizeMoney(value);
+const isCashMethod = (method) => ["nakit", "kasa", "cash"].includes(String(method || "").toLocaleLowerCase("tr-TR"));
+const validateFinancialLimit = ({
+  amount,
+  maxAllowed,
+  availableCash,
+  paymentMethod = "",
+  label = "İşlem",
+  alreadyPaid = 0,
+  totalAmount,
+  isCashOut = false,
+  messages = {},
+} = {}) => {
+  const cleanAmount = Math.abs(normalizeMoney(amount));
+  const cleanAlreadyPaid = Math.abs(normalizeMoney(alreadyPaid));
+  const cleanMaxAllowed = maxAllowed === undefined || maxAllowed === null ? null : Math.max(normalizeMoney(maxAllowed), 0);
+  const cleanTotalAmount = totalAmount === undefined || totalAmount === null ? null : Math.max(normalizeMoney(totalAmount), 0);
+  const cashBalance = getAvailableCashBalance(availableCash);
+  const cashOut = isCashOut || isCashMethod(paymentMethod) && String(paymentMethod || "").toLocaleLowerCase("tr-TR") !== "kart/banka";
+
+  if (cleanAmount <= 0) {
+    return { ok: false, message: messages.empty || "Tutar 0’dan büyük olmalıdır." };
+  }
+
+  if (cleanMaxAllowed !== null && cleanAmount > cleanMaxAllowed) {
+    return {
+      ok: false,
+      message: messages.maxExceeded || `${label} tutarı izin verilen üst limiti aşamaz.`,
+    };
+  }
+
+  if (cleanTotalAmount !== null && cleanAlreadyPaid + cleanAmount > cleanTotalAmount) {
+    return {
+      ok: false,
+      message: messages.totalExceeded || `${label} toplam tutarı ana tutarı aşamaz.`,
+    };
+  }
+
+  if (cashOut && availableCash !== undefined && availableCash !== null) {
+    if (cashBalance <= 0) {
+      return {
+        ok: false,
+        message: messages.cashUnavailable || "Kasada yeterli nakit yok. Nakit ödeme yapılamaz.",
+      };
+    }
+    if (cleanAmount > cashBalance) {
+      return {
+        ok: false,
+        message: messages.cashExceeded || `Kasadaki nakitten fazla ödeme yapılamaz.\nMevcut kasa: ${formatMoney(cashBalance)}\nGirilen ödeme: ${formatMoney(cleanAmount)}`,
+      };
+    }
+  }
+
+  return { ok: true, amount: cleanAmount };
+};
+const validatePaymentDistribution = ({
+  totalAmount,
+  cashAmount = 0,
+  cardAmount = 0,
+  debtAmount,
+  messages = {},
+} = {}) => {
+  const total = Math.abs(normalizeMoney(totalAmount));
+  const cash = Math.abs(normalizeMoney(cashAmount));
+  const card = Math.abs(normalizeMoney(cardAmount));
+  const debt = debtAmount === undefined || debtAmount === null ? Math.max(total - cash - card, 0) : Math.abs(normalizeMoney(debtAmount));
+
+  if (total <= 0) return { ok: false, message: messages.empty || "Tutar 0’dan büyük olmalıdır." };
+  if (cash + card > total) {
+    return { ok: false, message: messages.overpaid || "Nakit + kart toplamı satış fiyatını aşamaz." };
+  }
+  if (cash + card + debt > total) {
+    return { ok: false, message: messages.debtExceeded || "Nakit + kart + kalan toplamı işlem tutarını aşamaz." };
+  }
+  return { ok: true, total, cash, card, debt };
+};
 const cleanMoneyTyping = (value) => String(value || "").replace(/\D/g, "");
 const stripMoneyForEdit = (value) => String(value || "").replace(/\D/g, "");
 const cleanPhone = (value) => String(value || "").replace(/\D/g, "").slice(0, 11);
@@ -1503,6 +1584,19 @@ export default function App() {
   }), { buy: 0, sale: 0, cash: 0, bank: 0, debt: 0, refund: 0, netCash: 0 });
 
   const cashWithBankIncoming = financeSummary.expectedCash;
+  const alertFinancialValidation = (validation) => {
+    if (validation?.ok) return true;
+    alert(validation?.message || "Finansal limit kontrolü başarısız.");
+    return false;
+  };
+  const validateCashOutLimit = (amount, label = "Nakit ödeme", messages = {}) => validateFinancialLimit({
+    amount,
+    availableCash: cashWithBankIncoming,
+    paymentMethod: "Nakit",
+    isCashOut: true,
+    label,
+    messages,
+  });
   const cashAfterExpenses = cashWithBankIncoming;
   const compactKasaSummaryCards = [
     {
@@ -1906,6 +2000,10 @@ export default function App() {
     const amount = parseMoneyInput(expenseForm.amount);
     if (!amount) return alert("Gider tutarını yaz");
     if (expenseForm.category === "Borç" && !expenseForm.note.trim()) return alert("Borç giderinde Not zorunludur");
+    if (!alertFinancialValidation(validateCashOutLimit(amount, "Gider", {
+      cashUnavailable: "Kasada yeterli nakit yok. Nakit ödeme yapılamaz.",
+      cashExceeded: `Kasadaki nakitten fazla ödeme yapılamaz.\nMevcut kasa: ${formatMoney(cashWithBankIncoming)}\nGirilen ödeme: ${formatMoney(amount)}`,
+    }))) return;
 
     try {
       const savedExpense = await createExpense({
@@ -2016,6 +2114,11 @@ export default function App() {
     if (!amount) return alert("İptal edilecek tutar bulunamadı.");
     const movementType = cashMovementCancellationTypeFor(item);
     if (!movementType) return alert("Bu hareket için iptal tipi belirlenemedi.");
+    const cancellationDirection = item.direction === "out" ? "in" : "out";
+    if (cancellationDirection === "out" && !alertFinancialValidation(validateCashOutLimit(amount, "Kasa hareketi iptali", {
+      cashUnavailable: "Kasada yeterli nakit yok. Nakit ödeme yapılamaz.",
+      cashExceeded: `Kasadaki nakitten fazla ödeme yapılamaz.\nMevcut kasa: ${formatMoney(cashWithBankIncoming)}\nGirilen ödeme: ${formatMoney(amount)}`,
+    }))) return;
 
     const ok = window.confirm("Bu kasa hareketini iptal etmek istiyor musunuz? Orijinal kayıt silinmez; kasa etkisi ters hareketle geri alınır.");
     if (!ok) return;
@@ -2023,7 +2126,7 @@ export default function App() {
     try {
       await createCashMovementCancellation({
         movement_type: movementType,
-        direction: item.direction === "out" ? "in" : "out",
+        direction: cancellationDirection,
         amount,
         note: `İptal: ${item.note || cashMovementType(item)}`,
         related_table: "cash_movements",
@@ -2040,11 +2143,25 @@ export default function App() {
 
   async function saveCariPayment(account, amountValue) {
     const amount = parseMoneyInput(amountValue);
+    const currentBalance = Number(account?.remaining || 0);
     if (!account?.name) return false;
     if (!amount) {
       alert("Ödeme tutarını yaz");
       return false;
     }
+    if (!alertFinancialValidation(validateFinancialLimit({
+      amount,
+      maxAllowed: currentBalance,
+      availableCash: cashWithBankIncoming,
+      paymentMethod: "Nakit",
+      isCashOut: true,
+      label: "Cari ödeme",
+      messages: {
+        maxExceeded: "Cari bakiye toplamından fazla ödeme yapılamaz.",
+        cashUnavailable: "Kasada yeterli nakit yok. Nakit ödeme yapılamaz.",
+        cashExceeded: `Kasadaki nakitten fazla ödeme yapılamaz.\nMevcut kasa: ${formatMoney(cashWithBankIncoming)}\nGirilen ödeme: ${formatMoney(amount)}`,
+      },
+    }))) return false;
 
     try {
       await createContactPayment({
@@ -2052,7 +2169,7 @@ export default function App() {
         name: account.name,
         phone: account.phone || "",
         amount,
-        currentBalance: Number(account.remaining || 0),
+        currentBalance,
         notePrefix: "Cari ödeme",
       });
       await refreshFromDatabase();
@@ -2066,18 +2183,27 @@ export default function App() {
 
   async function saveReceivablePayment(sale, amountValue) {
     const amount = parseMoneyInput(amountValue);
+    const currentRemaining = Number(sale?.remaining || 0);
     if (!sale?.id) return false;
     if (!amount) {
       alert("Tahsilat tutarını yaz");
       return false;
     }
+    if (!alertFinancialValidation(validateFinancialLimit({
+      amount,
+      maxAllowed: currentRemaining,
+      label: "Cari tahsilat",
+      messages: {
+        maxExceeded: "Müşteri borcundan fazla tahsilat alınamaz.",
+      },
+    }))) return false;
 
     try {
       await createReceivablePayment({
         saleId: sale.id,
         customerName: sale.cariPerson || sale.customer,
         amount,
-        currentRemaining: Number(sale.remaining || 0),
+        currentRemaining,
       });
       await refreshFromDatabase();
       setSyncMessage(`${sale.cariPerson || sale.customer || "Müşteri"} alacak tahsilatı kasaya giriş olarak işlendi.`);
@@ -2100,7 +2226,15 @@ export default function App() {
     if (!isDevice && !stockForm.qty) return "Stok adedi yaz";
     const purchaseTotal = parseMoneyInput(stockForm.buy) * (isDevice ? 1 : Number(stockForm.qty || 0));
     const paidTotal = parseMoneyInput(stockForm.supplierPaid);
-    if (paidTotal > purchaseTotal) return "Ödeme tutarı alış tutarını aşamaz.";
+    const paymentLimit = validateFinancialLimit({
+      amount: paidTotal || 1,
+      maxAllowed: purchaseTotal,
+      label: "Alım ödemesi",
+      messages: {
+        maxExceeded: "Alınan malın alış fiyatından fazla ödeme yapılamaz.",
+      },
+    });
+    if (paidTotal > 0 && !paymentLimit.ok) return paymentLimit.message;
     if (!stockForm.barcode) return "Barkod / IMEI yaz";
     if (stockForm.barcode.length > 15) return "Barkod / IMEI en fazla 15 rakam olabilir";
     if (stock.some((product) => product.barcode === stockForm.barcode)) return "Bu Barkod / IMEI zaten kayıtlı";
@@ -2115,6 +2249,21 @@ export default function App() {
     const isAccessory = module === "Aksesuar";
     const isSecondHandPhone = isSecondHandPhonePurchase(stockForm, module);
     const qty = isDevice ? 1 : Number(stockForm.qty || 0);
+    const purchaseTotal = parseMoneyInput(stockForm.buy) * qty;
+    const supplierPaid = parseMoneyInput(stockForm.supplierPaid);
+    if (supplierPaid > 0 && !alertFinancialValidation(validateFinancialLimit({
+      amount: supplierPaid,
+      maxAllowed: purchaseTotal,
+      availableCash: cashWithBankIncoming,
+      paymentMethod: "Nakit",
+      isCashOut: true,
+      label: "Alım ödemesi",
+      messages: {
+        maxExceeded: "Alınan malın alış fiyatından fazla ödeme yapılamaz.",
+        cashUnavailable: "Kasada yeterli nakit yok. Nakit ödeme yapılamaz.",
+        cashExceeded: `Kasadaki nakitten fazla ödeme yapılamaz.\nMevcut kasa: ${formatMoney(cashWithBankIncoming)}\nGirilen ödeme: ${formatMoney(supplierPaid)}`,
+      },
+    }))) return;
     const remaining = Math.max(parseMoneyInput(stockForm.buy) * qty - parseMoneyInput(stockForm.supplierPaid), 0);
     const item = {
       ...stockForm,
@@ -2177,7 +2326,12 @@ export default function App() {
     if (!isAccessorySale && saleRemaining > 0 && !saleForm.cariPerson.trim()) return alert("Kalan varsa Cari Ekle zorunludur");
     if (saleCard > 0 && !saleForm.bank) return alert("Kart ödeme varsa banka seç");
     if (!saleTotal) return alert(isProgramSale ? "Ne kadar olduğunu yaz" : "Satış fiyatını yaz");
-    if (saleCash + saleCard > saleTotal) return alert("Nakit + kart toplamı satış fiyatını aşamaz.");
+    if (!alertFinancialValidation(validatePaymentDistribution({
+      totalAmount: saleTotal,
+      cashAmount: saleCash,
+      cardAmount: saleCard,
+      messages: { overpaid: "Nakit + kart toplamı satış fiyatını aşamaz." },
+    }))) return;
 
     const sale = calcSale({
       id: Date.now(),
@@ -2229,10 +2383,12 @@ export default function App() {
     const editTotal = parseMoneyInput(fixed.total);
     const editCash = parseMoneyInput(fixed.cash);
     const editCard = parseMoneyInput(fixed.card);
-    if (editCash + editCard > editTotal) {
-      alert("Nakit + kart toplamı satış fiyatını aşamaz.");
-      return;
-    }
+    if (!alertFinancialValidation(validatePaymentDistribution({
+      totalAmount: editTotal,
+      cashAmount: editCash,
+      cardAmount: editCard,
+      messages: { overpaid: "Nakit + kart toplamı satış fiyatını aşamaz." },
+    }))) return;
     const editCustomerName = String(fixed.customer || fixed.cariPerson || "").trim();
     if (Number(fixed.remaining || 0) > 0 && !editCustomerName) {
       alert("Kalan bakiye varsa müşteri adı zorunludur.");
@@ -2273,8 +2429,15 @@ export default function App() {
     };
     const purchaseTotal = parseMoneyInput(fixed.buy) * Number(fixed.qty || 1);
     const paidTotal = parseMoneyInput(fixed.supplierPaid);
-    if (paidTotal > purchaseTotal) {
-      alert("Ödeme tutarı alış tutarını aşamaz.");
+    const stockEditPaymentLimit = validateFinancialLimit({
+      amount: paidTotal || 1,
+      maxAllowed: purchaseTotal,
+      label: "Alım ödemesi",
+      messages: {
+        maxExceeded: "Alınan malın alış fiyatından fazla ödeme yapılamaz.",
+      },
+    });
+    if (paidTotal > 0 && !alertFinancialValidation(stockEditPaymentLimit)) {
       return;
     }
     try {
@@ -2414,7 +2577,12 @@ export default function App() {
     if (!issue) return alert("Arıza açıklaması yaz");
     if (!technicalServiceForm.technician.trim()) return alert("Teknisyen / Teslim Alan seçilmelidir.");
     if (totalDeposit > 0 && !totalAmount) return alert("Kaparo/ödeme alınacaksa toplam servis tutarını yaz.");
-    if (totalDeposit > totalAmount) return alert("Alınan kaparo/ödeme toplam servis tutarından fazla olamaz.");
+    if (totalDeposit > 0 && !alertFinancialValidation(validatePaymentDistribution({
+      totalAmount,
+      cashAmount: cashDeposit,
+      cardAmount: cardDeposit,
+      messages: { overpaid: "Kaparo toplam servis ücretinden fazla olamaz." },
+    }))) return;
     if (cardDeposit > 0 && !technicalServiceForm.bank) return alert("Kart/banka kaparosu için banka seçmek zorunludur.");
 
     const serviceId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
@@ -2524,7 +2692,14 @@ export default function App() {
 
     if (!amount) return alert(isRefund ? "İade tutarını yaz." : "Ödeme tutarını yaz.");
     if (!summary.total && !isRefund) return alert("Toplam servis tutarı yazılmadan ödeme alınamaz.");
-    if (!isRefund && amount > summary.remaining) return alert("Ödeme kalan servis tutarından fazla olamaz.");
+    if (!isRefund && !alertFinancialValidation(validateFinancialLimit({
+      amount,
+      maxAllowed: summary.remaining,
+      label: "Teknik servis ödeme",
+      messages: {
+        maxExceeded: "Teknik servis kalan bakiyesinden fazla ödeme alınamaz.",
+      },
+    }))) return;
     if (method === "Kart/Banka" && !form.bank) return alert("Banka seçmek zorunludur.");
     if (isRefund) {
       if (!requireSecurityPassword("cancel", "Teknik servis iadesi")) return;
@@ -2533,7 +2708,19 @@ export default function App() {
         : summary.refundSources.find((item) => item.key === "cash");
       const available = source?.available || 0;
 
-      if (amount > summary.net) return alert("İade tutarı bu servis için tahsil edilen toplamdan fazla olamaz.");
+      if (!alertFinancialValidation(validateFinancialLimit({
+        amount,
+        maxAllowed: summary.net,
+        availableCash: method === "Nakit" ? cashWithBankIncoming : undefined,
+        paymentMethod: method,
+        isCashOut: method === "Nakit",
+        label: "Teknik servis iadesi",
+        messages: {
+          maxExceeded: "Teknik servis iadesi ödenen toplam tutardan fazla olamaz.",
+          cashUnavailable: "Kasada yeterli nakit yok. Nakit iade yapılamaz.",
+          cashExceeded: `Kasadaki nakitten fazla iade yapılamaz.\nMevcut kasa: ${formatMoney(cashWithBankIncoming)}\nGirilen ödeme: ${formatMoney(amount)}`,
+        },
+      }))) return;
       if (!available) return alert("Bu kaynakta iade edilebilir tutar yok.");
       if (amount > available) return alert(`Bu kaynaktan en fazla ${money(available)} iade yapılabilir.`);
     }
@@ -3670,9 +3857,10 @@ export default function App() {
               <section className="card">
                 <h2>Satış Listesi</h2>
                 <p>Normal satışlar ve teknik servis kaparo/tahsilat/iade hareketleri aynı listede görünür.</p>
-                <Table headers={["No", "Tarih/Saat", "İşlem Türü", "Müşteri", "Ürün / Cihaz", "Yöntem", "Tutar", "Kalan / Kâr", "Durum", "Detay", "Sil"]} rows={combinedSalesListRows.map((row, index) => {
+                <Table headers={["No", "Tarih/Saat", "İşlem Türü", "Müşteri", "Ürün / Cihaz", "Yöntem", "Tutar", "Nakit", "Kart/Banka", "Kalan/Cari", "Kâr", "Durum", "Detay", "Sil"]} rows={combinedSalesListRows.map((row, index) => {
                   if (row.kind === "technical") {
                     const { movement, service } = row;
+                    const signedAmount = movement.direction === "out" ? -movement.amount : movement.amount;
                     return [
                       index + 1,
                       new Date(movement.date).toLocaleString("tr-TR"),
@@ -3681,6 +3869,9 @@ export default function App() {
                       service?.device || movement.note || "-",
                       movement.method === "Kart/Banka" ? movement.bank || "Kart/Banka" : "Nakit",
                       <span className={movement.direction === "out" ? "technical-money-out" : "technical-money-in"}>{`${movement.direction === "out" ? "-" : "+"}${money(movement.amount)}`}</span>,
+                      movement.method === "Nakit" ? <span className={signedAmount < 0 ? "technical-money-out" : "technical-money-in"}>{money(Math.abs(signedAmount))}</span> : "-",
+                      movement.method === "Kart/Banka" ? <span className={signedAmount < 0 ? "technical-money-out" : "technical-money-in"}>{money(Math.abs(signedAmount))}</span> : "-",
+                      "-",
                       "-",
                       "Aktif",
                       movement.serviceId ? (
@@ -3693,6 +3884,7 @@ export default function App() {
                   }
 
                   const { sale } = row;
+                  const paymentDistribution = normalizeSalePaymentDistributionForReport(sale);
                   return [
                     index + 1,
                     new Date(sale.date).toLocaleString("tr-TR"),
@@ -3703,8 +3895,11 @@ export default function App() {
                       parseMoneyInput(sale.cash) > 0 ? "Nakit" : "",
                       parseMoneyInput(sale.card) > 0 ? (sale.bank || "Kart") : "",
                     ].filter(Boolean).join(" + ") || "-",
-                    sale.total,
-                    `${money(sale.remaining)} / ${money(sale.profit)}`,
+                    money(paymentDistribution.total),
+                    money(paymentDistribution.cash),
+                    money(paymentDistribution.card),
+                    money(paymentDistribution.debt),
+                    money(sale.profit),
                     sale.status || "active",
                     <button className="edit-btn" onClick={() => openSaleEditor(sale)}><Pencil size={14} /> Düzenle</button>,
                     <button className="delete-btn" onClick={() => deleteSale(sale.id)}>Sil</button>,
