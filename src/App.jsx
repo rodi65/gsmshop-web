@@ -5,6 +5,7 @@ import {
   getCurrentUser,
   signOut,
   loadDashboardData,
+  resetAllTestData,
   createStockItem,
   createSale,
   createExpense,
@@ -1301,6 +1302,47 @@ export default function App() {
     setActiveWorkspaceId(data.workspaceId || data.profile?.workspace_id || "");
     setDbReady(true);
     setSyncMessage(repairMessage || "Veriler Supabase ile senkronize.");
+  }
+
+  async function handleCleanTestReset() {
+    if (!isLocalhostRuntime()) {
+      alert("Test sıfırlama sadece localhost ortamında çalıştırılabilir.");
+      return;
+    }
+
+    const firstConfirm = window.confirm("Bu işlem tüm test satış, stok, kasa, cari, teknik servis ve gider kayıtlarını temizleyecek. Devam edilsin mi?");
+    if (!firstConfirm) return;
+    const secondConfirm = window.confirm("Son kez onayla: Temiz test başlangıcı için tüm test verileri silinsin mi?");
+    if (!secondConfirm) return;
+
+    try {
+      const result = await resetAllTestData();
+      const storageKey = activeWorkspaceId || currentUser?.id || result.workspaceId || "";
+      if (storageKey) {
+        localStorage.removeItem(`ceplog_technical_services_${storageKey}`);
+        localStorage.removeItem(`ceplog_accessory_shortcuts_${storageKey}`);
+      }
+
+      setTechnicalServices([]);
+      setAccessoryShortcuts([]);
+      setSelectedTechnicalServiceId("");
+      setTechnicalPaymentForm(emptyTechnicalPaymentForm);
+      setTechnicalRefundForm(emptyTechnicalPaymentForm);
+      await refreshFromDatabase();
+
+      const failed = result.results.filter((item) => !item.ok && !item.skipped);
+      if (failed.length) {
+        console.error("Bazı test verileri temizlenemedi", failed);
+        alert(`Test sıfırlama tamamlandı ancak bazı tablolar temizlenemedi: ${failed.map((item) => item.table).join(", ")}`);
+        return;
+      }
+
+      setSyncMessage("Test verileri temizlendi. CEPLOG sıfır bakiye test için hazır.");
+      alert("Test verileri temizlendi. CEPLOG sıfır bakiye test için hazır.");
+    } catch (error) {
+      console.error("Test verileri sıfırlanamadı", error);
+      alert(error.message || "Test verileri sıfırlanamadı.");
+    }
   }
 
   async function checkAuthAndLoad() {
@@ -3527,18 +3569,21 @@ export default function App() {
               {isLocalhostRuntime() && (
                 <div className="card management-card">
                   <h2>TEMİZ TEST BAŞLANGICI</h2>
-                  <p>Localhost testlerinde alıcı, satıcı, cari, ödeme, tahsilat ve kasa kontrolleri 0 bakiye prensibiyle denenebilir. Bu alan gerçek veri silmez.</p>
+                  <p>Localhost testlerinde alıcı, satıcı, cari, ödeme, tahsilat ve kasa kontrolleri 0 bakiye prensibiyle denenebilir. Gerçek sıfırlama Kasa &gt; Kasa Kapanış içindeki çift onaylı test butonuyla yapılır.</p>
                   <div className="management-info-list">
                     <div><span>Ortam</span><b>Localhost test</b></div>
-                    <div><span>Veri sıfırlama</span><b>Pasif</b></div>
-                    <div><span>Canlı veri</span><b>Korunur</b></div>
+                    <div><span>Veri sıfırlama</span><b>Çift onaylı</b></div>
+                    <div><span>Canlı domain</span><b>Kapalı</b></div>
                   </div>
                   <button
                     className="choice"
                     type="button"
-                    onClick={() => alert("Test verilerini sıfırlama işlemi bu aşamada pasiftir. Gerçek veri silinmez.")}
+                    onClick={() => {
+                      setActive("kasa");
+                      setKasaTab("kapanis");
+                    }}
                   >
-                    Test Sıfırlama Bilgisi
+                    Kasa Kapanış Test Alanına Git
                   </button>
                 </div>
               )}
@@ -4037,6 +4082,16 @@ export default function App() {
             {kasaTab === "kapanis" && (
               <div className="kasa-closing-stack">
                 <CashClosingPanel />
+
+                {isLocalhostRuntime() && (
+                  <section className="card">
+                    <h2>TEMİZ TEST BAŞLANGICI</h2>
+                    <p>Bu araç sadece localhost test ortamında görünür. Satış, stok, kasa, banka, cari, gider, teknik servis ve rapor test verilerini temiz test başlangıcı için sıfırlar.</p>
+                    <button className="delete-btn" type="button" onClick={handleCleanTestReset}>
+                      TEST VERİLERİNİ SIFIRLA
+                    </button>
+                  </section>
+                )}
 
                 <section className="card daily-report-card">
                   <div className="daily-report-header">

@@ -255,6 +255,44 @@ export async function loadDashboardData() {
   };
 }
 
+export async function resetAllTestData() {
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) throw new Error("Aktif workspace bulunamadı.");
+
+  const tables = [
+    "cash_movements",
+    "bank_movements",
+    "cash_closings",
+    "expenses",
+    "sales",
+    "stock_items",
+    "contacts",
+    "audit_logs",
+  ];
+
+  const results = [];
+  for (const table of tables) {
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .eq("workspace_id", workspaceId);
+
+    if (error) {
+      if (isMissingRelationError(error)) {
+        results.push({ table, ok: false, skipped: true, message: "Tablo bulunamadı." });
+        continue;
+      }
+      console.error("Test verisi sıfırlama hatası", { table, error });
+      results.push({ table, ok: false, skipped: false, message: error.message || String(error) });
+      continue;
+    }
+
+    results.push({ table, ok: true, skipped: false, message: "Temizlendi." });
+  }
+
+  return { workspaceId, results };
+}
+
 export async function findOrCreateContact({ kind, name, phone = "", balance = 0, balanceType = "receivable", note = "" }) {
   const user = await getCurrentUser();
   const workspaceId = await getCurrentWorkspaceId();
