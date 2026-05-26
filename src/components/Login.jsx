@@ -25,7 +25,7 @@ export default function Login({ onLogin }) {
   return (
     <div className="login-page">
       <form className="login-card" onSubmit={handleLogin}>
-        <h1>GSMSHOP Giriş</h1>
+        <h1>CEPLOG Giriş</h1>
         <p>Gerçek veritabanı için kullanıcı girişi zorunludur.</p>
 
         <input
