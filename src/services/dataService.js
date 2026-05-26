@@ -723,20 +723,9 @@ export async function createSale(payload) {
     });
   }
 
-  if (toDbNumber(payload.card_amount) > 0 && payload.bank_name) {
-    const { error: bankError } = await supabase.from("bank_movements").insert([{
-      movement_type: "Bankaya Giden",
-      bank_name: payload.bank_name,
-      amount: toDbNumber(salePayload.card_amount),
-      note: `POSTAN Gelen - ${payload.bank_name} - ${payload.product_name}`,
-      related_sale_id: sale.id,
-      workspace_id: workspaceId,
-      created_by: user?.id,
-    }]);
-
-    if (bankError) throw bankError;
-  }
-
+  // Satışta kart/banka tutarı sales.card_amount alanında tutulur.
+  // bank_movements tablosuna "Bankaya Giden" tipi yazılmıyor.
+  // Çünkü Supabase check constraint bu tipi kabul etmiyor ve satış sonrası gereksiz hata üretiyor.
 
   if (toDbNumber(salePayload.remaining_amount) > 0 && (payload.cari_person || payload.customer_name)) {
     await findOrCreateContact({
