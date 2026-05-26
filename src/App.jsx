@@ -36,7 +36,18 @@ const normalizeMoney = (value) => {
 const formatMoney = (value) => money(value);
 const getAvailableCashBalance = (value = 0) => normalizeMoney(value);
 const isCashMethod = (method) => ["nakit", "kasa", "cash"].includes(String(method || "").toLocaleLowerCase("tr-TR"));
+const validateAmountPositive = (amount, message = "Tutar 0’dan büyük olmalıdır.") => {
+  const cleanAmount = Math.abs(normalizeMoney(amount));
+  return cleanAmount > 0 ? { ok: true, amount: cleanAmount } : { ok: false, message };
+};
+const validateMaxAmount = (amount, maxAllowed, message = "Girilen tutar izin verilen üst limiti aşamaz.") => {
+  const cleanAmount = Math.abs(normalizeMoney(amount));
+  const cleanMaxAllowed = Math.max(normalizeMoney(maxAllowed), 0);
+  if (cleanAmount <= cleanMaxAllowed) return { ok: true, amount: cleanAmount, maxAllowed: cleanMaxAllowed };
+  return { ok: false, message, amount: cleanAmount, maxAllowed: cleanMaxAllowed };
+};
 const validateFinancialLimit = ({
+  context = "",
   amount,
   maxAllowed,
   availableCash,
@@ -44,24 +55,26 @@ const validateFinancialLimit = ({
   label = "İşlem",
   alreadyPaid = 0,
   totalAmount,
+  remainingBalance,
   isCashOut = false,
   messages = {},
 } = {}) => {
   const cleanAmount = Math.abs(normalizeMoney(amount));
   const cleanAlreadyPaid = Math.abs(normalizeMoney(alreadyPaid));
-  const cleanMaxAllowed = maxAllowed === undefined || maxAllowed === null ? null : Math.max(normalizeMoney(maxAllowed), 0);
+  const cleanMaxAllowed = maxAllowed === undefined || maxAllowed === null
+    ? remainingBalance === undefined || remainingBalance === null ? null : Math.max(normalizeMoney(remainingBalance), 0)
+    : Math.max(normalizeMoney(maxAllowed), 0);
   const cleanTotalAmount = totalAmount === undefined || totalAmount === null ? null : Math.max(normalizeMoney(totalAmount), 0);
   const cashBalance = getAvailableCashBalance(availableCash);
   const cashOut = isCashOut || isCashMethod(paymentMethod) && String(paymentMethod || "").toLocaleLowerCase("tr-TR") !== "kart/banka";
 
-  if (cleanAmount <= 0) {
-    return { ok: false, message: messages.empty || "Tutar 0’dan büyük olmalıdır." };
-  }
+  const positiveCheck = validateAmountPositive(cleanAmount, messages.empty || "Tutar 0’dan büyük olmalıdır.");
+  if (!positiveCheck.ok) return positiveCheck;
 
   if (cleanMaxAllowed !== null && cleanAmount > cleanMaxAllowed) {
     return {
       ok: false,
-      message: messages.maxExceeded || `${label} tutarı izin verilen üst limiti aşamaz.`,
+      message: messages.maxExceeded || `${context || label} tutarı izin verilen üst limiti aşamaz.`,
     };
   }
 
@@ -89,6 +102,14 @@ const validateFinancialLimit = ({
 
   return { ok: true, amount: cleanAmount };
 };
+const validateCashOutLimit = (amount, availableCash, label = "Nakit ödeme", messages = {}) => validateFinancialLimit({
+  amount,
+  availableCash,
+  paymentMethod: "Nakit",
+  isCashOut: true,
+  label,
+  messages,
+});
 const validatePaymentDistribution = ({
   totalAmount,
   cashAmount = 0,
@@ -123,6 +144,10 @@ const formatPhoneDisplay = (value, masked = false) => {
 };
 const money = (value) => `${new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 0 }).format(parseMoneyInput(value))} TL`;
 const has = (a, b) => String(a || "").toLowerCase().includes(String(b || "").toLowerCase());
+const isLocalhostRuntime = () => {
+  if (typeof window === "undefined") return false;
+  return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+};
 const stockRemainingAmount = (form) => Math.max(parseMoneyInput(form.buy) - parseMoneyInput(form.supplierPaid), 0);
 const sellerCariName = (name) => {
   const clean = String(name || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("tr-TR");
@@ -1589,14 +1614,8 @@ export default function App() {
     alert(validation?.message || "Finansal limit kontrolü başarısız.");
     return false;
   };
-  const validateCashOutLimit = (amount, label = "Nakit ödeme", messages = {}) => validateFinancialLimit({
-    amount,
-    availableCash: cashWithBankIncoming,
-    paymentMethod: "Nakit",
-    isCashOut: true,
-    label,
-    messages,
-  });
+  const validateCurrentCashOutLimit = (amount, label = "Nakit ödeme", messages = {}) =>
+    validateCashOutLimit(amount, cashWithBankIncoming, label, messages);
   const cashAfterExpenses = cashWithBankIncoming;
   const compactKasaSummaryCards = [
     {
@@ -2000,7 +2019,7 @@ export default function App() {
     const amount = parseMoneyInput(expenseForm.amount);
     if (!amount) return alert("Gider tutarını yaz");
     if (expenseForm.category === "Borç" && !expenseForm.note.trim()) return alert("Borç giderinde Not zorunludur");
-    if (!alertFinancialValidation(validateCashOutLimit(amount, "Gider", {
+    if (!alertFinancialValidation(validateCurrentCashOutLimit(amount, "Gider", {
       cashUnavailable: "Kasada yeterli nakit yok. Nakit ödeme yapılamaz.",
       cashExceeded: `Kasadaki nakitten fazla ödeme yapılamaz.\nMevcut kasa: ${formatMoney(cashWithBankIncoming)}\nGirilen ödeme: ${formatMoney(amount)}`,
     }))) return;
@@ -2115,7 +2134,7 @@ export default function App() {
     const movementType = cashMovementCancellationTypeFor(item);
     if (!movementType) return alert("Bu hareket için iptal tipi belirlenemedi.");
     const cancellationDirection = item.direction === "out" ? "in" : "out";
-    if (cancellationDirection === "out" && !alertFinancialValidation(validateCashOutLimit(amount, "Kasa hareketi iptali", {
+    if (cancellationDirection === "out" && !alertFinancialValidation(validateCurrentCashOutLimit(amount, "Kasa hareketi iptali", {
       cashUnavailable: "Kasada yeterli nakit yok. Nakit ödeme yapılamaz.",
       cashExceeded: `Kasadaki nakitten fazla ödeme yapılamaz.\nMevcut kasa: ${formatMoney(cashWithBankIncoming)}\nGirilen ödeme: ${formatMoney(amount)}`,
     }))) return;
@@ -3504,6 +3523,25 @@ export default function App() {
                   ))}
                 </div>
               </div>
+
+              {isLocalhostRuntime() && (
+                <div className="card management-card">
+                  <h2>TEMİZ TEST BAŞLANGICI</h2>
+                  <p>Localhost testlerinde alıcı, satıcı, cari, ödeme, tahsilat ve kasa kontrolleri 0 bakiye prensibiyle denenebilir. Bu alan gerçek veri silmez.</p>
+                  <div className="management-info-list">
+                    <div><span>Ortam</span><b>Localhost test</b></div>
+                    <div><span>Veri sıfırlama</span><b>Pasif</b></div>
+                    <div><span>Canlı veri</span><b>Korunur</b></div>
+                  </div>
+                  <button
+                    className="choice"
+                    type="button"
+                    onClick={() => alert("Test verilerini sıfırlama işlemi bu aşamada pasiftir. Gerçek veri silinmez.")}
+                  >
+                    Test Sıfırlama Bilgisi
+                  </button>
+                </div>
+              )}
 
               <div className="card management-card">
                 <h2>Yedekleme Merkezi</h2>
