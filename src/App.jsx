@@ -109,8 +109,8 @@ const quickAccessoryGroups = {
 const accessoryShortcutLimit = 30;
 const technicalServiceStatuses = ["Beklemede", "İşlemde", "Hazır", "Teslim Edildi", "İptal"];
 const technicalServiceFilterOptions = ["TÜMÜ", ...technicalServiceStatuses];
-const technicalServiceIncomeTypes = ["Teknik Servis Geliri", "Teknik Servis Kaparo", "Teknik Servis Tahsilat"];
-const technicalServiceRefundTypes = ["Teknik Servis İade"];
+const technicalServiceIncomeTypes = ["Teknik Servis Geliri", "Teknik Servis Kaparo", "Teknik Servis Tahsilat", "Teknik Servis Tahsilatı"];
+const technicalServiceRefundTypes = ["Teknik Servis İade", "Teknik Servis İadesi"];
 const technicalServiceMovementTypes = [...technicalServiceIncomeTypes, ...technicalServiceRefundTypes];
 const toDatetimeLocalInput = (date = new Date()) => {
   const pad = (value) => String(value).padStart(2, "0");
@@ -154,7 +154,14 @@ const emptyTechnicalSummary = {
 const cashEntryTypes = ["Manuel Nakit Girişi", "Devir Nakit"];
 const cashEntryMovementTypes = ["Manuel Nakit Girişi", "Nakit Girişi", "Kasaya Nakit Girişi"];
 const cashEntryCancellationType = "Nakit Girişi İptali";
-const purchaseCancellationMovementTypes = ["Stok Alış İptali", "Cihaz Alış İptali"];
+const purchaseCancellationMovementTypes = [
+  "Stok Alış İptali",
+  "Cihaz Alış İptali",
+  "Telefon Alış İptali",
+  "Stok Ödemesi İptali",
+  "Alım Ödemesi İptali",
+  "Tedarikçi Ödemesi İptali",
+];
 const cashLedgerMovementTypes = ["Satış Nakit", "Bankadan Nakit Gelen", "Manuel Nakit Girişi", "Nakit Girişi", "Kasaya Nakit Girişi", cashEntryCancellationType, "Devir Nakit", "Gelen Alacak", "Alacak Ödemesi", "Stok Ödemesi", "Cari Ödeme", "Gider", "Bankaya Yatırılan Nakit", "Düzeltme", ...purchaseCancellationMovementTypes, ...technicalServiceMovementTypes];
 const receivablePaymentTypes = ["Gelen Alacak", "Alacak Ödemesi"];
 
@@ -188,20 +195,112 @@ const bankMovementAmount = (item) => typeof item.amount === "number" ? item.amou
 const bankMovementDirection = (item) => item.direction || (purchasePaymentMovementTypes.includes(bankMovementType(item)) || bankMovementType(item) === "Bankadan Çekilen" ? "out" : "in");
 const isPurchasePaymentMovement = (item, movementType = cashMovementType(item) || bankMovementType(item), direction = item?.direction || "") => {
   const type = String(movementType || "");
-  const relatedTable = String(item?.relatedTable || item?.related_table || "");
   const normalizedDirection = String(direction || "").toLocaleLowerCase("tr-TR");
   if (normalizedDirection && normalizedDirection !== "out") return false;
   if (!purchasePaymentMovementTypes.includes(type)) return false;
-  if (type === "Stok Ödemesi") return relatedTable === "stock_items";
-  return !["sales", "technical_services", "expenses"].includes(relatedTable);
+  return true;
 };
 const isCancellableCashEntryMovement = (item) =>
   cashEntryMovementTypes.includes(cashMovementType(item)) && (item?.direction || "in") === "in";
 const isPurchaseCancellationMovement = (item, movementType = cashMovementType(item) || bankMovementType(item)) =>
   purchaseCancellationMovementTypes.includes(String(movementType || ""));
+const isCashMovementCancellation = (item) => {
+  const type = cashMovementType(item);
+  const note = String(item?.note || "");
+  return type === cashEntryCancellationType ||
+    purchaseCancellationMovementTypes.includes(type) ||
+    (type === "Düzeltme" && String(item?.relatedTable || item?.related_table || "") === "cash_movements" && note.startsWith("İptal:"));
+};
+const cashMovementCancellationTypeFor = (item) => {
+  const type = cashMovementType(item);
+  if (cashEntryMovementTypes.includes(type)) return cashEntryCancellationType;
+  if (type === "Stok Ödemesi" || type === "Stok Alım Ödemesi") return "Stok Ödemesi İptali";
+  if (type === "Cihaz Alım Ödemesi") return "Cihaz Alış İptali";
+  if (type === "Telefon Alım Ödemesi") return "Telefon Alış İptali";
+  if (type === "Tedarikçi Ödemesi") return "Tedarikçi Ödemesi İptali";
+  if (type === "Alım Ödemesi" || type === "Aksesuar Alım Ödemesi" || type === "Ürün Alım Ödemesi") return "Alım Ödemesi İptali";
+  return "";
+};
+const isCancelableCashMovement = (item) =>
+  !isCashMovementCancellation(item) && (
+    isCancellableCashEntryMovement(item) ||
+    isPurchasePaymentMovement(item)
+  );
 const isTechnicalServiceMovement = (type) => technicalServiceMovementTypes.includes(String(type || ""));
 const isTechnicalServiceIncomeMovement = (type) => technicalServiceIncomeTypes.includes(String(type || ""));
 const isTechnicalServiceRefundMovement = (type) => technicalServiceRefundTypes.includes(String(type || ""));
+const realIncomeMovementTypes = [
+  "Manuel Nakit Girişi",
+  "Nakit Girişi",
+  "Kasaya Nakit Girişi",
+  "Satış Nakit",
+  "Satış Tahsilatı",
+  "Cari Tahsilat",
+  "Gelen Alacak",
+  "Alacak Tahsilatı",
+  "Alacak Ödemesi",
+  ...technicalServiceIncomeTypes,
+];
+const realExpenseMovementTypes = ["Gider", "Nakit Çıkışı", "Cari Ödeme", "Alacak Ödemesi"];
+const correctionMovementTypes = [
+  cashEntryCancellationType,
+  "Nakit Çıkışı İptali",
+  "Gider İptali",
+  ...purchaseCancellationMovementTypes,
+];
+const refundMovementTypes = ["Satış İadesi", "Satış İptali", ...technicalServiceRefundTypes];
+const transferMovementTypes = ["Bankadan Nakit Gelen", "Banka Girişi", "Banka Çıkışı", "Kasa Devir", "Dünden Devir Nakit", "Kasa Açılış", "Devir Nakit", "Bankaya Yatırılan Nakit", "Bankadan Çekilen", "Bankaya Giden"];
+const movementAmount = (item) => Math.abs(cashMovementAmount(item) || bankMovementAmount(item) || 0);
+const movementDirection = (item, type = cashMovementType(item) || bankMovementType(item)) => {
+  const direct = String(item?.direction || "").toLocaleLowerCase("tr-TR");
+  if (direct === "in" || direct === "out") return direct;
+  if (["Bankadan Çekilen", "Banka Çıkışı", "Bankaya Yatırılan Nakit"].includes(type)) return "out";
+  if (["Bankaya Giden", "Banka Girişi", "Bankadan Nakit Gelen"].includes(type)) return "in";
+  if (purchasePaymentMovementTypes.includes(type) || realExpenseMovementTypes.includes(type) || refundMovementTypes.includes(type)) return "out";
+  if (type === cashEntryCancellationType) return "out";
+  if (purchaseCancellationMovementTypes.includes(type)) return "in";
+  if (realIncomeMovementTypes.includes(type) || type === "Bankadan Nakit Gelen" || type === "Devir Nakit") return "in";
+  if (type === "Düzeltme" && String(item?.note || "").startsWith("İptal:")) {
+    const note = String(item.note || "");
+    return note.includes("Nakit Girişi") ? "out" : "in";
+  }
+  console.warn("Finans hareket yönü belirlenemedi; net hesaba alınmadı.", { type, item });
+  return "";
+};
+const classifyFinancialMovement = (item) => {
+  const type = cashMovementType(item) || bankMovementType(item);
+  const direction = movementDirection(item, type);
+  const note = String(item?.note || "");
+
+  if (correctionMovementTypes.includes(type) || (type === "Düzeltme" && note.startsWith("İptal:"))) return "correction";
+  if (refundMovementTypes.includes(type)) return "refund";
+  if (transferMovementTypes.includes(type)) return "transfer";
+  if (purchasePaymentMovementTypes.includes(type)) return "purchase_payment";
+  if (type === "Alacak Ödemesi" && direction === "out") return "expense";
+  if (realIncomeMovementTypes.includes(type)) return "income";
+  if (realExpenseMovementTypes.includes(type)) return "expense";
+  if (["Cari Borç", "Borç Alınan"].includes(type)) return "payable";
+  if (["Borç Verilen", "Alacak Kalan"].includes(type)) return "receivable";
+  return "unknown";
+};
+const getCashNetEffect = (item) => {
+  if (!isActiveRecord(item)) return 0;
+  const type = cashMovementType(item) || bankMovementType(item);
+  const direction = movementDirection(item, type);
+  const amount = movementAmount(item);
+  if (!direction || !amount) return 0;
+  return direction === "out" ? -amount : amount;
+};
+const isRealCashIncome = (item) => isActiveRecord(item) && classifyFinancialMovement(item) === "income" && movementDirection(item) === "in";
+const isRealCashExpense = (item) => isActiveRecord(item) && classifyFinancialMovement(item) === "expense" && movementDirection(item) === "out";
+const isPurchasePaymentCancelMovement = (item, purchasePaymentIds = new Set()) => {
+  const type = cashMovementType(item) || bankMovementType(item);
+  if (purchaseCancellationMovementTypes.includes(type)) return true;
+  if (type !== "Düzeltme" || !String(item?.note || "").startsWith("İptal:")) return false;
+  const relatedTable = String(item?.relatedTable || item?.related_table || "");
+  const relatedId = String(item?.relatedId || item?.related_id || item?.referenceId || item?.reference_id || "");
+  return relatedTable === "cash_movements" && purchasePaymentIds.has(relatedId);
+};
 const serviceMovementId = (item) =>
   String(item?.relatedServiceId || item?.related_service_id || item?.serviceRecordId || item?.service_record_id || item?.referenceId || item?.reference_id || item?.relatedId || item?.related_id || "");
 const stockPurchasePaymentAmount = (product) => {
@@ -353,10 +452,12 @@ const fromDbContact = (item) => ({
 
 const isActiveRecord = (item) => {
   const status = String(item?.status || "active").toLocaleLowerCase("tr-TR");
-  return !["deleted", "cancelled", "iptal"].includes(status) &&
+  return !["deleted", "cancelled", "canceled", "iptal", "silindi"].includes(status) &&
     !item?.is_cancelled &&
     !item?.is_deleted &&
-    !item?.deleted_at;
+    !item?.deleted_at &&
+    !item?.cancelled_at &&
+    !item?.cancel_date;
 };
 const isActiveMovement = isActiveRecord;
 
@@ -556,6 +657,84 @@ function isSameReportDay(item, selectedDate) {
   const value = reportDateValue(item);
   if (!value || !selectedDate) return false;
   return localDateKey(value) === selectedDate;
+}
+
+function calculateFinanceSummary({ cashMovements = [], bankMovements = [], sales = [], expenses = [], todayKey = localDateKey(new Date()) }) {
+  const activeCash = cashMovements.filter(isActiveRecord);
+  const activeBank = bankMovements.filter(isActiveRecord);
+  const activeSalesRows = sales.filter(isActiveRecord);
+  const activeExpenseRows = expenses.filter(isActiveRecord);
+  const cashSaleMovementIds = new Set(activeCash.filter((item) => cashMovementType(item) === "Satış Nakit" && String(item.relatedTable || item.related_table || "") === "sales").map((item) => String(item.relatedId || item.related_id || "")));
+  const cashBankMovementIds = new Set(activeCash.filter((item) => cashMovementType(item) === "Bankadan Nakit Gelen" && String(item.relatedTable || item.related_table || "") === "bank_movements").map((item) => String(item.relatedId || item.related_id || "")));
+  const cashExpenseMovementIds = new Set(activeCash.filter((item) => cashMovementType(item) === "Gider" && String(item.relatedTable || item.related_table || "") === "expenses").map((item) => String(item.relatedId || item.related_id || "")));
+  const purchasePaymentCashMovementIds = new Set(activeCash.filter((item) => isPurchasePaymentMovement(item)).map((item) => String(item.id || "")));
+
+  const legacyCashSales = activeSalesRows
+    .filter((sale) => !cashSaleMovementIds.has(String(sale.id)))
+    .reduce((sum, sale) => sum + parseMoneyInput(sale.cash || sale.cash_amount || 0), 0);
+  const todayLegacyCashSales = activeSalesRows
+    .filter((sale) => !cashSaleMovementIds.has(String(sale.id)) && isSameReportDay(sale, todayKey))
+    .reduce((sum, sale) => sum + parseMoneyInput(sale.cash || sale.cash_amount || 0), 0);
+  const legacyBankCashIncoming = activeBank
+    .filter((item) => bankMovementType(item) === "Bankadan Çekilen" && !cashBankMovementIds.has(String(item.id)))
+    .reduce((sum, item) => sum + Math.abs(bankMovementAmount(item)), 0);
+  const todayLegacyBankCashIncoming = activeBank
+    .filter((item) => bankMovementType(item) === "Bankadan Çekilen" && !cashBankMovementIds.has(String(item.id)) && isSameReportDay(item, todayKey))
+    .reduce((sum, item) => sum + Math.abs(bankMovementAmount(item)), 0);
+  const legacyExpenseOut = activeExpenseRows
+    .filter((item) => !cashExpenseMovementIds.has(String(item.id)))
+    .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
+
+  const cashNetEffect = activeCash.reduce((sum, item) => sum + getCashNetEffect(item), 0);
+  const todayRealCashIncome = activeCash
+    .filter((item) => isSameReportDay(item, todayKey) && isRealCashIncome(item))
+    .reduce((sum, item) => sum + movementAmount(item), 0) + todayLegacyCashSales;
+  const todayCashIncomeCorrections = activeCash
+    .filter((item) => isSameReportDay(item, todayKey) && cashMovementType(item) === cashEntryCancellationType && movementDirection(item) === "out")
+    .reduce((sum, item) => sum + movementAmount(item), 0);
+  const todayCashIncome = Math.max(todayRealCashIncome - todayCashIncomeCorrections, 0);
+  const todayBankCashIncoming = activeCash
+    .filter((item) => isSameReportDay(item, todayKey) && cashMovementType(item) === "Bankadan Nakit Gelen" && movementDirection(item) === "in")
+    .reduce((sum, item) => sum + movementAmount(item), 0) + todayLegacyBankCashIncoming;
+  const todayCashExpense = activeCash
+    .filter((item) => isSameReportDay(item, todayKey) && isRealCashExpense(item))
+    .reduce((sum, item) => sum + movementAmount(item), 0) + activeExpenseRows
+    .filter((item) => !cashExpenseMovementIds.has(String(item.id)) && isSameReportDay(item, todayKey))
+    .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
+  const cashExpenseTotal = activeCash
+    .filter(isRealCashExpense)
+    .reduce((sum, item) => sum + movementAmount(item), 0) + legacyExpenseOut;
+
+  const purchasePaymentTotal = activeCash
+    .filter((item) => isPurchasePaymentMovement(item))
+    .reduce((sum, item) => sum + movementAmount(item), 0) + activeBank
+    .filter((item) => isPurchasePaymentMovement(item))
+    .reduce((sum, item) => sum + movementAmount(item), 0);
+  const purchasePaymentCancelTotal = activeCash
+    .filter((item) => isPurchasePaymentCancelMovement(item, purchasePaymentCashMovementIds) && movementDirection(item) === "in")
+    .reduce((sum, item) => sum + movementAmount(item), 0) + activeBank
+    .filter((item) => isPurchasePaymentCancelMovement(item) && bankMovementDirection(item) === "in")
+    .reduce((sum, item) => sum + movementAmount(item), 0);
+  const receivablePaymentsTotal = activeCash
+    .filter((item) => ["Gelen Alacak", "Alacak Tahsilatı", "Cari Tahsilat", "Alacak Ödemesi"].includes(cashMovementType(item)) && movementDirection(item) === "in")
+    .reduce((sum, item) => sum + movementAmount(item), 0);
+
+  return {
+    cashSaleMovementIds,
+    cashBankMovementIds,
+    cashExpenseMovementIds,
+    cashNetEffect,
+    expectedCash: cashNetEffect + legacyCashSales + legacyBankCashIncoming - legacyExpenseOut,
+    todayCashIncome,
+    todayBankCashIncoming,
+    todayCashExpense,
+    cashExpenseTotal,
+    purchasePaymentsNet: Math.max(purchasePaymentTotal - purchasePaymentCancelTotal, 0),
+    receivablePaymentsTotal,
+    legacyCashSales,
+    legacyBankCashIncoming,
+    legacyExpenseOut,
+  };
 }
 
 function cleanBarcode(value) {
@@ -812,14 +991,21 @@ export default function App() {
   const totalPayableBalance = activeContacts
     .filter((contact) => ["supplier", "seller"].includes(contact.kind) && contact.balanceType === "payable")
     .reduce((sum, contact) => sum + Number(contact.balance || 0), 0);
-  const activeTechnicalServices = technicalServices.filter((item) => !["İptal", "Teslim Edildi"].includes(item.status));
+  const activeTechnicalServices = technicalServices.filter((item) => isActiveRecord(item) && item.status !== "Teslim Edildi");
+  const technicalServicesForFinance = technicalServices.filter((item) =>
+    isActiveRecord(item) && (
+      item.source === "supabase" ||
+      item.financeSource === "supabase" ||
+      item.workspace_id ||
+      item.workspaceId
+    )
+  );
   const visibleTechnicalServices = technicalStatusFilter === "TÜMÜ"
     ? technicalServices
     : technicalServices.filter((item) => item.status === technicalStatusFilter);
   const technicalReadyCount = technicalServices.filter((item) => item.status === "Hazır").length;
   const technicalDeliveredCount = technicalServices.filter((item) => item.status === "Teslim Edildi").length;
-  const technicalEstimatedTotal = technicalServices
-    .filter((item) => item.status !== "İptal")
+  const technicalEstimatedTotal = technicalServicesForFinance
     .reduce((sum, item) => sum + parseMoneyInput(item.estimatedPrice), 0);
   const technicalCashMovementNet = activeCashMovements
     .filter((item) => isTechnicalServiceMovement(cashMovementType(item)))
@@ -1067,8 +1253,7 @@ export default function App() {
     .reduce((sum, item) => sum + cashMovementAmount(item), 0) + activeBankMovements
     .filter((item) => isTechnicalServiceRefundMovement(bankMovementType(item)) || bankMovementDirection(item) === "out" && isTechnicalServiceMovement(bankMovementType(item)))
     .reduce((sum, item) => sum + bankMovementAmount(item), 0);
-  const technicalServiceDebtTotal = technicalServices
-    .filter((service) => service.status !== "İptal")
+  const technicalServiceDebtTotal = technicalServicesForFinance
     .reduce((sum, service) => sum + technicalServiceSummary(service).remaining, 0);
   const technicalIncomeSummary = {
     cash: technicalCashIncomeTotal + technicalSaleIncomeSummary.cash,
@@ -1123,75 +1308,43 @@ export default function App() {
 
   const todayKey = new Date().toISOString().slice(0, 10);
   const monthKey = new Date().toISOString().slice(0, 7);
-  const cashSaleMovementIds = new Set(activeCashMovements.filter((item) => cashMovementType(item) === "Satış Nakit" && item.relatedTable === "sales").map((item) => String(item.relatedId)));
-  const cashBankMovementIds = new Set(activeCashMovements.filter((item) => cashMovementType(item) === "Bankadan Nakit Gelen" && item.relatedTable === "bank_movements").map((item) => String(item.relatedId)));
-  const cashExpenseMovementIds = new Set(activeCashMovements.filter((item) => cashMovementType(item) === "Gider" && item.relatedTable === "expenses").map((item) => String(item.relatedId)));
-  const legacyCashSales = activeSales
-    .filter((sale) => !cashSaleMovementIds.has(String(sale.id)))
-    .reduce((sum, sale) => sum + parseMoneyInput(sale.cash), 0);
-  const legacyBankCashIncoming = activeBankMovements
-    .filter((item) => item.type === "Bankadan Çekilen" && !cashBankMovementIds.has(String(item.id)))
-    .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
-  const legacyExpenseOut = activeExpenses
-    .filter((item) => !cashExpenseMovementIds.has(String(item.id)))
-    .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
-  const legacyStockPaymentOut = 0;
-  const cashMovementNet = activeCashMovements
-    .filter((item) => cashLedgerMovementTypes.includes(cashMovementType(item)))
-    .reduce((sum, item) => sum + (item.direction === "out" ? -cashMovementAmount(item) : cashMovementAmount(item)), 0);
-
-  const cashMovementNetWithoutSaleCash = activeCashMovements
-    .filter((item) => cashLedgerMovementTypes.includes(cashMovementType(item)) && cashMovementType(item) !== "Satış Nakit")
-    .reduce((sum, item) => sum + (item.direction === "out" ? -cashMovementAmount(item) : cashMovementAmount(item)), 0);
-
-
+  const financeSummary = calculateFinanceSummary({
+    cashMovements: activeCashMovements,
+    bankMovements: activeBankMovements,
+    sales: activeSales,
+    expenses: activeExpenses,
+    todayKey,
+  });
   const carryOverCash = activeCashMovements
     .filter((item) => cashMovementType(item) === "Devir Nakit" && item.direction === "in")
     .reduce((sum, item) => sum + cashMovementAmount(item), 0);
-  const todayBankCashIncoming = activeBankMovements
-    .filter((item) => item.type === "Bankadan Çekilen" && !cashBankMovementIds.has(String(item.id)) && isTodayRecord(item, todayKey))
-    .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
-  const todayCashMovementIn = activeCashMovements
-    .filter((item) => item.direction === "in" && !["Devir Nakit", "Satış Nakit"].includes(cashMovementType(item)) && cashLedgerMovementTypes.includes(cashMovementType(item)) && isTodayRecord(item, todayKey))
-    .reduce((sum, item) => sum + cashMovementAmount(item), 0);
-  const todayExpenseOut = activeExpenses
-    .filter((item) => !cashExpenseMovementIds.has(String(item.id)) && isTodayRecord(item, todayKey))
-    .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
-  const todayLegacyStockPaymentOut = 0;
-  const todayCashMovementOut = activeCashMovements
-    .filter((item) => item.direction === "out" && cashLedgerMovementTypes.includes(cashMovementType(item)) && isTodayRecord(item, todayKey))
-    .reduce((sum, item) => sum + cashMovementAmount(item), 0);
-  const todayCashIn = todayBankCashIncoming + todayCashMovementIn;
-  const todayCashOut = todayExpenseOut + todayLegacyStockPaymentOut + todayCashMovementOut;
-  const stockPurchasePayments = activeCashMovements
-    .filter((item) => isPurchasePaymentMovement(item))
-    .reduce((sum, item) => sum + Math.abs(cashMovementAmount(item)), 0) + activeBankMovements
-    .filter((item) => isPurchasePaymentMovement(item))
-    .reduce((sum, item) => sum + Math.abs(bankMovementAmount(item)), 0) + legacyStockPaymentOut
-    - activeCashMovements
-    .filter((item) => isPurchaseCancellationMovement(item))
-    .reduce((sum, item) => sum + Math.abs(cashMovementAmount(item)), 0)
-    - activeBankMovements
-    .filter((item) => isPurchaseCancellationMovement(item))
-    .reduce((sum, item) => sum + Math.abs(bankMovementAmount(item)), 0);
-  const receivablePayments = activeCashMovements
-    .filter((item) => receivablePaymentTypes.includes(cashMovementType(item)) && item.direction === "in")
-    .reduce((sum, item) => sum + cashMovementAmount(item), 0);
+  const todayBankCashIncoming = financeSummary.todayBankCashIncoming;
+  const todayCashIn = financeSummary.todayCashIncome;
+  const stockPurchasePayments = financeSummary.purchasePaymentsNet;
+  const receivablePayments = financeSummary.receivablePaymentsTotal;
   const cardSalesTotal = activeSales.reduce((sum, sale) => sum + parseMoneyInput(sale.card || sale.card_amount || 0), 0) + technicalBankMovementNet;
-  const cashExpensePayments = activeCashMovements
-    .filter((item) => cashMovementType(item) === "Gider" && item.direction === "out")
-    .reduce((sum, item) => sum + cashMovementAmount(item), 0) + legacyExpenseOut;
+  const cashExpensePayments = financeSummary.cashExpenseTotal;
 
-  function dailyReportRowType(type, direction = "") {
-    if (type === cashEntryCancellationType) return { label: "Nakit Girişi İptali", tone: "cancel" };
-    if (purchaseCancellationMovementTypes.includes(type)) return { label: "Alış İptali", tone: "cancel" };
-    if (cashEntryMovementTypes.includes(type) || type === "Devir Nakit") return { label: "Nakit Girişi", tone: "cash-in" };
-    if (purchasePaymentMovementTypes.includes(type) && (!direction || direction === "out")) return { label: "Alım Ödemesi", tone: "purchase" };
-    if (receivablePaymentTypes.includes(type) || ["Alacak Tahsilatı", "Cari Tahsilat"].includes(type)) return { label: "Alacak Tahsilatı", tone: "debt" };
+  function dailyReportRowType(item) {
+    const type = cashMovementType(item) || bankMovementType(item);
+    const direction = movementDirection(item, type);
+    const classification = classifyFinancialMovement(item);
+    if (classification === "correction") {
+      if (type === cashEntryCancellationType) return { label: "Nakit Girişi İptali", tone: "cancel" };
+      if (isPurchasePaymentCancelMovement(item)) return { label: "Alış İptali", tone: "cancel" };
+      return { label: "Düzeltme / İptal", tone: "cancel" };
+    }
+    if (classification === "refund") {
+      if (isTechnicalServiceRefundMovement(type)) return { label: "Teknik Servis İade", tone: "service-refund" };
+      return { label: "İade / İptal", tone: "cancel" };
+    }
+    if (classification === "transfer") return { label: type || "Transfer", tone: direction === "out" ? "cash-out" : "cash-in" };
+    if (classification === "purchase_payment") return { label: "Alım Ödemesi", tone: "purchase" };
+    if (["Gelen Alacak", "Alacak Ödemesi", "Alacak Tahsilatı", "Cari Tahsilat"].includes(type)) return { label: "Alacak Tahsilatı", tone: "debt" };
     if (type === "Cari Ödeme") return { label: "Cari Ödeme", tone: "debt" };
-    if (isTechnicalServiceRefundMovement(type)) return { label: "Teknik Servis İade", tone: "service-refund" };
     if (isTechnicalServiceIncomeMovement(type)) return { label: "Teknik Servis Tahsilat", tone: "service" };
-    if (type === "Gider" || direction === "out") return { label: "Nakit Çıkışı", tone: "cash-out" };
+    if (classification === "income") return { label: "Nakit Girişi", tone: "cash-in" };
+    if (classification === "expense" || direction === "out") return { label: "Nakit Çıkışı", tone: "cash-out" };
     return { label: type || "Nakit Hareketi", tone: direction === "out" ? "cash-out" : "cash-in" };
   }
 
@@ -1226,23 +1379,24 @@ export default function App() {
       const relatedSaleDuplicate = type === "Satış Nakit" && String(item.relatedTable || item.related_table || "") === "sales" && saleIds.has(String(item.relatedId || item.related_id || ""));
       if (relatedSaleDuplicate) return;
       const amount = Math.abs(cashMovementAmount(item));
-      const direction = item.direction || "in";
+      const direction = movementDirection(item, type);
       const inactive = !isActiveMovement(item);
-      const reportType = inactive ? { label: "İptal", tone: "cancel" } : dailyReportRowType(type, direction);
-      const signedCash = direction === "out" ? -amount : amount;
+      const classification = classifyFinancialMovement(item);
+      const reportType = inactive ? { label: "İptal", tone: "cancel" } : dailyReportRowType(item);
+      const signedCash = inactive ? 0 : getCashNetEffect(item);
       rows.push({
         date: reportDateValue(item),
         tone: reportType.tone,
         type: reportType.label,
         description: item.note || type || "-",
         party: "",
-        buy: !inactive && isPurchasePaymentMovement(item) ? amount : 0,
+        buy: !inactive && classification === "purchase_payment" ? amount : 0,
         sale: 0,
-        cash: inactive ? 0 : signedCash,
+        cash: signedCash,
         bank: 0,
         debt: !inactive && ["Cari Ödeme"].includes(type) ? amount : 0,
-        refund: inactive || isPurchaseCancellationMovement(item) || direction === "out" && (type === cashEntryCancellationType || isTechnicalServiceRefundMovement(type)) ? amount : 0,
-        total: inactive ? -amount : signedCash,
+        refund: inactive || ["correction", "refund"].includes(classification) ? amount : 0,
+        total: signedCash,
       });
     });
 
@@ -1253,7 +1407,8 @@ export default function App() {
       const amount = Math.abs(bankMovementAmount(item));
       const direction = bankMovementDirection(item);
       const inactive = !isActiveMovement(item);
-      const reportType = inactive ? { label: "İptal", tone: "cancel" } : dailyReportRowType(type, direction);
+      const classification = classifyFinancialMovement(item);
+      const reportType = inactive ? { label: "İptal", tone: "cancel" } : dailyReportRowType(item);
       const signedBank = direction === "out" ? -amount : amount;
       rows.push({
         date: reportDateValue(item),
@@ -1261,12 +1416,12 @@ export default function App() {
         type: isTechnicalServiceMovement(type) ? reportType.label : "Banka Hareketi",
         description: item.note || type || "-",
         party: item.bank || item.bank_name || "",
-        buy: !inactive && isPurchasePaymentMovement(item) ? amount : 0,
+        buy: !inactive && classification === "purchase_payment" ? amount : 0,
         sale: 0,
         cash: 0,
         bank: inactive ? 0 : signedBank,
         debt: 0,
-        refund: inactive || isPurchaseCancellationMovement(item) || direction === "out" ? amount : 0,
+        refund: inactive || ["correction", "refund"].includes(classification) || direction === "out" ? amount : 0,
         total: inactive ? -amount : signedBank,
       });
     });
@@ -1307,7 +1462,7 @@ export default function App() {
     netCash: totals.netCash + Number(row.cash || 0),
   }), { buy: 0, sale: 0, cash: 0, bank: 0, debt: 0, refund: 0, netCash: 0 });
 
-  const cashWithBankIncoming = cashMovementNetWithoutSaleCash + report.cash + legacyBankCashIncoming - legacyExpenseOut - legacyStockPaymentOut;
+  const cashWithBankIncoming = financeSummary.expectedCash;
   const cashAfterExpenses = cashWithBankIncoming;
   const compactKasaSummaryCards = [
     {
@@ -1785,36 +1940,61 @@ export default function App() {
     setCashEntryForm({ type: "Manuel Nakit Girişi", amount: "", note: "" });
   }
 
-  async function cancelCashEntryMovement(item) {
-    if (!item?.id) return alert("İptal edilecek nakit girişi bulunamadı.");
-    if (!isCancellableCashEntryMovement(item)) return alert("Sadece nakit girişi kayıtları iptal edilebilir.");
-    if (!requireSecurityPassword("cancel", "Nakit girişi iptali")) return;
+  function cashMovementCancellationFor(item) {
+    const itemId = String(item?.id || "");
+    if (!itemId) return null;
+    return activeCashMovements.find((movement) => (
+      String(movement.id || "") !== itemId &&
+      isCashMovementCancellation(movement) &&
+      String(movement.relatedTable || movement.related_table || "") === "cash_movements" &&
+      String(movement.relatedId || movement.related_id || movement.referenceId || movement.reference_id || "") === itemId
+    )) || null;
+  }
+
+  async function createCashMovementCancellation(payload) {
+    try {
+      return await createCashMovement(payload);
+    } catch (error) {
+      const message = String(error?.message || error || "");
+      if (!message.includes("movement_type") && !message.includes("violates check constraint")) throw error;
+      console.warn("İptal hareket tipi Supabase constraint'e takıldı, Düzeltme ile güvenli ters hareket yazılıyor.", error);
+      return createCashMovement({
+        ...payload,
+        movement_type: "Düzeltme",
+        note: `İptal: [${payload.movement_type}] ${String(payload.note || "").replace(/^İptal:\s*/i, "")}`,
+      });
+    }
+  }
+
+  async function cancelCashMovement(item) {
+    if (!item?.id) return alert("İptal edilecek kasa hareketi bulunamadı.");
+    if (!isCancelableCashMovement(item)) return alert("Bu kasa hareketi iptal akışına uygun değil.");
+    if (cashMovementCancellationFor(item)) return alert("Bu hareket daha önce iptal edilmiş.");
+    if (!requireSecurityPassword("cancel", "Kasa hareketi iptali")) return;
 
     const amount = cashMovementAmount(item);
     if (!amount) return alert("İptal edilecek tutar bulunamadı.");
-    const ok = window.confirm("Bu nakit girişini iptal etmek istiyor musunuz? Orijinal kayıt silinmez; kasa etkisi ters hareketle geri alınır.");
+    const movementType = cashMovementCancellationTypeFor(item);
+    if (!movementType) return alert("Bu hareket için iptal tipi belirlenemedi.");
+
+    const ok = window.confirm("Bu kasa hareketini iptal etmek istiyor musunuz? Orijinal kayıt silinmez; kasa etkisi ters hareketle geri alınır.");
     if (!ok) return;
 
     try {
-      await createCashMovement({
-        movement_type: cashEntryCancellationType,
-        direction: "out",
+      await createCashMovementCancellation({
+        movement_type: movementType,
+        direction: item.direction === "out" ? "in" : "out",
         amount,
-        note: `Nakit girişi iptali - ${item.note || cashMovementType(item)}`,
+        note: `İptal: ${item.note || cashMovementType(item)}`,
         related_table: "cash_movements",
         related_id: item.id,
       });
       await refreshFromDatabase();
-      setSyncMessage("Nakit girişi iptal edildi ve kasa etkisi geri alındı.");
-      alert("Nakit girişi iptal edildi ve kasa etkisi geri alındı.");
+      setSyncMessage("Kasa hareketi iptal edildi ve kasa etkisi geri alındı.");
+      alert("Kasa hareketi iptal edildi ve kasa etkisi geri alındı.");
     } catch (error) {
-      console.error("Nakit girişi iptal hatası", error);
-      const message = String(error?.message || error || "");
-      if (message.includes("cash_movements_movement_type_check") || message.includes("violates check constraint")) {
-        alert("Nakit Girişi İptali hareket tipi Supabase'de eksik. supabase/cash_entry_cancel_movement_type_20260526.sql dosyasını SQL Editor'da çalıştırın.");
-        return;
-      }
-      alert(error.message || "Nakit girişi iptal edilemedi.");
+      console.error("Kasa hareketi iptal hatası", error);
+      alert(error.message || "Kasa hareketi iptal edilemedi.");
     }
   }
 
@@ -3552,16 +3732,24 @@ export default function App() {
 
                 <button className="primary" onClick={saveCashEntry}><Plus size={16} /> Nakit Girişini Kaydet</button>
 
-                <Table headers={["Tarih", "İşlem", "Yön", "Tutar", "Not", "İşlem"]} rows={activeCashMovements.map((item) => [
-                  new Date(item.date).toLocaleString("tr-TR"),
-                  item.type || "-",
-                  item.direction === "out" ? "Çıkış" : "Giriş",
-                  item.direction === "out" ? `-${money(item.amount)}` : money(item.amount),
-                  item.note || "-",
-                  isCancellableCashEntryMovement(item)
-                    ? <button className="delete-btn" onClick={() => cancelCashEntryMovement(item)}>İptal</button>
-                    : "-",
-                ])} />
+                <Table headers={["Tarih", "İşlem", "Yön", "Tutar", "Not", "İşlem"]} rows={activeCashMovements.map((item) => {
+                  const cancellation = cashMovementCancellationFor(item);
+                  const isCancellationRow = isCashMovementCancellation(item);
+                  return [
+                    new Date(item.date).toLocaleString("tr-TR"),
+                    item.type || "-",
+                    item.direction === "out" ? "Çıkış" : "Giriş",
+                    <span className={item.direction === "out" ? "technical-money-out" : "technical-money-in"}>{`${item.direction === "out" ? "-" : "+"}${money(item.amount)}`}</span>,
+                    item.note || "-",
+                    isCancellationRow
+                      ? "İptal Kaydı"
+                      : cancellation
+                        ? "İptal Edildi"
+                        : isCancelableCashMovement(item)
+                          ? <button className="delete-btn" onClick={() => cancelCashMovement(item)}>İptal</button>
+                          : "-",
+                  ];
+                })} />
               </section>
             )}
 
