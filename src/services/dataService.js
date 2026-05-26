@@ -805,21 +805,34 @@ export async function createBankWithdrawal(payload) {
 }
 
 export async function updateSaleRecord(id, payload) {
+  const user = await getCurrentUser();
   const workspaceId = await getCurrentWorkspaceId();
-  return callFinancialRpc("update_sale_with_effects", {
-    p_sale_id: id,
-    p_workspace_id: workspaceId,
-    p_total_amount: toDbNumber(payload.total_amount),
-    p_cash_amount: toDbNumber(payload.cash_amount),
-    p_card_amount: toDbNumber(payload.card_amount),
-    p_remaining_amount: toDbNumber(payload.remaining_amount),
-    p_bank_name: payload.bank_name || "",
-    p_customer_name: payload.customer_name || payload.cari_person || "",
-    p_customer_phone: payload.customer_phone || "",
-    p_product_name: payload.product_name || "",
-    p_buy_cost: toDbNumber(payload.buy_cost),
-    p_profit_amount: toDbNumber(payload.profit_amount),
-  });
+
+  const updatePayload = {
+    total_amount: toDbNumber(payload.total_amount),
+    cash_amount: toDbNumber(payload.cash_amount),
+    card_amount: toDbNumber(payload.card_amount),
+    remaining_amount: toDbNumber(payload.remaining_amount),
+    bank_name: payload.bank_name || "",
+    customer_name: payload.customer_name || payload.cari_person || "",
+    customer_phone: payload.customer_phone || "",
+    product_name: payload.product_name || "",
+    buy_cost: toDbNumber(payload.buy_cost),
+    profit_amount: toDbNumber(payload.profit_amount),
+    updated_by: user?.id,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from("sales")
+    .update(updatePayload)
+    .eq("id", id)
+    .eq("workspace_id", workspaceId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
 export async function updateStockItem(id, payload) {
