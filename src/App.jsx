@@ -929,7 +929,7 @@ function localDateKey(value) {
 }
 
 function reportDateValue(item) {
-  return item?.created_at || item?.createdAt || item?.movement_date || item?.sale_date || item?.date || "";
+  return item?.created_at || item?.createdAt || item?.movement_date || item?.saleDate || item?.sale_date || item?.date || "";
 }
 
 function isSameReportDay(item, selectedDate) {
@@ -2444,9 +2444,133 @@ const isSameSalesListDay = (item, dateKey) => {
     return { label: type || "Nakit Hareketi", tone: direction === "out" ? "cash-out" : "cash-in" };
   }
 
+  const reportStockQuantity = (product) => {
+    if (product?.module === "Cihaz") return 1;
+    const quantity = Number(product?.qty || product?.quantity || 1);
+    return Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+  };
+
+  const stockPurchaseReportType = (product) => {
+    const group = stockSearchGroup(product);
+    if (group === "TELEFON") return { label: "Telefon Alımı", tone: "phone-purchase" };
+    if (group === "AKSESUAR") return { label: "Aksesuar Alımı", tone: "purchase" };
+    if (group === "SAAT") return { label: "Saat Alımı", tone: "purchase" };
+    if (group === "TABLET") return { label: "Tablet Alımı", tone: "purchase" };
+    if (group === "PC") return { label: "PC Alımı", tone: "purchase" };
+    if (group === "ELEKTRONİK") return { label: "Elektronik Alımı", tone: "purchase" };
+    return { label: "Ürün Alımı", tone: "purchase" };
+  };
+
+  const stockPurchaseParty = (product) =>
+    sellerNameFromProduct(product) || product?.supplier || product?.supplier_name || "-";
+
+  const stockPurchaseDescriptionLines = (product) => {
+    const title = productTitle(product) || product?.product_name || product?.name || "-";
+    const details = [];
+    const condition = product?.condition || (product?.module === "Cihaz" ? product?.category : "");
+    const subType = product?.module === "Aksesuar" ? product?.accessorySubType : "";
+    const note = product?.compatibleModel || product?.note || "";
+
+    [condition, subType, note]
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+      .forEach((value) => {
+        if (!details.some((item) => item.toLocaleLowerCase("tr-TR") === value.toLocaleLowerCase("tr-TR")) &&
+            !title.toLocaleLowerCase("tr-TR").includes(value.toLocaleLowerCase("tr-TR"))) {
+          details.push(value);
+        }
+      });
+
+    return [title, details.join(" ")].filter(Boolean);
+  };
+
+  const relatedStockId = (item) => {
+    const relatedTable = String(item?.relatedTable || item?.related_table || "");
+    if (relatedTable !== "stock_items") return "";
+    return String(item?.relatedId || item?.related_id || "");
+  };
+
+  const contactMatchesSameDayStockDebt = (contact, sameDayStockItems) => {
+    if (!sameDayStockItems.length) return false;
+    if (String(contact?.balanceType || contact?.balance_type || "") !== "payable") return false;
+
+    const note = normalizeKasaBrainText(contact?.note);
+    if (!note.includes("alimindan kalan borc") && !note.includes("alımından kalan borç")) return false;
+
+    const contactName = normalizeKasaBrainText(contact?.name);
+    return sameDayStockItems.some((product) => {
+      const party = normalizeKasaBrainText(stockPurchaseParty(product));
+      const title = normalizeKasaBrainText(productTitle(product));
+      const hasDebt = stockSellerDebt(product) > 0 ||
+        Math.max(parseMoneyInput(product?.buy) * reportStockQuantity(product) - parseMoneyInput(product?.supplierPaid || 0), 0) > 0;
+
+      return hasDebt &&
+        contactName &&
+        party &&
+        (contactName === party || contactName.includes(party) || party.includes(contactName)) &&
+        (!title || note.includes(title) || title.includes(note.replace("alimindan kalan borc", "").replace("alımından kalan borç", "").trim()));
+    });
+  };
+
   function normalizeDailyCashReportRows(selectedDate) {
     const rows = [];
     const saleIds = new Set(safeSales.map((sale) => String(sale.id)));
+    const sameDayStockItems = safeStock.filter((product) => isSameReportDay(product, selectedDate));
+    const sameDayStockIds = new Set(sameDayStockItems.map((product) => String(product.id || "")).filter(Boolean));
+
+    sameDayStockItems.forEach((product) => {
+      const stockId = String(product.id || "");
+      const reportType = stockPurchaseReportType(product);
+      const quantity = reportStockQuantity(product);
+      const buyTotal = parseMoneyInput(product.buy || product.buy_price || 0) * quantity;
+      const cashPayments = safeCashMovements.filter((item) =>
+        isSameReportDay(item, selectedDate) &&
+        relatedStockId(item) === stockId &&
+        isPurchasePaymentMovement(item, cashMovementType(item), item.direction)
+      );
+      const bankPayments = safeBankMovements.filter((item) =>
+        isSameReportDay(item, selectedDate) &&
+        relatedStockId(item) === stockId &&
+        isPurchasePaymentMovement(item, bankMovementType(item), bankMovementDirection(item))
+      );
+      const cash = cashPayments.reduce((sum, item) => sum + getCashNetEffect(item), 0);
+      const bank = bankPayments.reduce((sum, item) => {
+        if (!isActiveMovement(item)) return sum;
+        const amount = Math.abs(bankMovementAmount(item));
+        return sum + (bankMovementDirection(item) === "out" ? -amount : amount);
+      }, 0);
+      const storedPaid = parseMoneyInput(product.supplierPaid || product.supplier_paid || 0);
+      const fallbackCash = !cashPayments.length && !bankPayments.length && storedPaid > 0 ? -storedPaid : 0;
+      const cashTotal = cash || fallbackCash;
+      const paidTotal = Math.abs(Math.min(cashTotal, 0)) + Math.abs(Math.min(bank, 0));
+      const sellerDebt = stockSellerDebt(product);
+      const supplierDebt = !sellerNameFromProduct(product)
+        ? Math.max(buyTotal - Math.max(paidTotal, storedPaid), 0)
+        : 0;
+      const debt = Math.max(sellerDebt || supplierDebt || Math.max(buyTotal - Math.max(paidTotal, storedPaid), 0), 0);
+      const descriptionLines = stockPurchaseDescriptionLines(product);
+
+      rows.push({
+        id: stockId,
+        relatedTable: "stock_items",
+        related_table: "stock_items",
+        relatedId: stockId,
+        related_id: stockId,
+        date: reportDateValue(product),
+        tone: reportType.tone,
+        type: reportType.label,
+        description: descriptionLines.join("\n"),
+        descriptionLines,
+        party: stockPurchaseParty(product),
+        buy: buyTotal,
+        sale: 0,
+        cash: cashTotal,
+        bank,
+        debt,
+        refund: 0,
+        total: cashTotal + bank + debt,
+      });
+    });
 
     safeSales.filter((sale) => isSameReportDay(sale, selectedDate)).forEach((sale) => {
       const inactive = !isActiveRecord(sale);
@@ -2468,7 +2592,7 @@ const isSameSalesListDay = (item, dateKey) => {
         productId: stockItemId,
         date: reportDateValue(sale),
         tone: inactive ? "cancel" : "sale",
-        type: inactive ? "İptal" : "Satış",
+        type: inactive ? "İptal" : (sale.type || sale.sale_type || "Satış"),
         description: sale.productName || sale.product_name || sale.type || sale.sale_type || "-",
         party: sale.customer || sale.customer_name || sale.cariPerson || sale.cari_person || "",
         buy: inactive ? 0 : parseMoneyInput(sale.productBuyPrice || sale.buy_cost || 0),
@@ -2484,7 +2608,9 @@ const isSameSalesListDay = (item, dateKey) => {
     safeCashMovements.filter((item) => isSameReportDay(item, selectedDate)).forEach((item) => {
       const type = cashMovementType(item);
       const relatedSaleDuplicate = type === "Satış Nakit" && String(item.relatedTable || item.related_table || "") === "sales" && saleIds.has(String(item.relatedId || item.related_id || ""));
+      const relatedStockDuplicate = sameDayStockIds.has(relatedStockId(item)) && isPurchasePaymentMovement(item, type, item.direction);
       if (relatedSaleDuplicate) return;
+      if (relatedStockDuplicate) return;
       const amount = Math.abs(cashMovementAmount(item));
       const direction = movementDirection(item, type);
       const inactive = !isActiveMovement(item);
@@ -2510,7 +2636,9 @@ const isSameSalesListDay = (item, dateKey) => {
     safeBankMovements.filter((item) => isSameReportDay(item, selectedDate)).forEach((item) => {
       const type = bankMovementType(item);
       const relatedSaleDuplicate = String(item.relatedTable || item.related_table || "") === "sales" && saleIds.has(String(item.relatedId || item.related_id || ""));
+      const relatedStockDuplicate = sameDayStockIds.has(relatedStockId(item)) && isPurchasePaymentMovement(item, type, bankMovementDirection(item));
       if (relatedSaleDuplicate) return;
+      if (relatedStockDuplicate) return;
       const amount = Math.abs(bankMovementAmount(item));
       const direction = bankMovementDirection(item);
       const inactive = !isActiveMovement(item);
@@ -2536,6 +2664,7 @@ const isSameSalesListDay = (item, dateKey) => {
     safeContacts.filter((contact) => isSameReportDay(contact, selectedDate)).forEach((contact) => {
       const balance = Math.abs(Number(contact.balance || 0));
       if (!balance) return;
+      if (contactMatchesSameDayStockDebt(contact, sameDayStockItems)) return;
       const inactive = !isActiveRecord(contact);
       rows.push({
         date: reportDateValue(contact),
@@ -2568,6 +2697,10 @@ const isSameSalesListDay = (item, dateKey) => {
       return ["Detay", "Düzelt", "Satış İptal", "Satış İade"];
     }
 
+    if (type.includes("alımı")) {
+      return ["Detay", "Alım İptal"];
+    }
+
     if (type.includes("nakit girişi") || type.includes("manuel nakit")) {
       return ["Detay", "İptal"];
     }
@@ -2587,7 +2720,7 @@ const isSameSalesListDay = (item, dateKey) => {
     bank: totals.bank + Number(row.bank || 0),
     debt: totals.debt + Number(row.debt || 0),
     refund: totals.refund + Number(row.refund || 0),
-    netCash: totals.netCash + Number(row.cash || 0),
+    netCash: totals.netCash + Number(row.total || 0),
   }), { buy: 0, sale: 0, cash: 0, bank: 0, debt: 0, refund: 0, netCash: 0 });
 
   const cashWithBankIncoming = financeSummary.expectedCash;
@@ -4185,6 +4318,21 @@ const isSameSalesListDay = (item, dateKey) => {
     return <span className={`report-type-badge ${row.tone || "default"}`}>{row.type || "-"}</span>;
   }
 
+  function reportTextCell(value) {
+    const lines = Array.isArray(value)
+      ? value
+      : String(value || "-").split("\n");
+    const cleanLines = lines.map((line) => String(line || "").trim()).filter(Boolean);
+
+    return (
+      <span className="report-text-cell">
+        {(cleanLines.length ? cleanLines : ["-"]).map((line, index) => (
+          <span key={`${line}-${index}`}>{line}</span>
+        ))}
+      </span>
+    );
+  }
+
   useEffect(() => {
     const timer = setInterval(() => setClockNow(new Date()), 1000);
     return () => clearInterval(timer);
@@ -5197,7 +5345,7 @@ const isSameSalesListDay = (item, dateKey) => {
                   <div className="daily-report-header">
                     <div>
                       <h2>GÜNLÜK KASA RAPORU</h2>
-                      <p>Seçilen tarihteki satış, kasa, banka, cari ve teknik servis hareketlerini okuma amaçlı listeler.</p>
+                      <p>Seçilen tarihteki tüm satış, alış, kasa, banka ve cari hareketlerini okunaklı şekilde listeler.</p>
                     </div>
                     <div className="daily-report-controls">
                       <label>
@@ -5210,67 +5358,58 @@ const isSameSalesListDay = (item, dateKey) => {
                     </div>
                   </div>
 
-                  <Table headers={["No", "Tarih / Saat", "İşlem Türü", "Ürün / Açıklama", "Müşteri / Tedarikçi", "Alış Fiyatı", "Satış Fiyatı", "Nakit", "Kart / Banka", "Borç / Cari", "İade / İptal", "Toplam", "İşlem"]} rows={dailyCashReportRows.map((row) => [
+                  <Table headers={["No", "Tarih / Saat", "İşlem Türü", "Ürün Açıklaması", "Müşteri / Tedarikçi", "Alış Fiyatı", "Nakit (₺)", "Kart / Banka (₺)", "Borç / Cari (₺)", "İade / İptal (₺)", "Toplam (₺)", "İşlem"]} rows={dailyCashReportRows.map((row) => [
                     row.no,
                     formatRecordDate(row.date),
                     reportTypeBadge(row),
-                    row.description || "-",
-                    row.party || "-",
+                    reportTextCell(row.descriptionLines || row.description || "-"),
+                    reportTextCell(row.party || "-"),
                     reportMoneyCell(row.buy),
-                    reportMoneyCell(row.sale),
                     reportMoneyCell(row.cash),
                     reportMoneyCell(row.bank),
                     reportMoneyCell(row.debt),
                     reportMoneyCell(row.refund, { negative: true }),
                     reportMoneyCell(row.total),
-              (
-                <div className="kasa-brain-actions" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {(
-                    String(row.type || "").toLocaleLowerCase("tr-TR").includes("satış")
-                      ? ["Detay", "Düzelt", "Satış İptal", "Satış İade"]
-                      : String(row.type || "").toLocaleLowerCase("tr-TR").includes("alım ödemesi")
-                        ? ["Detay", "Alım İptal"]
-                        : String(row.type || "").toLocaleLowerCase("tr-TR").includes("nakit")
-                          ? ["Detay", "İptal"]
-                          : ["Detay"]
-                  ).map((action) => (
-                    <button
-                      key={action}
-                      type="button"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        setKasaBrainModal({ action, row });
-                      }}
-                      style={{
-                        border: "1px solid #d8def0",
-                        borderRadius: 8,
-                        padding: "4px 7px",
-                        background: "#fff",
-                        color: "#111827",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        position: "relative",
-                        zIndex: 9999,
-                        pointerEvents: "auto"
-                      }}
-                    >
-                      {action}
-                    </button>
-                  ))}
-                </div>
-              ),
+                    (
+                      <div className="kasa-brain-actions" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {kasaBrainActionsForRow(row).map((action) => (
+                          <button
+                            key={action}
+                            type="button"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setKasaBrainModal({ action, row });
+                            }}
+                            style={{
+                              border: "1px solid #d8def0",
+                              borderRadius: 8,
+                              padding: "4px 7px",
+                              background: "#fff",
+                              color: "#111827",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                              position: "relative",
+                              zIndex: 9999,
+                              pointerEvents: "auto"
+                            }}
+                          >
+                            {action}
+                          </button>
+                        ))}
+                      </div>
+                    ),
                   ])} />
 
                   <div className="daily-report-totals">
                     <div><span>Toplam Alış</span><b>{money(dailyCashReportTotals.buy)}</b></div>
                     <div><span>Toplam Satış</span><b>{money(dailyCashReportTotals.sale)}</b></div>
                     <div><span>Toplam Nakit</span><b className={dailyCashReportTotals.cash < 0 ? "money-negative" : ""}>{money(dailyCashReportTotals.cash)}</b></div>
-                    <div><span>Toplam Kart/Banka</span><b className={dailyCashReportTotals.bank < 0 ? "money-negative" : ""}>{money(dailyCashReportTotals.bank)}</b></div>
-                    <div><span>Toplam Borç/Cari</span><b>{money(dailyCashReportTotals.debt)}</b></div>
-                    <div><span>Toplam İade/İptal</span><b className="money-negative">{money(dailyCashReportTotals.refund)}</b></div>
+                    <div><span>Toplam Kart / Banka</span><b className={dailyCashReportTotals.bank < 0 ? "money-negative" : ""}>{money(dailyCashReportTotals.bank)}</b></div>
+                    <div><span>Toplam Borç / Cari</span><b>{money(dailyCashReportTotals.debt)}</b></div>
+                    <div><span>Toplam İade / İptal</span><b className="money-negative">{money(dailyCashReportTotals.refund)}</b></div>
                     <div className="daily-report-net"><span>Net Kasa Etkisi</span><b className={dailyCashReportTotals.netCash < 0 ? "money-negative" : ""}>{money(dailyCashReportTotals.netCash)}</b></div>
                   </div>
                 </section>
@@ -5331,7 +5470,7 @@ const isSameSalesListDay = (item, dateKey) => {
                 ["İşlem", kasaBrainModal.action],
                 ["Kayıt No", kasaBrainModal.row?.no],
                 ["İşlem Türü", kasaBrainModal.row?.type],
-                ["Ürün / Açıklama", kasaBrainModal.row?.description],
+                ["Ürün Açıklaması", reportTextCell(kasaBrainModal.row?.descriptionLines || kasaBrainModal.row?.description)],
                 ["Müşteri / Tedarikçi", kasaBrainModal.row?.party || "-"],
                 ["Nakit", money(kasaBrainModal.row?.cash || 0)],
                 ["Kart / Banka", money(kasaBrainModal.row?.bank || 0)],
