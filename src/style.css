@@ -8286,3 +8286,25 @@ body {
   font-weight: 900 !important;
   opacity: .95 !important;
 }
+
+/* Zoom %100 ustundeyken alt kisimlar kaybolmasin diye sayfa scroll kilidini gevset */
+html.ceplog-zoomed-in,
+html.ceplog-zoomed-in body,
+html.ceplog-zoomed-in #root {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+html.ceplog-zoomed-in .premium-dashboard {
+  overflow: visible !important;
+}
+
+html.ceplog-zoomed-in .premium-dashboard .app-shell {
+  overflow: visible !important;
+}
+
+html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
+  overflow-y: visible !important;
+}
