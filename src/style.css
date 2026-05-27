@@ -5687,3 +5687,36 @@ select {
     grid-template-columns: 1fr !important;
   }
 }
+
+.large-sales-panel .big-sale-grid {
+  grid-template-columns: repeat(15, minmax(0, 1fr)) !important;
+}
+
+.large-sales-panel .big-sale-grid .big-sale-btn:nth-child(-n+3) {
+  grid-column: span 5 !important;
+}
+
+.large-sales-panel .big-sale-grid .big-sale-btn:nth-child(n+4) {
+  grid-column: span 3 !important;
+}
+
+.nav-mini-y {
+  background: #020617 !important;
+  border-color: #020617 !important;
+  color: #fff !important;
+}
+
+.nav-mini-y svg {
+  color: #fff !important;
+  stroke: currentColor !important;
+}
+
+@media (max-width: 760px) {
+  .large-sales-panel .big-sale-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .large-sales-panel .big-sale-grid .big-sale-btn:nth-child(n) {
+    grid-column: auto !important;
+  }
+}

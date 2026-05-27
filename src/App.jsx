@@ -37,7 +37,7 @@ import {
   updateStockItem,
 } from "./services/dataService";
 
-import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText } from "lucide-react";
+import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText, Settings } from "lucide-react";
 
 const parseMoneyInput = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, ""));
 const formatMoneyInput = (value) => {
@@ -221,7 +221,7 @@ const stockSellerDebt = (product) => {
   return Math.max(totalBuy - paid, 0);
 };
 
-const saleTypes = ["Telefon Satışı", "Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı", "Aksesuar Satışı"];
+const saleTypes = ["Telefon Satışı", "Aksesuar Satışı", "Program Satışı", "Saat Satışı", "Tablet Satışı", "Elektronik Satışı", "Bluetooth Satışı", "Diğerleri Satışı"];
 const securityPasswordsStorageKey = "ceplog_security_passwords";
 const defaultSecurityPasswords = {
   editPassword: "1",
@@ -233,8 +233,8 @@ const securityPasswordFields = [
   { key: "cancelPassword", actionType: "cancel", label: "İptal Şifresi" },
   { key: "deletePassword", actionType: "delete", label: "Silme Şifresi" },
 ];
-const mainSaleGroups = ["Telefon", "Aksesuar", "Program", "Saat", "Tablet", "Elektronik"];
-const otherSaleTypes = ["Saat Satışı", "PC Satışı", "Elektronik Satışı"];
+const mainSaleGroups = ["Telefon", "Aksesuar", "Program", "Saat", "Tablet", "Elektronik", "Bluetooth", "X"];
+const otherSaleTypes = ["Program Satışı", "Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı", "Bluetooth Satışı", "Diğerleri Satışı"];
 const purchasePaymentMovementTypes = [
   "Alım Ödemesi",
   "Cihaz Alım Ödemesi",
@@ -322,6 +322,13 @@ const saleGroupRank = (type) => {
 const saleGroupName = (type) => {
   if (type === "Telefon Satışı") return "Telefon";
   if (type === "Aksesuar Satışı") return "Aksesuar";
+  if (type === "Program Satışı") return "Program";
+  if (type === "Saat Satışı") return "Saat";
+  if (type === "Tablet Satışı") return "Tablet";
+  if (type === "PC Satışı") return "PC";
+  if (type === "Elektronik Satışı") return "Elektronik";
+  if (type === "Bluetooth Satışı") return "Bluetooth";
+  if (type === "Diğerleri Satışı") return "Diğerleri";
   if (type === "Teknik Servis") return "Teknik Servis";
   return "Diğerleri";
 };
@@ -883,7 +890,7 @@ function saleTargetFromStockProduct(product) {
   if (group === "ELEKTRONİK") return { saleGroup: "Elektronik", saleType: "Elektronik Satışı" };
   if (group === "PROGRAM") return { saleGroup: "Program", saleType: "Program Satışı" };
   if (group === "BLUETOOTH") return { saleGroup: "Bluetooth", saleType: "Bluetooth Satışı" };
-  return { saleGroup: "Diğerleri", saleType: "Diğerleri Satışı" };
+  return { saleGroup: "X", saleType: "Diğerleri Satışı" };
 }
 
 function stockSearchHaystack(product) {
@@ -1919,9 +1926,12 @@ const isSameSalesListDay = (item, dateKey) => {
 
   const saleProducts = isProgramSale ? [] : inStockItems
     .filter((product) => {
+      const stockGroup = stockSearchGroup(product);
       if (isAccessorySale) return product.module === "Aksesuar";
       if (saleDeviceType === "Telefon") return product.module === "Cihaz" && product.deviceType === "Telefon";
-      if (saleDeviceType === "Elektronik") return ["Elektronik", "PC"].includes(product.deviceType);
+      if (saleDeviceType === "Elektronik") return ["Elektronik", "PC"].includes(product.deviceType) || ["ELEKTRONİK", "PC"].includes(stockGroup);
+      if (saleForm.type === "Bluetooth Satışı") return stockGroup === "BLUETOOTH";
+      if (saleForm.type === "Diğerleri Satışı") return stockGroup === "DİĞERLERİ";
       return product.deviceType === saleDeviceType || product.deviceType === saleGroup;
     })
     .filter((product) => !saleForm.search || has(productTitle(product), saleForm.search) || has(product.barcode, saleForm.search))
@@ -3506,9 +3516,8 @@ const isSameSalesListDay = (item, dateKey) => {
     if (!isProgramSale && !isAccessorySale && !selectedProduct) return alert("Ürün seç");
     if (!isProgramSale && selectedProduct && Number(selectedProduct.qty || 0) <= 0) return alert("Stok yok");
     if (isProgramSale && !saleForm.search.trim()) return alert("Ne programı olduğunu yaz");
+    if (!isAccessorySale && saleRemaining > 0 && !saleForm.cariPerson.trim()) return alert("Kalan bakiye varsa cari kişi zorunludur.");
     if (!isAccessorySale && !saleForm.customer.trim()) return alert("Müşteri adı soyadı / telefon yaz");
-    if (!isAccessorySale && saleRemaining > 0 && !saleForm.cariPerson.trim()) return alert("Kalan varsa Cari Ekle zorunludur");
-    if (saleCard > 0 && !saleForm.bank) return alert("Kart ödeme varsa banka seç");
     if (!String(saleForm.total || "").trim() || parseMoneyInput(saleForm.total) <= 0) {
       return alert(isProgramSale ? "Ne kadar olduğunu yaz" : "Satış fiyatını yaz");
     }
@@ -3519,6 +3528,10 @@ const isSameSalesListDay = (item, dateKey) => {
       cardAmount: saleCard,
       messages: { overpaid: "Nakit + kart toplamı satış fiyatını aşamaz." },
     }))) return;
+    if (isAccessorySale && saleCash + saleCard !== saleTotal) {
+      return alert("Aksesuar satışında kalan bakiye kabul edilmez. Nakit + Kart/Banka toplamı satış fiyatına eşit olmalıdır.");
+    }
+    if (saleCard > 0 && !saleForm.bank) return alert("Kart ödeme varsa banka seç");
 
     const sale = calcSale({
       id: Date.now(),
@@ -4471,8 +4484,9 @@ const isSameSalesListDay = (item, dateKey) => {
             className={active === "yonetim" ? "nav-btn nav-mini-y active" : "nav-btn nav-mini-y"}
             onClick={() => setActive("yonetim")}
             title="Yönetim"
+            aria-label="Yönetim"
           >
-            <span>Y</span>
+            <Settings size={22} aria-hidden="true" />
           </button>
         </nav>
 
@@ -4839,6 +4853,8 @@ const isSameSalesListDay = (item, dateKey) => {
                                 group === "Saat" ? "Saat Satışı" :
                                 group === "Tablet" ? "Tablet Satışı" :
                                 group === "Elektronik" ? "Elektronik Satışı" :
+                                group === "Bluetooth" ? "Bluetooth Satışı" :
+                                group === "X" ? "Diğerleri Satışı" :
                                 "Telefon Satışı",
                               productId: "",
                               search: "",
