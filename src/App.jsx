@@ -1896,7 +1896,7 @@ const isSameSalesListDay = (item, dateKey) => {
   }, [inStockItems, technicalSearchFilter, technicalSearchQuery]);
 
   const selectedProduct = inStockItems.find((product) => String(product.id) === String(saleForm.productId));
-  const saleTotal = parseMoneyInput(saleForm.total || selectedProduct?.sell || 0);
+  const saleTotal = parseMoneyInput(saleForm.total || 0);
   const saleCash = parseMoneyInput(saleForm.cash || 0);
   const saleCard = parseMoneyInput(saleForm.card || 0);
   const saleRemaining = isAccessorySale ? 0 : Math.max(saleTotal - saleCash - saleCard, 0);
@@ -3298,6 +3298,9 @@ const isSameSalesListDay = (item, dateKey) => {
     if (!isAccessorySale && !saleForm.customer.trim()) return alert("Müşteri adı soyadı / telefon yaz");
     if (!isAccessorySale && saleRemaining > 0 && !saleForm.cariPerson.trim()) return alert("Kalan varsa Cari Ekle zorunludur");
     if (saleCard > 0 && !saleForm.bank) return alert("Kart ödeme varsa banka seç");
+    if (!String(saleForm.total || "").trim() || parseMoneyInput(saleForm.total) <= 0) {
+      return alert(isProgramSale ? "Ne kadar olduğunu yaz" : "Satış fiyatını yaz");
+    }
     if (!saleTotal) return alert(isProgramSale ? "Ne kadar olduğunu yaz" : "Satış fiyatını yaz");
     if (!alertFinancialValidation(validatePaymentDistribution({
       totalAmount: saleTotal,
@@ -3316,7 +3319,7 @@ const isSameSalesListDay = (item, dateKey) => {
       productId: isProgramSale || !selectedProduct ? null : selectedProduct.id,
       productBuyPrice: isProgramSale || !selectedProduct ? 0 : selectedProduct.buy,
       productBarcode: isProgramSale || !selectedProduct ? "" : selectedProduct.barcode,
-      total: saleForm.total || (isProgramSale || !selectedProduct ? "" : selectedProduct.sell),
+      total: saleForm.total,
       cash: saleForm.cash,
       card: saleForm.card,
       date: new Date().toISOString(),
