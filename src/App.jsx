@@ -1810,70 +1810,12 @@ const isSameSalesListDay = (item, dateKey) => {
   const [cashEntryForm, setCashEntryForm] = useState({ amount: "", source: "", note: "" });
   const [cashCarryForm, setCashCarryForm] = useState({ amount: "", note: "" });
   const [banks, setBanks] = useState(() => getBankList(loadStoredBanks()));
-  const [editingBank, setEditingBank] = useState(null);
-  const [bankRenameDraft, setBankRenameDraft] = useState("");
   const [bankTransferDrafts, setBankTransferDrafts] = useState({});
   const [bankCashSkeletonForm, setBankCashSkeletonForm] = useState({ name: "", balance: "" });
   const [bankMovements, setBankMovements] = useState([]);
   const [saleForm, setSaleForm] = useState({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
-  const bankList = useMemo(() => getBankList(banks).map((bank) => ({
-    ...bank,
-    aliases: getBankAliases(bank),
-  })), [banks]);
+  const bankList = useMemo(() => getBankList(banks), [banks]);
   const bankOptions = useMemo(() => bankList.map((bank) => bank.name), [bankList]);
-
-  function openBankRename(bank) {
-    setEditingBank(bank);
-    setBankRenameDraft(bank?.name || "");
-  }
-
-  function saveBankRename() {
-    const oldBank = editingBank;
-    const newName = String(bankRenameDraft || "").trim().replace(/\s+/g, " ");
-
-    if (!oldBank?.id) return alert("Düzenlenecek banka bulunamadı.");
-    if (!newName) return alert("Banka adı boş olamaz.");
-
-    const duplicate = bankList.some((bank) =>
-      String(bank.id) !== String(oldBank.id) &&
-      normalizeBankName(bank.name) === normalizeBankName(newName)
-    );
-
-    if (duplicate) return alert("Bu isimde başka banka var. Aynı banka iki kez oluşturulamaz.");
-
-    const nextBanks = bankList.map((bank) => {
-      if (String(bank.id) !== String(oldBank.id)) return bank;
-
-      return {
-        ...bank,
-        name: newName,
-        oldName: oldBank.name,
-        aliases: Array.from(new Set([
-          ...getBankAliases(bank),
-          oldBank.name,
-          newName,
-        ].filter(Boolean))),
-      };
-    });
-
-    setBanks(nextBanks);
-    saveStoredBanks(nextBanks);
-
-    setSaleForm((form) => ({
-      ...form,
-      bank: bankMatchesName({ ...oldBank, aliases: getBankAliases(oldBank) }, form.bank) ? newName : form.bank,
-    }));
-
-    setEditingSale((sale) => sale ? {
-      ...sale,
-      bank: bankMatchesName({ ...oldBank, aliases: getBankAliases(oldBank) }, sale.bank) ? newName : sale.bank,
-    } : sale);
-
-    setEditingBank(null);
-    setBankRenameDraft("");
-    setSyncMessage("Banka adı güncellendi. Eski hareketler korunarak yeni ad altında gösterilecek.");
-    alert("Banka adı güncellendi. Eski hareketler korunarak yeni ad altında gösterilecek.");
-  }
   const [expenses, setExpenses] = useState([]);
   const [expenseForm, setExpenseForm] = useState({ category: "Yemek", amount: "", note: "" });
   const [stockForm, setStockForm] = useState(emptyStockForm);
@@ -1893,27 +1835,10 @@ const isSameSalesListDay = (item, dateKey) => {
   const activeCashMovements = safeCashMovements.filter(isActiveMovement);
   const activeContacts = safeContacts.filter(isActiveRecord);
   const inStockItems = activeStock.filter((product) => Number(product.quantity || product.qty || 0) > 0);
-  const bankMovementNetForBank = (bank) => {
-    return activeBankMovements
-      .filter((item) => bankMatchesName(bank, bankValueOf(item)))
-      .reduce((sum, item) => {
-        const amount = bankMovementAmount(item);
-        const direction = bankMovementDirection(item);
-        if (!amount) return sum;
-        return direction === "out" ? sum - amount : sum + amount;
-      }, 0);
-  };
-
-  const bankDisplayBalance = (bank) => {
-    const manualBalance = parseMoneyInput(bank?.balance);
-    const movementNet = bankMovementNetForBank(bank);
-    return manualBalance + movementNet;
-  };
-
-  const bankCashSkeletonTotal = bankList.reduce((sum, bank) => sum + bankDisplayBalance(bank), 0);
+  const bankCashSkeletonTotal = bankList.reduce((sum, bank) => sum + parseMoneyInput(bank.balance), 0);
   const bankCashSkeletonBalanceFor = (name) => {
-    const bank = bankList.find((item) => bankMatchesName(item, name)) || getBankById(bankList, name);
-    return bank ? bankDisplayBalance(bank) : 0;
+    const bank = getBankById(bankList, name);
+    return parseMoneyInput(bank?.balance);
   };
 
   const supplierOptions = useMemo(() => {
@@ -3386,7 +3311,7 @@ const isSameSalesListDay = (item, dateKey) => {
       type: saleForm.type,
       customer: isAccessorySale ? "" : saleForm.customer.trim(),
       cariPerson: isAccessorySale ? "" : (saleForm.cariPerson.trim() || saleForm.customer.trim()),
-      bank: canonicalBankName(bankList, saleForm.bank),
+      bank: saleForm.bank,
       productName: isProgramSale ? saleForm.search.trim() : (selectedProduct ? productTitle(selectedProduct) : saleForm.search.trim()),
       productId: isProgramSale || !selectedProduct ? null : selectedProduct.id,
       productBuyPrice: isProgramSale || !selectedProduct ? 0 : selectedProduct.buy,
@@ -3412,7 +3337,7 @@ const isSameSalesListDay = (item, dateKey) => {
         remaining_amount: parseMoneyInput(sale.remaining),
         buy_cost: parseMoneyInput(sale.productBuyPrice),
         profit_amount: parseMoneyInput(sale.profit),
-        bank_name: canonicalBankName(bankList, sale.bank) || null,
+        bank_name: sale.bank || null,
       });
 
       await refreshFromDatabase();
@@ -3457,7 +3382,7 @@ const isSameSalesListDay = (item, dateKey) => {
         remaining_amount: Number(fixed.remaining || 0),
         buy_cost: parseMoneyInput(fixed.productBuyPrice || 0),
         profit_amount: Number(fixed.profit || 0),
-        bank_name: canonicalBankName(bankList, fixed.bank) || null,
+        bank_name: fixed.bank || null,
       });
       await refreshFromDatabase();
       setEditingSale(null);
@@ -5123,36 +5048,20 @@ const isSameSalesListDay = (item, dateKey) => {
                       <Stat title="Ek Banka 2" value={money(bankCashSkeletonBalanceFor("Ek Banka 2"))} />
                     </div>
 
-                    <Table headers={["Banka Adı", "Bankada Olan", "Düzenle", "Çekilecek Tutar", "Çekimden Sonra Kalan", "Not", "Kasaya Aktar"]} rows={bankList.map((bank) => {
+                    <Table headers={["Banka Adı", "Bankada Olan", "Çekilecek Tutar", "Çekimden Sonra Kalan", "Not", "Kasaya Aktar"]} rows={bankList.map((bank) => {
                       const draft = bankTransferDrafts[bank.id] || {};
-                      const bankBalance = bankDisplayBalance(bank);
+                      const bankBalance = parseMoneyInput(bank.balance);
                       const withdrawAmount = parseMoneyInput(draft.withdraw);
                       const isOverLimit = withdrawAmount > bankBalance;
                       return [
                         bank.name,
                         money(bankBalance),
-                        <button className="edit-btn" type="button" onClick={() => openBankRename(bank)}>Düzenle</button>,
                         <input type="text" inputMode="numeric" value={draft.withdraw || ""} placeholder="0 TL" onFocus={() => updateBankTransferDraft(bank.id, { withdraw: stripMoneyForEdit(draft.withdraw || "") })} onChange={(event) => updateBankTransferDraft(bank.id, { withdraw: cleanMoneyTyping(event.target.value) })} onBlur={() => updateBankTransferDraft(bank.id, { withdraw: formatMoneyInput(draft.withdraw || "") })} />,
                         isOverLimit ? <span className="money-negative">Bakiye yetersiz</span> : money(Math.max(bankBalance - withdrawAmount, 0)),
                         <input placeholder="Not" value={draft.note || ""} onChange={(event) => updateBankTransferDraft(bank.id, { note: event.target.value })} />,
                         <button className="edit-btn" type="button" onClick={() => handleBankCashSkeletonTransfer(bank)}>Kasaya Aktar</button>,
                       ];
                     })} />
-
-                    {editingBank && (
-                      <div className="cash-bank-add-panel" style={{ border: "2px solid #2563eb" }}>
-                        <h3>Banka Adı Düzenle</h3>
-                        <p>Bu işlem finansal hareket oluşturmaz. Eski banka hareketleri korunur ve yeni ad altında birlikte gösterilir.</p>
-                        <div className="form-grid">
-                          <input value={editingBank.name || ""} readOnly />
-                          <input placeholder="Yeni Banka Adı" value={bankRenameDraft} onChange={(event) => setBankRenameDraft(event.target.value)} />
-                        </div>
-                        <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-                          <button className="choice" type="button" onClick={() => { setEditingBank(null); setBankRenameDraft(""); }}>Vazgeç</button>
-                          <button className="primary" type="button" onClick={saveBankRename}>Banka Adını Kaydet</button>
-                        </div>
-                      </div>
-                    )}
 
                     <div className="cash-bank-add-panel">
                       <h3>Banka Ekle</h3>
