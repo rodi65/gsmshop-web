@@ -300,7 +300,7 @@ const securityPasswordFields = [
   { key: "cancelPassword", actionType: "cancel", label: "İptal Şifresi" },
   { key: "deletePassword", actionType: "delete", label: "Silme Şifresi" },
 ];
-const mainSaleGroups = ["Telefon", "Aksesuar", "Program", "Saat", "Tablet", "Elektronik", "Bluetooth", "X"];
+const mainSaleGroups = ["Telefon", "Aksesuar", "Program", "Saat", "Tablet", "PC", "Bluetooth", "X"];
 const otherSaleTypes = ["Program Satışı", "Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı", "Bluetooth Satışı", "Diğerleri Satışı"];
 const purchasePaymentMovementTypes = [
   "Alım Ödemesi",
@@ -395,9 +395,9 @@ const saleGroupName = (type) => {
   if (type === "PC Satışı") return "PC";
   if (type === "Elektronik Satışı") return "Elektronik";
   if (type === "Bluetooth Satışı") return "Bluetooth";
-  if (type === "Diğerleri Satışı") return "Diğerleri";
+  if (type === "Diğerleri Satışı") return "X";
   if (type === "Teknik Servis") return "Teknik Servis";
-  return "Diğerleri";
+  return "X";
 };
 
 const normalizeStockText = (value) => String(value || "").toLocaleLowerCase("tr-TR");
@@ -407,6 +407,15 @@ const isAccessoryStockItem = (item) => normalizeStockText(item.module) === "akse
 const isOtherStockItem = (item) => !isPhoneStockItem(item) && !isAccessoryStockItem(item);
 const isSecondHandPhonePurchase = (form, module = form.module) =>
   module === "Cihaz" && form.deviceType === "Telefon" && form.condition === "İkinci El";
+const secondHandDocumentAlert = "İkinci el ürün alımında belge/dosya seçmek zorunludur.";
+const secondHandDocumentGroups = ["Telefon", "Saat", "Tablet", "PC", "Bluetooth", "Elektronik", "Diğerleri", "X"];
+const stockConditionOptions = ["Sıfır Garantili", "Sıfır Spot", "İkinci El"];
+const requiresSecondHandDocument = (form, module = form.module) => {
+  if (form.condition !== "İkinci El") return false;
+  if (isSecondHandPhonePurchase(form, module)) return true;
+  if (module !== "Diğer") return false;
+  return secondHandDocumentGroups.includes(toInternalOtherGroup(form.deviceType));
+};
 const recordDate = (item) => item.created_at || item.createdAt || item.date || "";
 const isTodayRecord = (item, todayKey) => recordDate(item).slice(0, 10) === todayKey;
 const cashMovementType = (item) => item.movement_type || item.movementType || item.type || "";
@@ -673,7 +682,7 @@ const sellerRemainingFromDb = (item) => {
 
   const isCustomerPurchase =
     item.acquisition_type === "Müşteri" ||
-    (item.module === "Cihaz" && item.category === "İkinci El");
+    ((item.module === "Cihaz" || item.module === "Diğer") && item.category === "İkinci El");
   const hasSeller = item.seller_person || item.seller_cari_name || isSellerLabel(item.supplier_name);
   if (!isCustomerPurchase || !hasSeller) return 0;
 
@@ -699,7 +708,7 @@ const fromDbStock = (item) => {
     id: item.id,
     module: item.module,
     deviceType: item.device_type || item.deviceType || "Telefon",
-    condition: item.module === "Cihaz" ? item.category || "Sıfır Garantili" : "Sıfır Garantili",
+    condition: item.module === "Cihaz" || item.module === "Diğer" ? item.category || "Sıfır Garantili" : "Sıfır Garantili",
     category: item.module === "Aksesuar" ? item.category || "KILIF" : item.category || "",
     accessorySubType: item.sub_type || item.accessorySubType || "",
     brand: item.brand || "",
@@ -871,7 +880,67 @@ const accessoryGroups = {
 const fixedAccessoryCategories = ["KILIF", "EKRAN Koruyucu", "USB", "ŞARJ", "KULAKLIK"];
 const brands = ["Apple", "Samsung", "Huawei", "Xiaomi", "Oppo", "Vivo", "Honor", "Realme", "Tecno", "Poco", "OnePlus", "TCL", "Infinix", "Alcatel", "Motorola"];
 const nonPhoneBrands = ["Apple", "Samsung", "Huawei", "Xiaomi", "Lenovo", "HP", "Casper", "Monster", "Asus", "Acer", "Sony", "LG", "Diğer"];
-const otherProductGroups = ["Saat", "Tablet", "PC", "Bluetooth", "Elektronik", "Program", "Diğerleri"];
+const otherProductGroups = ["Saat", "Tablet", "PC", "Bluetooth", "Program", "X"];
+const programQuickAmounts = [20, 50, 100, 500];
+const stockChoiceAddValue = "__ceplog_stock_choice_add__";
+const stockChoiceStoragePrefix = "ceplog_stock_choice_options";
+const stockChoiceFieldLabels = {
+  brand: "Marka",
+  name: "Ürün",
+  model: "Model",
+};
+const defaultOtherBrandOptions = {
+  Saat: ["Apple", "Samsung", "Huawei", "LG"],
+  Tablet: ["Apple", "Samsung", "Huawei"],
+  PC: ["Apple", "Lenovo"],
+  Bluetooth: ["Apple", "Samsung", "Huawei", "Sony"],
+  Elektronik: [],
+  Diğerleri: [],
+  X: [],
+};
+
+function toInternalOtherGroup(group) {
+  if (group === "X") return "Diğerleri";
+  if (group === "Diğer") return "Diğerleri";
+  return group || "Saat";
+}
+
+function toVisibleOtherGroup(group) {
+  if (group === "Diğerleri" || group === "Diğer") return "X";
+  return group || "Saat";
+}
+
+function cleanStockChoice(value) {
+  return String(value || "").trim().replace(/\s+/g, " ");
+}
+
+function uniqueStockChoices(values) {
+  const seen = new Set();
+  return values
+    .map(cleanStockChoice)
+    .filter(Boolean)
+    .filter((value) => {
+      if (value === stockChoiceAddValue) return false;
+      const key = normalizeStockText(value);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function stockChoiceDefaults(group, field) {
+  if (field !== "brand") return [];
+  return defaultOtherBrandOptions[toInternalOtherGroup(group)] || [];
+}
+
+function stockChoiceOptionsFor({ customChoices = {}, stockItems = [], group, field }) {
+  const groupKey = toInternalOtherGroup(group);
+  const stored = customChoices?.[groupKey]?.[field] || [];
+  const existing = stockItems
+    .filter((product) => product.module === "Diğer" && toInternalOtherGroup(product.deviceType) === groupKey)
+    .map((product) => product[field]);
+  return uniqueStockChoices([...stockChoiceDefaults(groupKey, field), ...existing, ...stored]);
+}
 
 const modelsByBrand = {
   Apple: ["iPhone 17 Pro Max", "iPhone 17 Pro", "iPhone Air", "iPhone 17", "iPhone 16 Pro Max", "iPhone 16 Pro", "iPhone 16", "iPhone 15 Pro Max", "iPhone 15 Pro", "iPhone 15", "Apple Watch Ultra 3", "Apple Watch Series 11", "Apple Watch SE 3"],
@@ -924,12 +993,13 @@ const initialSales = [];
 function productTitle(product) {
   if (!product) return "";
   if (product.module === "Aksesuar") return [product.category, product.accessorySubType, product.name].filter(Boolean).join(" / ") || "-";
-  if (product.module !== "Cihaz") return [product.deviceType, product.name].filter(Boolean).join(" / ") || "-";
+  if (product.module !== "Cihaz") return [toVisibleOtherGroup(product.deviceType), product.name].filter(Boolean).join(" / ") || "-";
   return [product.brand, product.model, product.memory].filter(Boolean).join(" ");
 }
 
 const stockSearchFilters = ["TÜMÜ", "TELEFON", "AKSESUAR", "DİĞERLERİ", "SAAT", "TABLET", "PC", "BLUETOOTH", "ELEKTRONİK", "PROGRAM"];
 const technicalSearchFilters = ["TÜMÜ", "TELEFON", "PC", "TABLET", "ELEKTRONİK", "DİĞERLERİ"];
+const displayStockGroup = (group) => group === "DİĞERLERİ" ? "X" : group;
 
 function stockSearchGroup(product) {
   const moduleName = normalizeStockText(product?.module);
@@ -1946,6 +2016,8 @@ const isSameSalesListDay = (item, dateKey) => {
   const [stockView, setStockView] = useState("cihaz");
   const [otherGroupName, setOtherGroupName] = useState("");
   const [customAccessoryCategories, setCustomAccessoryCategories] = useState([]);
+  const [stockChoiceOptions, setStockChoiceOptions] = useState({});
+  const [stockChoiceStorageReadyKey, setStockChoiceStorageReadyKey] = useState("");
   const [stock, setStock] = useState(initialStock);
   const [sales, setSales] = useState(initialSales);
   const [suppliers, setSuppliers] = useState(["MOBİLTEK İLETİŞİM", "GALAKSİ TEKNOLOJİ", "BASEUS TÜRKİYE"]);
@@ -1989,6 +2061,52 @@ const isSameSalesListDay = (item, dateKey) => {
   const supplierOptions = useMemo(() => {
     return Array.from(new Set([...suppliers, ...activeStock.map((product) => product.supplier).filter((supplier) => supplier && !isSellerLabel(supplier))])).sort();
   }, [suppliers, activeStock]);
+
+  const stockChoiceStorageKey = activeWorkspaceId || currentUser?.id || "local";
+
+  function addStockChoice(group, field, existingOptions = []) {
+    const label = stockChoiceFieldLabels[field] || "Seçenek";
+    const entered = window.prompt(`Yeni ${label} yaz`);
+    const value = cleanStockChoice(entered);
+    if (!value) return "";
+
+    const normalizedValue = normalizeStockText(value);
+    if (existingOptions.some((option) => normalizeStockText(option) === normalizedValue)) {
+      alert(`Bu ${label.toLocaleLowerCase("tr-TR")} zaten listede var.`);
+      return "";
+    }
+
+    const groupKey = toInternalOtherGroup(group);
+    setStockChoiceOptions((current) => {
+      const groupChoices = current[groupKey] || {};
+      const currentFieldChoices = Array.isArray(groupChoices[field]) ? groupChoices[field] : [];
+      return {
+        ...current,
+        [groupKey]: {
+          ...groupChoices,
+          [field]: uniqueStockChoices([...currentFieldChoices, value]),
+        },
+      };
+    });
+    return value;
+  }
+
+  function openProgramSale(amount = "") {
+    setSaleGroup("Program");
+    setSaleForm({
+      type: "Program Satışı",
+      customer: "",
+      cariPerson: "",
+      search: "Program",
+      productId: "",
+      total: amount ? money(amount) : "",
+      cash: "",
+      card: "",
+      bank: "",
+    });
+    setKasaTab("yeniSatis");
+    setActive("kasa");
+  }
 
   const isAccessorySale = saleForm.type === "Aksesuar Satışı";
   const isProgramSale = saleForm.type === "Program Satışı";
@@ -3584,11 +3702,12 @@ const isSameSalesListDay = (item, dateKey) => {
   function validateStock(module) {
     const isDevice = module === "Cihaz";
     const isSecondHandPhone = isSecondHandPhonePurchase(stockForm, module);
+    const needsSecondHandDocument = requiresSecondHandDocument(stockForm, module);
     if (!isSecondHandPhone && !stockForm.supplier.trim()) return "Tedarikçi firma seç";
     if (isSecondHandPhone && !stockForm.sellerPerson.trim()) return "Satanın adı soyadı yaz";
     if (isSecondHandPhone && !stockForm.sellerPhone.trim()) return "Satanın telefonu yaz";
     if (isSecondHandPhone && cleanPhone(stockForm.sellerPhone).length !== 11) return "Satanın telefonu 11 rakam olmalı";
-    if (isSecondHandPhone && !stockForm.saleFormImageName) return "Satış formu resmi eklemeden kayıt yapılamaz";
+    if (needsSecondHandDocument && !stockForm.saleFormImageName) return secondHandDocumentAlert;
     if (!stockForm.buy || !stockForm.sell) return "Kaça aldın ve kaça satacaksın alanlarını yaz";
     if (!isDevice && !stockForm.qty) return "Stok adedi yaz";
     const purchaseTotal = parseMoneyInput(stockForm.buy) * (isDevice ? 1 : Number(stockForm.qty || 0));
@@ -3654,7 +3773,7 @@ const isSameSalesListDay = (item, dateKey) => {
       await createStockItem({
         module: item.module,
         device_type: item.deviceType,
-        category: item.module === "Cihaz" ? item.condition : item.category,
+        category: item.module === "Cihaz" || item.module === "Diğer" ? item.condition : item.category,
         sub_type: item.accessorySubType,
         brand: item.brand,
         model: item.model,
@@ -3817,7 +3936,7 @@ const isSameSalesListDay = (item, dateKey) => {
       await updateStockItem(fixed.id, {
         module: fixed.module,
         device_type: fixed.deviceType,
-        category: fixed.module === "Cihaz" ? fixed.condition : fixed.category,
+        category: fixed.module === "Cihaz" || fixed.module === "Diğer" ? fixed.condition : fixed.category,
         sub_type: fixed.accessorySubType,
         brand: fixed.brand,
         model: fixed.model,
@@ -4456,6 +4575,27 @@ const isSameSalesListDay = (item, dateKey) => {
     localStorage.setItem(`ceplog_technical_services_${technicalServiceStorageKey}`, JSON.stringify(technicalServices.slice(0, 1000)));
   }, [technicalServices, technicalServiceStorageKey, technicalServiceStorageReadyKey]);
 
+  useEffect(() => {
+    if (!stockChoiceStorageKey) return;
+    const saved = localStorage.getItem(`${stockChoiceStoragePrefix}_${stockChoiceStorageKey}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setStockChoiceOptions(parsed && typeof parsed === "object" ? parsed : {});
+      } catch {
+        setStockChoiceOptions({});
+      }
+    } else {
+      setStockChoiceOptions({});
+    }
+    setStockChoiceStorageReadyKey(stockChoiceStorageKey);
+  }, [stockChoiceStorageKey]);
+
+  useEffect(() => {
+    if (!stockChoiceStorageKey || stockChoiceStorageReadyKey !== stockChoiceStorageKey) return;
+    localStorage.setItem(`${stockChoiceStoragePrefix}_${stockChoiceStorageKey}`, JSON.stringify(stockChoiceOptions));
+  }, [stockChoiceOptions, stockChoiceStorageKey, stockChoiceStorageReadyKey]);
+
   function addAccessoryShortcut() {
     const group = accessoryShortcutForm.group || "Kılıf";
     const subOptions = quickAccessoryGroups[group] || [group];
@@ -4647,14 +4787,16 @@ const isSameSalesListDay = (item, dateKey) => {
           <button
             className={active === "digerler" ? "nav-btn sidebar-nav-item active" : "nav-btn sidebar-nav-item"}
             onClick={() => {
-              const group = otherProductGroups.includes(stockForm.deviceType) && stockForm.deviceType !== "Telefon" ? stockForm.deviceType : "Saat";
+              const visibleGroup = toVisibleOtherGroup(stockForm.deviceType);
+              const group = otherProductGroups.includes(visibleGroup) && visibleGroup !== "Telefon" ? visibleGroup : "Saat";
+              const internalGroup = toInternalOtherGroup(group);
               setOtherGroupName(group);
-              setStockForm({ ...stockForm, module: "Diğer", deviceType: group, condition: "Sıfır Garantili", brand: "", model: "", memory: "", name: stockForm.name || "" });
+              setStockForm({ ...stockForm, module: "Diğer", deviceType: internalGroup, condition: "Sıfır Garantili", brand: "", model: "", memory: "", name: stockForm.name || "" });
               setActive("digerler");
             }}
           >
             <Package size={22} />
-            <span>DİĞERLERİ</span>
+            <span>X</span>
           </button>
 
           <button
@@ -4735,14 +4877,14 @@ const isSameSalesListDay = (item, dateKey) => {
                 />
 
                 <div className="search-filter-tabs">
-                  {stockSearchFilters.map((filter) => (
+                  {stockSearchFilters.filter((filter) => filter !== "ELEKTRONİK").map((filter) => (
                     <button
                       key={filter}
                       type="button"
                       className={stockSearchFilter === filter ? "choice active" : "choice"}
                       onClick={() => setStockSearchFilter(filter)}
                     >
-                      {filter}
+                      {displayStockGroup(filter)}
                     </button>
                   ))}
                 </div>
@@ -4753,6 +4895,7 @@ const isSameSalesListDay = (item, dateKey) => {
                   <div className="search-results-table">
                     {stockSearchResults.map((product) => {
                       const group = stockSearchGroup(product);
+                      const groupLabel = displayStockGroup(group);
                       const quantity = Number(product.qty || 0);
                       const code = product.barcode || product.imei || "-";
                       const supplierOrSeller = sellerNameFromProduct(product) || product.supplier || "-";
@@ -4769,12 +4912,12 @@ const isSameSalesListDay = (item, dateKey) => {
                               <b>{productTitle(product) || product.name || "-"}</b>
                               <span>{[product.brand, product.model, product.memory].filter(Boolean).join(" / ") || product.deviceType || product.category || "-"}</span>
                             </div>
-                            <span className="stock-status-badge">{group}</span>
+                            <span className="stock-status-badge">{groupLabel}</span>
                           </div>
 
                           <div className="search-result-grid">
                             <div><span>Kategori</span><b>{product.category || product.condition || "-"}</b></div>
-                            <div><span>Grup</span><b>{group}</b></div>
+                            <div><span>Grup</span><b>{groupLabel}</b></div>
                             <div><span>Barkod / IMEI</span><b>{code}</b></div>
                             <div><span>Stok</span><b>{quantity > 0 ? quantity : "Stok Yok"}</b></div>
                             <div><span>Satış</span><b>{product.sell || "0 TL"}</b></div>
@@ -5938,19 +6081,20 @@ const isSameSalesListDay = (item, dateKey) => {
         {active === "digerler" && (
           <section className="section">
             <section className="card">
-              <h2>DİĞERLERİ</h2>
+              <h2>X</h2>
               <div className="other-product-tabs">
                 {otherProductGroups.map((group) => (
                   <button
                     key={group}
                     type="button"
-                    className={(stockForm.deviceType || otherGroupName) === group ? "choice active" : "choice"}
+                    className={toVisibleOtherGroup(stockForm.deviceType || otherGroupName) === group ? "choice active" : "choice"}
                     onClick={() => {
+                      const internalGroup = toInternalOtherGroup(group);
                       setOtherGroupName(group);
                       setStockForm({
                         ...stockForm,
                         module: "Diğer",
-                        deviceType: group,
+                        deviceType: internalGroup,
                         condition: stockForm.condition || "Sıfır Garantili",
                         brand: stockForm.brand || "",
                         model: stockForm.model || "",
@@ -5963,22 +6107,22 @@ const isSameSalesListDay = (item, dateKey) => {
                 ))}
               </div>
 
-              {(stockForm.deviceType || otherGroupName) === "Program" ? (
+              {toVisibleOtherGroup(stockForm.deviceType || otherGroupName) === "Program" ? (
                 <div className="conditional-panel">
                   <h3>Program Satışı</h3>
-                  <p className="mini-note">Program stoklu ürün gibi çalışmaz. Satış ekranında Program seçeneğiyle kayıt edilir; eksik ödeme mevcut alacak mantığına işlenir.</p>
-                  <button
-                    className="primary"
-                    type="button"
-                    onClick={() => {
-                      setSaleGroup("Program");
-                      setSaleForm({ type: "Program Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
-                      setKasaTab("yeniSatis");
-                      setActive("kasa");
-                    }}
-                  >
-                    Program Satışına Git
-                  </button>
+                  <p className="mini-note">Program stoklu ürün gibi çalışmaz. Sabit tutarı seçip satış ekranında hizmet kaydı olarak işlenir.</p>
+                  <div className="button-grid">
+                    {programQuickAmounts.map((amount) => (
+                      <button
+                        key={amount}
+                        className="choice"
+                        type="button"
+                        onClick={() => openProgramSale(amount)}
+                      >
+                        {money(amount)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <OtherStockForm
@@ -5989,6 +6133,10 @@ const isSameSalesListDay = (item, dateKey) => {
                   setOtherGroupName={setOtherGroupName}
                   supplierOptions={supplierOptions}
                   setSupplierModalOpen={setSupplierModalOpen}
+                  stockItems={activeStock}
+                  stockChoiceOptions={stockChoiceOptions}
+                  addStockChoice={addStockChoice}
+                  openProgramSale={openProgramSale}
                 />
               )}
             </section>
@@ -6000,7 +6148,7 @@ const isSameSalesListDay = (item, dateKey) => {
             <div className="stok-subtabs">
               <button className={stockView === "cihaz" ? "choice active" : "choice"} onClick={() => setStockView("cihaz")}>Cihaz Stok Listesi</button>
               <button className={stockView === "aksesuar" ? "choice active" : "choice"} onClick={() => setStockView("aksesuar")}>Aksesuar Stok Listesi</button>
-              <button className={stockView === "diger" ? "choice active" : "choice"} onClick={() => setStockView("diger")}>Diğerleri</button>
+              <button className={stockView === "diger" ? "choice active" : "choice"} onClick={() => setStockView("diger")}>X</button>
               <button className={stockView === "tum" ? "choice active" : "choice"} onClick={() => setStockView("tum")}>TÜM Stok</button>
               <button className={stockTab === "kayit" ? "choice active" : "choice"} onClick={() => setStockTab(stockTab === "kayit" ? "liste" : "kayit")}>Stok Kaydı</button>
             </div>
@@ -6010,7 +6158,7 @@ const isSameSalesListDay = (item, dateKey) => {
                 <h2>
                   {stockView === "cihaz" && "Cihaz Stok Listesi"}
                   {stockView === "aksesuar" && "Aksesuar Stok Listesi"}
-                  {stockView === "diger" && "Diğerleri"}
+                  {stockView === "diger" && "X"}
                   {stockView === "tum" && "TÜM Stok"}
                 </h2>
                 <div className="stock-summary-box">
@@ -6031,7 +6179,7 @@ const isSameSalesListDay = (item, dateKey) => {
                   {[
                     { groupName: "Cihaz", groupItems: deviceStock },
                     { groupName: "Aksesuar", groupItems: accessoryStock },
-                    { groupName: "Diğerleri", groupItems: otherStock },
+                    { groupName: "X", groupItems: otherStock },
                   ].map(({ groupName, groupItems }) => {
                     return (
                       <div key={groupName} className="group-block">
@@ -6048,8 +6196,12 @@ const isSameSalesListDay = (item, dateKey) => {
               <section className="card">
                 <h2>Stok Kaydı</h2>
                 <div className="button-grid">
-                  {["Cihaz", "Aksesuar", "Diğer"].map((module) => (
-                    <button key={module} className={stockForm.module === module ? "choice active" : "choice"} onClick={() => setStockForm({ ...stockForm, module })}>{module}</button>
+                  {[
+                    { value: "Cihaz", label: "Cihaz" },
+                    { value: "Aksesuar", label: "Aksesuar" },
+                    { value: "Diğer", label: "X" },
+                  ].map((module) => (
+                    <button key={module.value} className={stockForm.module === module.value ? "choice active" : "choice"} onClick={() => setStockForm({ ...stockForm, module: module.value })}>{module.label}</button>
                   ))}
                 </div>
                 {stockForm.module === "Cihaz" && (
@@ -6059,7 +6211,7 @@ const isSameSalesListDay = (item, dateKey) => {
                   <AccessoryStockForm stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} supplierOptions={supplierOptions} setSupplierModalOpen={setSupplierModalOpen} customAccessoryCategories={customAccessoryCategories} setCustomAccessoryCategories={setCustomAccessoryCategories} />
                 )}
                 {stockForm.module === "Diğer" && (
-                  <OtherStockForm stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} otherGroupName={otherGroupName} setOtherGroupName={setOtherGroupName} supplierOptions={supplierOptions} setSupplierModalOpen={setSupplierModalOpen} />
+                  <OtherStockForm stockForm={stockForm} setStockForm={setStockForm} saveStock={saveStock} otherGroupName={otherGroupName} setOtherGroupName={setOtherGroupName} supplierOptions={supplierOptions} setSupplierModalOpen={setSupplierModalOpen} stockItems={activeStock} stockChoiceOptions={stockChoiceOptions} addStockChoice={addStockChoice} openProgramSale={openProgramSale} />
                 )}
               </section>
             )}
@@ -6590,45 +6742,143 @@ function AccessoryStockForm({
 }
 
 
-function OtherStockForm({ stockForm, setStockForm, saveStock, otherGroupName, setOtherGroupName, supplierOptions, setSupplierModalOpen }) {
-  const selectedGroup = stockForm.deviceType || otherGroupName || "Saat";
+function OtherStockForm({
+  stockForm,
+  setStockForm,
+  saveStock,
+  otherGroupName,
+  setOtherGroupName,
+  supplierOptions,
+  setSupplierModalOpen,
+  stockItems = [],
+  stockChoiceOptions = {},
+  addStockChoice = () => "",
+  openProgramSale = () => {},
+}) {
+  const selectedGroup = toVisibleOtherGroup(stockForm.deviceType || otherGroupName || "Saat");
+  const selectedInternalGroup = toInternalOtherGroup(selectedGroup);
+  const selectedCondition = stockConditionOptions.includes(stockForm.condition) ? stockForm.condition : "Sıfır Garantili";
+  const brandOptions = stockChoiceOptionsFor({ customChoices: stockChoiceOptions, stockItems, group: selectedInternalGroup, field: "brand" });
+  const productOptions = stockChoiceOptionsFor({ customChoices: stockChoiceOptions, stockItems, group: selectedInternalGroup, field: "name" });
+  const modelOptions = stockChoiceOptionsFor({ customChoices: stockChoiceOptions, stockItems, group: selectedInternalGroup, field: "model" });
+
+  function updateOtherStockForm(patch) {
+    setStockForm({
+      ...stockForm,
+      module: "Diğer",
+      deviceType: selectedInternalGroup,
+      ...patch,
+    });
+  }
+
+  function changeOtherGroup(group) {
+    const internalGroup = toInternalOtherGroup(group);
+    setOtherGroupName(group);
+    setStockForm({
+      ...stockForm,
+      module: "Diğer",
+      deviceType: internalGroup,
+      condition: stockConditionOptions.includes(stockForm.condition) ? stockForm.condition : "Sıfır Garantili",
+      brand: "",
+      name: "",
+      model: "",
+      memory: "",
+      saleFormImageName: "",
+    });
+  }
+
+  function changeChoice(field, value, options) {
+    if (value === stockChoiceAddValue) {
+      const created = addStockChoice(selectedInternalGroup, field, options);
+      if (!created) return;
+      updateOtherStockForm({ [field]: created });
+      return;
+    }
+    updateOtherStockForm({ [field]: value });
+  }
+
+  function ChoiceSelect({ field, options, value, placeholder }) {
+    const cleanValue = cleanStockChoice(value);
+    const hasCurrentValue = cleanValue && !options.some((option) => normalizeStockText(option) === normalizeStockText(cleanValue));
+
+    return (
+      <select value={cleanValue} onChange={(e) => changeChoice(field, e.target.value, options)}>
+        <option value="">{placeholder}</option>
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+        {hasCurrentValue && <option value={cleanValue}>{cleanValue}</option>}
+        <option value={stockChoiceAddValue}>+ {stockChoiceFieldLabels[field]} Ekle</option>
+      </select>
+    );
+  }
+
+  if (selectedGroup === "Program") {
+    return (
+      <>
+        <div className="form-grid">
+          <select value={selectedGroup} onChange={(e) => changeOtherGroup(e.target.value)}>
+            {otherProductGroups.map((group) => <option key={group}>{group}</option>)}
+          </select>
+        </div>
+        <div className="conditional-panel">
+          <h3>Program Satışı</h3>
+          <p className="mini-note">Program stoklu ürün gibi çalışmaz. Marka, ürün, model, barkod ve belge alanı yoktur.</p>
+          <div className="button-grid">
+            {programQuickAmounts.map((amount) => (
+              <button key={amount} className="choice" type="button" onClick={() => openProgramSale(amount)}>
+                {money(amount)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="form-grid">
-        <select value={selectedGroup} onChange={(e) => {
-          setOtherGroupName(e.target.value);
-          setStockForm({ ...stockForm, module: "Diğer", deviceType: e.target.value || "Diğerleri" });
-        }}>
+        <select value={selectedGroup} onChange={(e) => changeOtherGroup(e.target.value)}>
+          {!otherProductGroups.includes(selectedGroup) && <option value={selectedGroup}>{selectedGroup}</option>}
           {otherProductGroups.map((group) => <option key={group}>{group}</option>)}
         </select>
-        <select value={stockForm.condition || "Sıfır Garantili"} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", condition: e.target.value })}>
-          <option>Sıfır Garantili</option>
-          <option>İkinci El</option>
-          <option>Sıfır Spot</option>
+        <select value={selectedCondition} onChange={(e) => updateOtherStockForm({ condition: e.target.value, saleFormImageName: e.target.value === "İkinci El" ? stockForm.saleFormImageName : "" })}>
+          {stockConditionOptions.map((condition) => <option key={condition}>{condition}</option>)}
         </select>
-        <input placeholder="Marka" value={stockForm.brand || ""} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", brand: e.target.value })} />
-        <input placeholder="Model / Ürün adı" value={stockForm.model || stockForm.name || ""} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", model: e.target.value, name: e.target.value })} />
-        <input placeholder="Barkod / Seri No" inputMode="numeric" maxLength={15} value={stockForm.barcode} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", barcode: cleanBarcode(e.target.value) })} />
+        <ChoiceSelect field="brand" options={brandOptions} value={stockForm.brand} placeholder="Marka seç / ekle" />
+        <ChoiceSelect field="name" options={productOptions} value={stockForm.name} placeholder="Ürün seç / ekle" />
+        <ChoiceSelect field="model" options={modelOptions} value={stockForm.model} placeholder="Model seç / ekle" />
+        <input placeholder="Barkod / IMEI" inputMode="numeric" maxLength={15} value={stockForm.barcode} onChange={(e) => updateOtherStockForm({ barcode: cleanBarcode(e.target.value) })} />
         <select value={stockForm.supplier} onChange={(e) => {
           if (e.target.value === "__add_supplier__") {
             setSupplierModalOpen(true);
             return;
           }
-          setStockForm({ ...stockForm, module: "Diğer", supplier: e.target.value });
+          updateOtherStockForm({ supplier: e.target.value });
         }}>
           <option value="">Tedarikçi / Firma seç</option>
           <option value="__add_supplier__">+ Tedarikçi Ekle</option>
           {supplierOptions.map((supplier) => <option key={supplier} value={supplier}>{supplier}</option>)}
         </select>
-        <input type="text" inputMode="numeric" placeholder="Alış fiyatı" value={stockForm.buy} onFocus={() => setStockForm({ ...stockForm, buy: stripMoneyForEdit(stockForm.buy) })} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", buy: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, buy: formatMoneyInput(stockForm.buy) })} />
-        <input type="text" inputMode="numeric" placeholder="Satış fiyatı" value={stockForm.sell} onFocus={() => setStockForm({ ...stockForm, sell: stripMoneyForEdit(stockForm.sell) })} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", sell: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, sell: formatMoneyInput(stockForm.sell) })} />
-        <input type="number" placeholder="Stok adedi" value={stockForm.qty} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", qty: e.target.value })} />
+        <input type="text" inputMode="numeric" placeholder="Alış fiyatı" value={stockForm.buy} onFocus={() => setStockForm({ ...stockForm, buy: stripMoneyForEdit(stockForm.buy) })} onChange={(e) => updateOtherStockForm({ buy: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, buy: formatMoneyInput(stockForm.buy) })} />
+        <input type="text" inputMode="numeric" placeholder="Satış fiyatı" value={stockForm.sell} onFocus={() => setStockForm({ ...stockForm, sell: stripMoneyForEdit(stockForm.sell) })} onChange={(e) => updateOtherStockForm({ sell: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, sell: formatMoneyInput(stockForm.sell) })} />
+        <input type="number" placeholder="Stok adedi" value={stockForm.qty} onChange={(e) => updateOtherStockForm({ qty: e.target.value })} />
         <div className="remaining-input">
           <span>Kalan cari</span>
           <b>{money(Math.max(parseMoneyInput(stockForm.buy) * Number(stockForm.qty || 0) - parseMoneyInput(stockForm.supplierPaid), 0))}</b>
         </div>
-        <input type="text" inputMode="numeric" placeholder="Nakit ödeme" value={stockForm.supplierPaid} onFocus={() => setStockForm({ ...stockForm, supplierPaid: stripMoneyForEdit(stockForm.supplierPaid) })} onChange={(e) => setStockForm({ ...stockForm, module: "Diğer", supplierPaid: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, supplierPaid: formatMoneyInput(stockForm.supplierPaid) })} />
+        <input type="text" inputMode="numeric" placeholder="Kalan ödeme" value={stockForm.supplierPaid} onFocus={() => setStockForm({ ...stockForm, supplierPaid: stripMoneyForEdit(stockForm.supplierPaid) })} onChange={(e) => updateOtherStockForm({ supplierPaid: cleanMoneyTyping(e.target.value) })} onBlur={() => setStockForm({ ...stockForm, supplierPaid: formatMoneyInput(stockForm.supplierPaid) })} />
       </div>
+
+      {selectedCondition === "İkinci El" && (
+        <div className="conditional-panel">
+          <h3>İkinci El Belge / Dosya</h3>
+          <p className="mini-note">{secondHandDocumentAlert}</p>
+          <div className="form-grid">
+            <input type="file" accept="image/*,.pdf" required onChange={(e) => updateOtherStockForm({ saleFormImageName: e.target.files?.[0]?.name || "" })} />
+            <input placeholder="Seçilen belge / dosya" value={stockForm.saleFormImageName || ""} readOnly />
+          </div>
+        </div>
+      )}
 
       <button className="primary" onClick={() => saveStock("Diğer")}><Plus size={16} /> {selectedGroup} Ürününü Stoka Kaydet</button>
     </>
@@ -6764,7 +7014,7 @@ function StockTable({ stock, setEditingStock, deviceView = false }) {
     <Table
       headers={["Tür", "Ürün", "Barkod/IMEI", "Stok", "Alış", "Satış", "Tedarikçi/Satıcı", "Cari Kalan", "Düzelt"]}
       rows={stock.map((product) => [
-        product.deviceType,
+        toVisibleOtherGroup(product.deviceType),
         productTitle(product),
         product.barcode,
         product.qty,
