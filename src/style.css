@@ -414,6 +414,77 @@ small { color: #64748b; }
 }
 .stock-summary-box span { color: #64748b; font-size: 12px; font-weight: 900; }
 .stock-summary-box b { color: #020617; font-size: 18px; }
+.print-action {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 55%, #6d28d9 100%);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-weight: 1000;
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, .22);
+  cursor: pointer;
+}
+
+.print-action:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.print-action svg {
+  flex: 0 0 auto;
+  stroke-width: 2.5;
+}
+
+.hero-print-action {
+  position: absolute;
+  right: 112px;
+  top: 14px;
+  z-index: 3;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.sales-list-date-filter {
+  flex-wrap: wrap;
+}
+
+.daily-report-controls .print-action,
+.sales-list-date-filter .print-action,
+.technical-toolbar .print-action {
+  flex: 0 0 auto;
+}
+
+.ledger-title-row {
+  margin-bottom: 14px;
+}
+
+.ledger-title-row .ledger-total-card {
+  margin: 0 !important;
+}
+
+@media (max-width: 900px) {
+  .hero-print-action {
+    position: static;
+    width: max-content;
+    margin-top: 10px;
+  }
+
+  .sales-list-date-filter {
+    justify-content: flex-start !important;
+  }
+
+  .sales-list-date-filter > div {
+    flex-wrap: wrap;
+  }
+}
 .accessory-category-panel {
   display: grid;
   grid-template-columns: repeat(6, 1fr);

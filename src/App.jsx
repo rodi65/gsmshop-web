@@ -37,7 +37,7 @@ import {
   updateStockItem,
 } from "./services/dataService";
 
-import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText, Settings, Calculator } from "lucide-react";
+import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText, Settings, Calculator, Printer } from "lucide-react";
 
 const parseMoneyInput = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, ""));
 const formatMoneyInput = (value) => {
@@ -4287,6 +4287,7 @@ const isSameSalesListDay = (item, dateKey) => {
           <div>
             <h3>YENİ SERVİS KAYDI</h3>
           </div>
+          <button className="print-action compact-action" type="button" onClick={printPage} aria-label="Yeni servis kaydını yazdır"><Printer size={15} /> YAZ</button>
           <button className="delete-btn compact-action" type="button" onClick={() => setTechnicalServiceFormModalOpen(false)}>Kapat</button>
         </div>
 
@@ -4677,6 +4678,10 @@ const isSameSalesListDay = (item, dateKey) => {
     );
   }
 
+  function printPage() {
+    window.print();
+  }
+
   useEffect(() => {
     const timer = setInterval(() => setClockNow(new Date()), 1000);
     return () => clearInterval(timer);
@@ -4758,6 +4763,10 @@ const isSameSalesListDay = (item, dateKey) => {
               <small>Akıllı GSM yönetimi</small>
             </div>
           </div>
+          <button type="button" className="print-action hero-print-action" onClick={printPage} aria-label="Ana ekranı yazdır">
+            <Printer size={15} />
+            YAZ
+          </button>
           <div className="status-pill">WEB TEST</div>
         </header>
 
@@ -5532,7 +5541,7 @@ const isSameSalesListDay = (item, dateKey) => {
               className="sales-list-date-filter"
               style={{
                 display: "flex",
-                justifyContent: "space-between",
+                justifyContent: "flex-end",
                 alignItems: "center",
                 gap: 12,
                 margin: "10px 0 16px",
@@ -5542,14 +5551,11 @@ const isSameSalesListDay = (item, dateKey) => {
                 background: "#f8fafc"
               }}
             >
-              <div>
-                <div style={{ fontWeight: 900, color: "#0f172a" }}>Satış günü filtresi</div>
-                <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
-                  Sadece seçilen güne ait satışlar listelenir.
-                </div>
-              </div>
-
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button type="button" className="print-action" onClick={printPage} aria-label="Satış listesini yazdır">
+                  <Printer size={15} />
+                  YAZ
+                </button>
                 <label style={{ fontWeight: 900, color: "#475569" }}>Tarih</label>
                 <input
                   type="date"
@@ -5794,6 +5800,10 @@ const isSameSalesListDay = (item, dateKey) => {
                       <p>Seçilen tarihteki tüm satış, alış, kasa, banka ve cari hareketlerini okunaklı şekilde listeler.</p>
                     </div>
                     <div className="daily-report-controls">
+                      <button type="button" className="print-action" onClick={printPage} aria-label="Günlük kasa raporunu yazdır">
+                        <Printer size={15} />
+                        YAZ
+                      </button>
                       <label>
                         <span>Tarih</span>
                         <input type="date" value={dailyReportDate} onChange={(event) => setDailyReportDate(event.target.value)} />
@@ -6182,6 +6192,10 @@ const isSameSalesListDay = (item, dateKey) => {
                   {stockView === "diger" && "X"}
                   {stockView === "tum" && "TÜM Stok"}
                 </h2>
+                <button type="button" className="print-action" onClick={printPage} aria-label="Stok listesini yazdır">
+                  <Printer size={15} />
+                  YAZ
+                </button>
                 <div className="stock-summary-box">
                   <span>Stok Alış Toplamı</span>
                   <b>{money(currentStockBuyTotal)}</b>
@@ -6255,6 +6269,7 @@ const isSameSalesListDay = (item, dateKey) => {
                 </div>
                 <div className="technical-toolbar">
                   <button className="primary compact-action" type="button" onClick={openTechnicalServiceForm}><Plus size={16} /> YENİ SERVİS KAYDI</button>
+                  <button className="print-action compact-action" type="button" onClick={printPage} aria-label="Teknik servis sayfasını yazdır"><Printer size={15} /> YAZ</button>
                   <button className="edit-btn compact-action" type="button" onClick={refreshFromDatabase}>YENİLE</button>
                   <button className="edit-btn compact-action" type="button" onClick={cycleTechnicalStatusFilter}>FİLTRE: {technicalStatusFilter}</button>
                   <button className="choice compact-action" type="button" onClick={() => setTechnicalSearchModalOpen(true)}><Search size={15} /> SORGULA</button>
@@ -6325,11 +6340,17 @@ const isSameSalesListDay = (item, dateKey) => {
               <section className="card">
                 {!selectedReceivableMovement ? (
                   <>
-                    <div className="ledger-total-card receivable">
-                      <span>TOPLAM ALACAKLARIM</span>
-                      <b>Alacak: {money(totalReceivableBalance)}</b>
+                    <div className="stock-title-row ledger-title-row">
+                      <h2>Kara Defter / Alacaklarım</h2>
+                      <button type="button" className="print-action" onClick={printPage} aria-label="Alacaklarımı yazdır">
+                        <Printer size={15} />
+                        YAZ
+                      </button>
+                      <div className="ledger-total-card receivable">
+                        <span>TOPLAM ALACAKLARIM</span>
+                        <b>Alacak: {money(totalReceivableBalance)}</b>
+                      </div>
                     </div>
-                    <h2>Kara Defter / Alacaklarım</h2>
                     <Table headers={["İşlem", "Tarih", "Adı Soyad", "Alınan Mal", "Kalan", "Düzelt", "Sil"]} rows={alacaklarim.map((sale, index) => [
                       index + 1,
                       new Date(sale.date).toLocaleString("tr-TR"),
@@ -6355,11 +6376,17 @@ const isSameSalesListDay = (item, dateKey) => {
               <section className="card">
                 {!selectedSupplierAccount ? (
                   <>
-                    <div className="ledger-total-card payable">
-                      <span>TOPLAM TEDARİKÇİ / FİRMA BORCU</span>
-                      <b>Borç: {money(totalPayableBalance)}</b>
+                    <div className="stock-title-row ledger-title-row">
+                      <h2>Kara Defter / Tedarikçi/Firma</h2>
+                      <button type="button" className="print-action" onClick={printPage} aria-label="Tedarikçi sayfasını yazdır">
+                        <Printer size={15} />
+                        YAZ
+                      </button>
+                      <div className="ledger-total-card payable">
+                        <span>TOPLAM TEDARİKÇİ / FİRMA BORCU</span>
+                        <b>Borç: {money(totalPayableBalance)}</b>
+                      </div>
                     </div>
-                    <h2>Kara Defter / Tedarikçi/Firma</h2>
                     <Table headers={["Cari", "Tür", "Son Alınan Mal", "Alış Toplam", "Ödenen", "Şimdiki Borç", "Sil"]} rows={borclarim.map((row) => [
                       <button className="link-btn" onClick={() => setSelectedSupplierAccount(row.accountKey)}>{row.name}</button>,
                       row.kind === "seller" ? "Satıcı" : row.kind === "supplier" ? "Tedarikçi/Firma" : "Cari",

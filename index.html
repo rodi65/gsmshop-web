@@ -31,6 +31,11 @@
       if (root) {
         root.style.zoom = String(zoom);
       }
+      const zoomedIn = zoom > 1.001;
+      document.documentElement.style.setProperty("--ceplog-screen-zoom", String(zoom));
+      document.documentElement.classList.toggle("ceplog-zoomed-in", zoomedIn);
+      document.body.classList.toggle("ceplog-zoomed-in", zoomedIn);
+      document.body.style.minHeight = zoomedIn ? Math.ceil(zoom * 100) + "vh" : "";
       localStorage.setItem(STORAGE_KEY, String(zoom));
 
       const label = document.getElementById("ceplogZoomLabel");
