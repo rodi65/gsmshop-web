@@ -8225,3 +8225,64 @@ body {
     gap: 6px;
   }
 }
+
+/* Okunurluk duzeltmesi: boyutlari degistirmeden yazilari kalinlastir */
+.premium-dashboard {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+.premium-dashboard button,
+.premium-dashboard input,
+.premium-dashboard select,
+.premium-dashboard textarea {
+  font-weight: 900 !important;
+}
+
+.premium-dashboard .hero-banner-text p,
+.premium-dashboard .sync-message,
+.premium-dashboard .card p,
+.premium-dashboard .shortcut-limit-info,
+.premium-dashboard .empty-shortcut-note,
+.premium-dashboard .calculator-open-btn,
+.premium-dashboard .sales-calculator-button {
+  font-weight: 950 !important;
+}
+
+.premium-dashboard .premium-sidebar .sidebar-nav-item span,
+.premium-dashboard .premium-sidebar .sidebar-calculator-shortcut span,
+.premium-dashboard .large-sales-title,
+.premium-dashboard .large-accessory-title,
+.premium-dashboard .compact-summary-card h3,
+.premium-dashboard .kasa-home-action-stack .choice,
+.premium-dashboard .big-sale-btn,
+.premium-dashboard .large-sales-button,
+.premium-dashboard .accessory-select-tabs .choice,
+.premium-dashboard .accessory-sub-tabs .choice {
+  font-weight: 1000 !important;
+  text-shadow: 0 0 .01px currentColor !important;
+}
+
+.premium-dashboard .compact-summary-line span,
+.premium-dashboard .compact-summary-total span,
+.premium-dashboard .remaining-box span,
+.premium-dashboard th,
+.premium-dashboard label,
+.premium-dashboard small {
+  font-weight: 950 !important;
+}
+
+.premium-dashboard .compact-summary-line b,
+.premium-dashboard .compact-summary-total b,
+.premium-dashboard .remaining-box b,
+.premium-dashboard td,
+.premium-dashboard .stat-value,
+.premium-dashboard .summary-line-value {
+  font-weight: 1000 !important;
+}
+
+.premium-dashboard input::placeholder,
+.premium-dashboard textarea::placeholder {
+  font-weight: 900 !important;
+  opacity: .95 !important;
+}
