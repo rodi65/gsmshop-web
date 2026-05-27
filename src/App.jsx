@@ -37,7 +37,7 @@ import {
   updateStockItem,
 } from "./services/dataService";
 
-import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText, Settings } from "lucide-react";
+import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText, Settings, Calculator } from "lucide-react";
 
 const parseMoneyInput = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, ""));
 const formatMoneyInput = (value) => {
@@ -185,6 +185,73 @@ const handleSafeSaleBankMovementError = (error) => {
 
 const money = (value) => `${new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 0 }).format(parseMoneyInput(value))} TL`;
 const has = (a, b) => String(a || "").toLowerCase().includes(String(b || "").toLowerCase());
+const isTypingElement = (element) => {
+  const tagName = String(element?.tagName || "").toLowerCase();
+  return tagName === "input" || tagName === "textarea" || tagName === "select" || Boolean(element?.isContentEditable);
+};
+const normalizeCalculatorExpression = (value) => String(value || "")
+  .replace(/\s/g, "")
+  .replace(/,/g, ".")
+  .replace(/[xX×]/g, "*")
+  .replace(/[÷]/g, "/");
+const formatCalculatorResult = (value) => {
+  const rounded = Math.round((value + Number.EPSILON) * 10000000000) / 10000000000;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace(/\.?0+$/, "");
+};
+const evaluateCalculatorExpression = (value) => {
+  const expression = normalizeCalculatorExpression(value);
+  let index = 0;
+
+  const peek = () => expression[index];
+  const consume = () => expression[index++];
+  const parseNumber = () => {
+    let numberText = "";
+    while (/[0-9.]/.test(peek() || "")) numberText += consume();
+    if (!numberText || numberText === "." || numberText.split(".").length > 2) throw new Error("Hata");
+    return Number(numberText);
+  };
+  const parseFactor = () => {
+    if (peek() === "+") {
+      consume();
+      return parseFactor();
+    }
+    if (peek() === "-") {
+      consume();
+      return -parseFactor();
+    }
+    if (peek() === "(") {
+      consume();
+      const value = parseExpression();
+      if (consume() !== ")") throw new Error("Hata");
+      return value;
+    }
+    return parseNumber();
+  };
+  const parseTerm = () => {
+    let value = parseFactor();
+    while (peek() === "*" || peek() === "/") {
+      const operator = consume();
+      const next = parseFactor();
+      if (operator === "/" && next === 0) throw new Error("Hata");
+      value = operator === "*" ? value * next : value / next;
+    }
+    return value;
+  };
+  function parseExpression() {
+    let value = parseTerm();
+    while (peek() === "+" || peek() === "-") {
+      const operator = consume();
+      const next = parseTerm();
+      value = operator === "+" ? value + next : value - next;
+    }
+    return value;
+  }
+
+  if (!expression || /[^0-9+\-*/().]/.test(expression)) throw new Error("Hata");
+  const result = parseExpression();
+  if (index !== expression.length || !Number.isFinite(result)) throw new Error("Hata");
+  return formatCalculatorResult(result);
+};
 const isLocalhostRuntime = () => {
   if (typeof window === "undefined") return false;
   return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
@@ -1143,6 +1210,9 @@ export default function App() {
   const [profitDateFrom, setProfitDateFrom] = useState("");
   const [profitDateTo, setProfitDateTo] = useState("");
   const [karaTab, setKaraTab] = useState("alacak");
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
+  const [calculatorValue, setCalculatorValue] = useState("");
+  const [calculatorResult, setCalculatorResult] = useState("");
   const [kasaBrainModal, setKasaBrainModal] = useState(null);
   const [kasaBrainReason, setKasaBrainReason] = useState("");
   const [kasaBrainPassword, setKasaBrainPassword] = useState("");
@@ -2280,6 +2350,109 @@ const isSameSalesListDay = (item, dateKey) => {
   useEffect(() => {
     checkAuthAndLoad();
   }, []);
+
+  function openCalculator() {
+    setCalculatorOpen(true);
+  }
+
+  function closeCalculator() {
+    setCalculatorOpen(false);
+  }
+
+  function appendCalculatorToken(token) {
+    setCalculatorResult("");
+    setCalculatorValue((current) => `${current}${token}`);
+  }
+
+  function clearCalculator() {
+    setCalculatorValue("");
+    setCalculatorResult("");
+  }
+
+  function deleteCalculatorToken() {
+    setCalculatorResult("");
+    setCalculatorValue((current) => current.slice(0, -1));
+  }
+
+  function calculateCalculatorValue() {
+    try {
+      const result = evaluateCalculatorExpression(calculatorValue);
+      setCalculatorValue(result);
+      setCalculatorResult(result);
+    } catch {
+      setCalculatorResult("Hata");
+    }
+  }
+
+  useEffect(() => {
+    const handleCalculatorShortcut = (event) => {
+      const typingTarget = isTypingElement(event.target);
+
+      if (event.key === "Escape" && calculatorOpen) {
+        event.preventDefault();
+        closeCalculator();
+        return;
+      }
+
+      if ((event.key === "h" || event.key === "H") && !typingTarget) {
+        event.preventDefault();
+        openCalculator();
+        return;
+      }
+
+      if (!calculatorOpen || typingTarget) return;
+
+      if (/^\d$/.test(event.key)) {
+        event.preventDefault();
+        appendCalculatorToken(event.key);
+        return;
+      }
+
+      if (event.key === "." || event.key === ",") {
+        event.preventDefault();
+        appendCalculatorToken(".");
+        return;
+      }
+
+      if (event.key === "+" || event.key === "-") {
+        event.preventDefault();
+        appendCalculatorToken(event.key);
+        return;
+      }
+
+      if (event.key === "*" || event.key === "x" || event.key === "X") {
+        event.preventDefault();
+        appendCalculatorToken("×");
+        return;
+      }
+
+      if (event.key === "/") {
+        event.preventDefault();
+        appendCalculatorToken("÷");
+        return;
+      }
+
+      if (event.key === "Backspace") {
+        event.preventDefault();
+        deleteCalculatorToken();
+        return;
+      }
+
+      if (event.key === "Enter" || event.key === "=") {
+        event.preventDefault();
+        calculateCalculatorValue();
+        return;
+      }
+
+      if (event.key === "c" || event.key === "C") {
+        event.preventDefault();
+        clearCalculator();
+      }
+    };
+
+    window.addEventListener("keydown", handleCalculatorShortcut);
+    return () => window.removeEventListener("keydown", handleCalculatorShortcut);
+  }, [calculatorOpen, calculatorValue]);
 
   async function handleLogout() {
     const ok = window.confirm("Çıkış yapmak istiyor musun?");
@@ -4363,6 +4536,27 @@ const isSameSalesListDay = (item, dateKey) => {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [searchModalOpen, technicalSearchModalOpen, technicalServiceDetailModalOpen, technicalServiceFormModalOpen]);
 
+  const calculatorKeys = [
+    { label: "C", tone: "danger", action: clearCalculator },
+    { label: "Sil", tone: "muted", action: deleteCalculatorToken },
+    { label: "÷", tone: "operator", token: "÷" },
+    { label: "×", tone: "operator", token: "×" },
+    { label: "7", token: "7" },
+    { label: "8", token: "8" },
+    { label: "9", token: "9" },
+    { label: "-", tone: "operator", token: "-" },
+    { label: "4", token: "4" },
+    { label: "5", token: "5" },
+    { label: "6", token: "6" },
+    { label: "+", tone: "operator", token: "+" },
+    { label: "1", token: "1" },
+    { label: "2", token: "2" },
+    { label: "3", token: "3" },
+    { label: "=", tone: "equals", action: calculateCalculatorValue },
+    { label: "0", token: "0", wide: true },
+    { label: ", / .", token: ".", wide: true },
+  ];
+
   if (!authChecked) {
     return <div className="app"><section className="card"><h2>CEPLOG yükleniyor...</h2></section></div>;
   }
@@ -4658,6 +4852,52 @@ const isSameSalesListDay = (item, dateKey) => {
           <div className="modal-bg">
             <div className="modal technical-global-modal">
               {renderTechnicalServiceDetailCard(selectedTechnicalService, selectedTechnicalSummary, true)}
+            </div>
+          </div>
+        )}
+
+        {calculatorOpen && (
+          <div className="modal-bg calculator-overlay" onClick={closeCalculator}>
+            <div
+              className="calculator-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="calculator-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="calculator-head">
+                <div>
+                  <h2 id="calculator-title">Hesap Makinesi</h2>
+                  <span>CEPLOG</span>
+                </div>
+                <button type="button" className="calculator-close" onClick={closeCalculator} aria-label="Hesap makinesini kapat">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="calculator-screen">
+                <div className="calculator-expression">{calculatorValue || "0"}</div>
+                <div className={calculatorResult === "Hata" ? "calculator-result error" : "calculator-result"}>
+                  {calculatorResult || "Sonuç"}
+                </div>
+              </div>
+
+              <div className="calculator-keys">
+                {calculatorKeys.map((key) => (
+                  <button
+                    key={key.label}
+                    type="button"
+                    className={[
+                      "calculator-key",
+                      key.tone ? `calculator-key-${key.tone}` : "",
+                      key.wide ? "calculator-key-wide" : "",
+                    ].filter(Boolean).join(" ")}
+                    onClick={() => key.action ? key.action() : appendCalculatorToken(key.token)}
+                  >
+                    {key.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -5872,6 +6112,13 @@ const isSameSalesListDay = (item, dateKey) => {
               <button className={karaTab === "banka" ? "choice active" : "choice"} onClick={() => setKaraTab("banka")}>BANKA HESAP</button>
               <button className={karaTab === "kar" ? "choice active" : "choice"} onClick={openProfitTab}>Kâr</button>
               <button className={karaTab === "sorgu" ? "choice active" : "choice"} onClick={() => setKaraTab("sorgu")}>Sorgula</button>
+            </div>
+
+            <div className="kara-tools">
+              <button type="button" className="primary calculator-open-btn" onClick={openCalculator}>
+                <Calculator size={18} />
+                Hesap Makinesi
+              </button>
             </div>
 
             {karaTab === "alacak" && (
