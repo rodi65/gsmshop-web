@@ -5204,6 +5204,7 @@ const isSameSalesListDay = (item, dateKey) => {
 
             {kasaBrainModal && (
         <div
+          data-kasa-brain-mode={kasaBrainModal.action}
           style={{
             position: "fixed",
             inset: 0,
@@ -5281,44 +5282,46 @@ const isSameSalesListDay = (item, dateKey) => {
               ))}
             </div>
 
-            <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
-              <label style={{ display: "grid", gap: 6, fontWeight: 900, color: "#334155" }}>
-                İşlem Sebebi
-                <textarea
-                  value={kasaBrainReason}
-                  onChange={(event) => setKasaBrainReason(event.target.value)}
-                  placeholder="Örn: Müşteri iade istedi, yanlış satış kaydı, hatalı tahsilat..."
-                  rows={3}
-                  style={{
-                    width: "100%",
-                    border: "1px solid #cbd5e1",
-                    borderRadius: 14,
-                    padding: 12,
-                    fontSize: 14,
-                    resize: "vertical",
-                    outline: "none"
-                  }}
-                />
-              </label>
+            {kasaBrainModal.action !== "Detay" && (
+              <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
+                <label style={{ display: "grid", gap: 6, fontWeight: 900, color: "#334155" }}>
+                  İşlem Sebebi
+                  <textarea
+                    value={kasaBrainReason}
+                    onChange={(event) => setKasaBrainReason(event.target.value)}
+                    placeholder="Örn: Müşteri iade istedi, yanlış satış kaydı, hatalı tahsilat..."
+                    rows={3}
+                    style={{
+                      width: "100%",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: 14,
+                      padding: 12,
+                      fontSize: 14,
+                      resize: "vertical",
+                      outline: "none"
+                    }}
+                  />
+                </label>
 
-              <label style={{ display: "grid", gap: 6, fontWeight: 900, color: "#334155" }}>
-                Yetkili Şifresi
-                <input
-                  type="password"
-                  value={kasaBrainPassword}
-                  onChange={(event) => setKasaBrainPassword(event.target.value)}
-                  placeholder="Yetkili şifresini gir"
-                  style={{
-                    width: "100%",
-                    border: "1px solid #cbd5e1",
-                    borderRadius: 14,
-                    padding: 12,
-                    fontSize: 14,
-                    outline: "none"
-                  }}
-                />
-              </label>
-            </div>
+                <label style={{ display: "grid", gap: 6, fontWeight: 900, color: "#334155" }}>
+                  Yetkili Şifresi
+                  <input
+                    type="password"
+                    value={kasaBrainPassword}
+                    onChange={(event) => setKasaBrainPassword(event.target.value)}
+                    placeholder="Yetkili şifresini gir"
+                    style={{
+                      width: "100%",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: 14,
+                      padding: 12,
+                      fontSize: 14,
+                      outline: "none"
+                    }}
+                  />
+                </label>
+              </div>
+            )}
 
             <div
               style={{
@@ -5332,40 +5335,62 @@ const isSameSalesListDay = (item, dateKey) => {
                 fontSize: 14
               }}
             >
-              Phase 4 güvenli mod: Onayla butonu sadece ön audit log oluşturur. Satış, kasa, stok, cari veya iade kaydı değiştirmez.
+              {kasaBrainModal.action === "Detay"
+                ? "Detay modu: Bu ekran sadece kayıt bilgisini gösterir. Şifre, sebep, audit log veya finansal işlem oluşturmaz."
+                : "Phase 4 güvenli mod: Onayla butonu sadece ön audit log oluşturur. Satış, kasa, stok, cari veya iade kaydı değiştirmez."}
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
-              <button
-                type="button"
-                onClick={() => setKasaBrainModal(null)}
-                style={{
-                  border: "1px solid #cbd5e1",
-                  background: "#fff",
-                  borderRadius: 12,
-                  padding: "10px 14px",
-                  cursor: "pointer",
-                  fontWeight: 900
-                }}
-              >
-                Vazgeç
-              </button>
-              <button
-                type="button"
-                onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); handleKasaBrainPreAudit(); }}
-                onClick={(event) => { event.preventDefault(); event.stopPropagation(); handleKasaBrainPreAudit(); }}
-                style={{
-                  border: "none",
-                  background: "#0f172a",
-                  color: "#fff",
-                  borderRadius: 12,
-                  padding: "10px 14px",
-                  cursor: "pointer",
-                  fontWeight: 900
-                }}
-              >
-                Ön Audit Log Oluştur
-              </button>
+              {kasaBrainModal.action === "Detay" ? (
+                <button
+                  type="button"
+                  onClick={() => setKasaBrainModal(null)}
+                  style={{
+                    border: "none",
+                    background: "#0f172a",
+                    color: "#fff",
+                    borderRadius: 12,
+                    padding: "10px 14px",
+                    cursor: "pointer",
+                    fontWeight: 900
+                  }}
+                >
+                  Kapat
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setKasaBrainModal(null)}
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      background: "#fff",
+                      borderRadius: 12,
+                      padding: "10px 14px",
+                      cursor: "pointer",
+                      fontWeight: 900
+                    }}
+                  >
+                    Vazgeç
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); handleKasaBrainPreAudit(); }}
+                    onClick={(event) => { event.preventDefault(); event.stopPropagation(); handleKasaBrainPreAudit(); }}
+                    style={{
+                      border: "none",
+                      background: "#0f172a",
+                      color: "#fff",
+                      borderRadius: 12,
+                      padding: "10px 14px",
+                      cursor: "pointer",
+                      fontWeight: 900
+                    }}
+                  >
+                    Ön Audit Log Oluştur
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
