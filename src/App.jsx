@@ -4566,10 +4566,10 @@ const isSameSalesListDay = (item, dateKey) => {
   }
 
   return (
-    <div className="app">
-      <div className="shell">
-        <header className="hero">
-          <div>
+    <div className="app premium-dashboard">
+      <div className="shell app-shell">
+        <header className="hero hero-banner">
+          <div className="hero-banner-copy">
             <div className="brand-title-row">
               <div className="brand-center">
                 <div className="brand-main-line">
@@ -4579,7 +4579,10 @@ const isSameSalesListDay = (item, dateKey) => {
                     {clockNow.toLocaleDateString("tr-TR")} • {clockNow.toLocaleTimeString("tr-TR", { hour12: false })}
                   </div>
                 </div>
-                <p>26 Yıllık Tecrübeyle Yapılan Profesyonel GSM Satış Teknik Servis Takip Sistemi</p>
+                <div className="hero-banner-text">
+                  <strong>İşinizi Kolaylaştıran Akıllı Yönetim Sistemi</strong>
+                  <p>Kasa • Stok • Satış • Teknik Servis • Raporlama</p>
+                </div>
               </div>
             </div>
         {syncMessage && (
@@ -4589,12 +4592,24 @@ const isSameSalesListDay = (item, dateKey) => {
           </div>
         )}
           </div>
+          <div className="hero-banner-visual" aria-hidden="true">
+            <div className="mockup-window">
+              <span>Canlı Dashboard</span>
+              <b>CEPLOG PRO</b>
+              <small>Akıllı GSM yönetimi</small>
+            </div>
+          </div>
           <div className="status-pill">WEB TEST</div>
         </header>
 
-        <nav className="nav-grid">
+        <nav className="nav-grid premium-sidebar">
+          <div className="premium-sidebar-brand">
+            <div className="premium-sidebar-logo"><span>CEP</span><b>LOG</b></div>
+            <p>Profesyonel GSM yönetim paneli</p>
+          </div>
+
           <button
-            className={active === "kasa" ? "nav-btn active" : "nav-btn"}
+            className={active === "kasa" ? "nav-btn sidebar-nav-item active" : "nav-btn sidebar-nav-item"}
             onClick={() => setActive("kasa")}
           >
             <Wallet size={22} />
@@ -4602,7 +4617,7 @@ const isSameSalesListDay = (item, dateKey) => {
           </button>
 
           <button
-            className={active === "cihaz" && stockForm.deviceType === "Telefon" ? "nav-btn active" : "nav-btn"}
+            className={active === "cihaz" && stockForm.deviceType === "Telefon" ? "nav-btn sidebar-nav-item active" : "nav-btn sidebar-nav-item"}
             onClick={() => {
               const nextBrand = brands.includes(stockForm.brand) ? stockForm.brand : "Apple";
               const nextModels = modelsByBrand[nextBrand] || [];
@@ -4622,7 +4637,7 @@ const isSameSalesListDay = (item, dateKey) => {
           </button>
 
           <button
-            className={active === "aksesuar" ? "nav-btn active" : "nav-btn"}
+            className={active === "aksesuar" ? "nav-btn sidebar-nav-item active" : "nav-btn sidebar-nav-item"}
             onClick={() => setActive("aksesuar")}
           >
             <Headphones size={22} />
@@ -4630,7 +4645,7 @@ const isSameSalesListDay = (item, dateKey) => {
           </button>
 
           <button
-            className={active === "digerler" ? "nav-btn active" : "nav-btn"}
+            className={active === "digerler" ? "nav-btn sidebar-nav-item active" : "nav-btn sidebar-nav-item"}
             onClick={() => {
               const group = otherProductGroups.includes(stockForm.deviceType) && stockForm.deviceType !== "Telefon" ? stockForm.deviceType : "Saat";
               setOtherGroupName(group);
@@ -4643,7 +4658,7 @@ const isSameSalesListDay = (item, dateKey) => {
           </button>
 
           <button
-            className={searchModalOpen ? "nav-btn active" : "nav-btn"}
+            className={searchModalOpen ? "nav-btn sidebar-nav-item active" : "nav-btn sidebar-nav-item"}
             onClick={() => setSearchModalOpen(true)}
           >
             <Search size={22} />
@@ -4651,7 +4666,7 @@ const isSameSalesListDay = (item, dateKey) => {
           </button>
 
           <button
-            className={active === "stok" ? "nav-btn active" : "nav-btn"}
+            className={active === "stok" ? "nav-btn sidebar-nav-item active" : "nav-btn sidebar-nav-item"}
             onClick={() => setActive("stok")}
           >
             <Package size={22} />
@@ -4659,7 +4674,7 @@ const isSameSalesListDay = (item, dateKey) => {
           </button>
 
           <button
-            className={active === "tamir" ? "nav-btn active" : "nav-btn"}
+            className={active === "tamir" ? "nav-btn sidebar-nav-item active" : "nav-btn sidebar-nav-item"}
             onClick={() => setActive("tamir")}
           >
             <Wrench size={22} />
@@ -4667,7 +4682,7 @@ const isSameSalesListDay = (item, dateKey) => {
           </button>
 
           <button
-            className={active === "vole" ? "nav-btn active" : "nav-btn"}
+            className={active === "vole" ? "nav-btn sidebar-nav-item active" : "nav-btn sidebar-nav-item"}
             onClick={openKaraDefter}
           >
             <TrendingUp size={22} />
@@ -4675,13 +4690,25 @@ const isSameSalesListDay = (item, dateKey) => {
           </button>
 
           <button
-            className={active === "yonetim" ? "nav-btn nav-mini-y active" : "nav-btn nav-mini-y"}
+            className={active === "yonetim" ? "nav-btn sidebar-nav-item nav-mini-y active" : "nav-btn sidebar-nav-item nav-mini-y"}
             onClick={() => setActive("yonetim")}
             title="Yönetim"
             aria-label="Yönetim"
           >
             <Settings size={22} aria-hidden="true" />
           </button>
+
+          <div className="premium-sidebar-footer">
+            <div className={cashWithBankIncoming < 0 ? "sidebar-daily-card negative" : "sidebar-daily-card"}>
+              <span>Günlük Özet</span>
+              <b>{money(cashWithBankIncoming)}</b>
+              <small>Kasa hedefi</small>
+            </div>
+            <button type="button" className="sidebar-calculator-shortcut" onClick={openCalculator}>
+              <Calculator size={18} />
+              <span>Hesap Makinesi</span>
+            </button>
+          </div>
         </nav>
 
         {searchModalOpen && (
