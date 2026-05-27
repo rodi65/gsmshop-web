@@ -883,11 +883,66 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
   const workspaceId = await getCurrentWorkspaceId();
 
   if (tableName === "sales") {
-    return callFinancialRpc("cancel_sale_with_effects", {
+    const { data: saleBeforeCancel, error: saleReadError } = await supabase
+      .from("sales")
+      .select("id, stock_item_id, status")
+      .eq("id", id)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (saleReadError) throw saleReadError;
+
+    const stockItemId = saleBeforeCancel?.stock_item_id || null;
+    let stockQuantityBefore = null;
+
+    if (stockItemId) {
+      const { data: stockBefore, error: stockBeforeError } = await supabase
+        .from("stock_items")
+        .select("id, quantity")
+        .eq("id", stockItemId)
+        .eq("workspace_id", workspaceId)
+        .maybeSingle();
+
+      if (stockBeforeError) throw stockBeforeError;
+      stockQuantityBefore = Number(stockBefore?.quantity || 0);
+    }
+
+    const result = await callFinancialRpc("cancel_sale_with_effects", {
       p_sale_id: id,
       p_workspace_id: workspaceId,
       p_reason: reason,
     }, "Finansal iptal fonksiyonu kurulmamış. Supabase financial_integrity SQL çalıştırılmalı.");
+
+    if (stockItemId) {
+      const { data: stockAfter, error: stockAfterError } = await supabase
+        .from("stock_items")
+        .select("id, quantity")
+        .eq("id", stockItemId)
+        .eq("workspace_id", workspaceId)
+        .maybeSingle();
+
+      if (stockAfterError) throw stockAfterError;
+
+      const stockQuantityAfter = Number(stockAfter?.quantity || 0);
+      const expectedMinimum = Number(stockQuantityBefore || 0) + 1;
+
+      if (stockAfter && stockQuantityAfter < expectedMinimum) {
+        const { error: stockRestoreError } = await supabase
+          .from("stock_items")
+          .update({
+            quantity: expectedMinimum,
+            status: "active",
+            updated_by: user?.id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", stockItemId)
+          .eq("workspace_id", workspaceId);
+
+        if (stockRestoreError) throw stockRestoreError;
+      }
+    }
+
+    return result;
   }
 
   const { data, error } = await supabase
