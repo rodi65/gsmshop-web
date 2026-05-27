@@ -893,20 +893,23 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
     if (saleReadError) throw saleReadError;
     if (!saleBeforeCancel) throw new Error("İptal edilecek satış kaydı bulunamadı.");
 
-    const stockItemId = saleBeforeCancel.stock_item_id || null;
-    let stockBeforeQuantity = null;
+    const stockItemId = saleBeforeCancel.stock_item_id;
 
-    if (stockItemId) {
-      const { data: stockBefore, error: stockBeforeError } = await supabase
-        .from("stock_items")
-        .select("id, quantity, status")
-        .eq("id", stockItemId)
-        .eq("workspace_id", workspaceId)
-        .maybeSingle();
-
-      if (stockBeforeError) throw stockBeforeError;
-      stockBeforeQuantity = Number(stockBefore?.quantity || 0);
+    if (!stockItemId) {
+      throw new Error("Bu satış kaydında stock_item_id yok. Stok iadesi yapılamaz. Satış kaydında cihaz bağlantısı eksik.");
     }
+
+    const { data: stockBefore, error: stockBeforeError } = await supabase
+      .from("stock_items")
+      .select("id, quantity, status")
+      .eq("id", stockItemId)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (stockBeforeError) throw stockBeforeError;
+    if (!stockBefore) throw new Error("Satışa bağlı stok kaydı bulunamadı.");
+
+    const beforeQty = Number(stockBefore.quantity || 0);
 
     const result = await callFinancialRpc("cancel_sale_with_effects", {
       p_sale_id: id,
@@ -914,35 +917,32 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
       p_reason: reason,
     }, "Finansal iptal fonksiyonu kurulmamış. Supabase financial_integrity SQL çalıştırılmalı.");
 
-    if (stockItemId) {
-      const { data: stockAfter, error: stockAfterError } = await supabase
+    const { data: stockAfter, error: stockAfterReadError } = await supabase
+      .from("stock_items")
+      .select("id, quantity, status")
+      .eq("id", stockItemId)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (stockAfterReadError) throw stockAfterReadError;
+    if (!stockAfter) throw new Error("İptal sonrası stok kaydı tekrar okunamadı.");
+
+    const afterQty = Number(stockAfter.quantity || 0);
+    const requiredQty = beforeQty + 1;
+
+    if (afterQty < requiredQty) {
+      const { error: stockReturnError } = await supabase
         .from("stock_items")
-        .select("id, quantity, status")
+        .update({
+          quantity: requiredQty,
+          status: "active",
+          updated_by: user?.id,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", stockItemId)
-        .eq("workspace_id", workspaceId)
-        .maybeSingle();
+        .eq("workspace_id", workspaceId);
 
-      if (stockAfterError) throw stockAfterError;
-
-      if (stockAfter) {
-        const afterQuantity = Number(stockAfter.quantity || 0);
-        const expectedQuantity = Number(stockBeforeQuantity || 0) + 1;
-
-        if (afterQuantity < expectedQuantity) {
-          const { error: restoreError } = await supabase
-            .from("stock_items")
-            .update({
-              quantity: expectedQuantity,
-              status: "active",
-              updated_by: user?.id,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", stockItemId)
-            .eq("workspace_id", workspaceId);
-
-          if (restoreError) throw restoreError;
-        }
-      }
+      if (stockReturnError) throw stockReturnError;
     }
 
     return result;
