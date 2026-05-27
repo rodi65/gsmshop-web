@@ -300,7 +300,7 @@ const securityPasswordFields = [
   { key: "cancelPassword", actionType: "cancel", label: "İptal Şifresi" },
   { key: "deletePassword", actionType: "delete", label: "Silme Şifresi" },
 ];
-const mainSaleGroups = ["Telefon", "Aksesuar", "Program", "Saat", "Tablet", "PC", "Bluetooth", "X"];
+const mainSaleGroups = ["Telefon", "Aksesuar", "Program", "Saat", "Tablet", "Elektronik", "Bluetooth", "X"];
 const otherSaleTypes = ["Program Satışı", "Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı", "Bluetooth Satışı", "Diğerleri Satışı"];
 const purchasePaymentMovementTypes = [
   "Alım Ödemesi",
@@ -3103,6 +3103,25 @@ const isSameSalesListDay = (item, dateKey) => {
       negative: cashWithBankIncoming < 0,
     },
   ];
+  const renderCompactKasaSummaryCard = (card) => (
+    <div key={card.key} className={`compact-summary-card ${card.tone} ${card.negative ? "negative" : ""}`}>
+      <h3>{card.title}</h3>
+      <div className="compact-summary-lines">
+        {card.rows.map(([label, value]) => (
+          <div className="compact-summary-line" key={label}>
+            <span>{label}</span>
+            <b>{money(value)}</b>
+          </div>
+        ))}
+      </div>
+      {card.total !== null && (
+        <div className="compact-summary-total">
+          <span>{card.totalLabel}</span>
+          <b>{money(card.total)}</b>
+        </div>
+      )}
+    </div>
+  );
 
   const dayProfit = activeSales
     .filter((sale) => sale.date && sale.date.slice(0, 10) === todayKey)
@@ -4796,7 +4815,7 @@ const isSameSalesListDay = (item, dateKey) => {
             }}
           >
             <Package size={22} />
-            <span>X</span>
+            <span>DİĞERLERİ</span>
           </button>
 
           <button
@@ -4820,7 +4839,7 @@ const isSameSalesListDay = (item, dateKey) => {
             onClick={() => setActive("tamir")}
           >
             <Wrench size={22} />
-            <span>TEKNİK</span>
+            <span>TEKNİK SERVİS</span>
           </button>
 
           <button
@@ -4838,19 +4857,9 @@ const isSameSalesListDay = (item, dateKey) => {
             aria-label="Yönetim"
           >
             <Settings size={22} aria-hidden="true" />
+            <span>YÖNETİM</span>
           </button>
 
-          <div className="premium-sidebar-footer">
-            <div className={cashWithBankIncoming < 0 ? "sidebar-daily-card negative" : "sidebar-daily-card"}>
-              <span>Günlük Özet</span>
-              <b>{money(cashWithBankIncoming)}</b>
-              <small>Kasa hedefi</small>
-            </div>
-            <button type="button" className="sidebar-calculator-shortcut" onClick={openCalculator}>
-              <Calculator size={18} />
-              <span>Hesap Makinesi</span>
-            </button>
-          </div>
         </nav>
 
         {searchModalOpen && (
@@ -5203,7 +5212,8 @@ const isSameSalesListDay = (item, dateKey) => {
         )}
 
         {active === "kasa" && (
-          <section className="section">
+          <section className={kasaTab === "yeniSatis" ? "section kasa-home-section" : "section"}>
+            {kasaTab !== "yeniSatis" && (
             <div className="kasa-subtabs">
               <button className={kasaTab === "yeniSatis" ? "choice active" : "choice"} onClick={() => setKasaTab("yeniSatis")}>YENİ SATIŞ</button>
               <button className={kasaTab === "satisListesi" ? "choice active" : "choice"} onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
@@ -5217,34 +5227,20 @@ const isSameSalesListDay = (item, dateKey) => {
                 <b>{money(cashWithBankIncoming)}</b>
               </div>
             </div>
+            )}
 
             {kasaTab === "yeniSatis" && (
-              <>
-                <div className="compact-summary-grid">
-                  {compactKasaSummaryCards.map((card) => (
-                    <div key={card.key} className={`compact-summary-card ${card.tone} ${card.negative ? "negative" : ""}`}>
-                      <h3>{card.title}</h3>
-                      <div className="compact-summary-lines">
-                        {card.rows.map(([label, value]) => (
-                          <div className="compact-summary-line" key={label}>
-                            <span>{label}</span>
-                            <b>{money(value)}</b>
-                          </div>
-                        ))}
-                      </div>
-                      {card.total !== null && (
-                        <div className="compact-summary-total">
-                          <span>{card.totalLabel}</span>
-                          <b>{money(card.total)}</b>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
+              <div className="kasa-home-dashboard">
+                <div className="kasa-home-sales">
                 <div className="grid sale-layout">
                   <div className="card large-sales-panel">
-                    <h2 className="large-sales-title">YENİ SATIŞ</h2>
+                    <div className="large-sales-heading">
+                      <h2 className="large-sales-title">YENİ SATIŞ</h2>
+                      <button type="button" className="sales-calculator-button" onClick={openCalculator}>
+                        <Calculator size={16} />
+                        <span>Hesap Makinesi</span>
+                      </button>
+                    </div>
                     <div className="big-sale-grid">
                       {mainSaleGroups.map((group) => (
                         <button
@@ -5373,7 +5369,6 @@ const isSameSalesListDay = (item, dateKey) => {
 
                   <div className="card large-accessory-panel">
                     <h2 className="large-accessory-title">AKSESUAR HIZLI SATIŞ</h2>
-                    <p>Önce grup seç, sonra alt seçeneği seç, istersen fiyat yaz ve kısayol ekle. En fazla 30 kısayol eklenir.</p>
 
                     <div className="shortcut-limit-info">
                       EKLENEN KISAYOL: <b>{accessoryShortcuts.length} / {accessoryShortcutLimit}</b>
@@ -5501,7 +5496,33 @@ const isSameSalesListDay = (item, dateKey) => {
 
 
                 </div>
-              </>
+                </div>
+
+                <aside className="kasa-home-summary-column">
+                  {compactKasaSummaryCards
+                    .filter((card) => ["phone", "technical", "total"].includes(card.key))
+                    .map(renderCompactKasaSummaryCard)}
+                  <div className={cashWithBankIncoming < 0 ? "kasa-home-cash-card negative" : "kasa-home-cash-card"}>
+                    <span>TOPLAM KASADAKİ OLMASI GEREKEN</span>
+                    <b>{money(cashWithBankIncoming)}</b>
+                  </div>
+                </aside>
+
+                <div className="kasa-home-bottom-summaries">
+                  <div className="kasa-home-mini-summaries">
+                    {compactKasaSummaryCards
+                      .filter((card) => ["accessory", "other"].includes(card.key))
+                      .map(renderCompactKasaSummaryCard)}
+                  </div>
+
+                  <div className="kasa-home-action-stack">
+                    <button type="button" className="choice" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
+                    <button type="button" className="choice" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
+                    <button type="button" className="choice" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
+                    <button type="button" className="choice" onClick={() => setKasaTab("kapanis")}>KASA KAPANIŞI</button>
+                  </div>
+                </div>
+              </div>
             )}
 
             {kasaTab === "satisListesi" && (

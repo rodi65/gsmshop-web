@@ -6525,3 +6525,1703 @@ body {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Kabul edilen ekran gorseline gore ana kasa ekrani */
+@media (min-width: 921px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard {
+    --target-pad: clamp(10px, 0.9vw, 16px);
+    --target-sidebar: clamp(218px, 14.5vw, 246px);
+    --target-hero: clamp(142px, 16vh, 166px);
+    height: 100vh !important;
+    min-height: 100vh !important;
+    padding: var(--target-pad) !important;
+    background:
+      radial-gradient(circle at 78% 10%, rgba(92, 77, 255, 0.14), transparent 36%),
+      linear-gradient(135deg, #eef4ff 0%, #f8fafc 55%, #eef2ff 100%) !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .app-shell {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-columns: var(--target-sidebar) minmax(0, 1fr) !important;
+    grid-template-rows: var(--target-hero) minmax(0, 1fr) !important;
+    gap: clamp(12px, 1vw, 18px) clamp(14px, 1.1vw, 20px) !important;
+    overflow: hidden !important;
+    align-items: stretch !important;
+  }
+
+  .premium-dashboard .premium-sidebar {
+    grid-column: 1 !important;
+    grid-row: 1 / span 2 !important;
+    width: var(--target-sidebar) !important;
+    min-width: var(--target-sidebar) !important;
+    max-width: var(--target-sidebar) !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    padding: clamp(18px, 1.35vw, 24px) clamp(14px, 1vw, 18px) !important;
+    border-radius: 18px !important;
+    background:
+      linear-gradient(180deg, rgba(6, 16, 39, 0.98), rgba(15, 28, 52, 0.96)),
+      #071225 !important;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22) !important;
+    gap: clamp(9px, 1vh, 13px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .premium-sidebar-brand {
+    padding: 4px 8px clamp(14px, 1.4vh, 20px) !important;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.14) !important;
+    margin-bottom: clamp(4px, 0.6vh, 8px) !important;
+  }
+
+  .premium-sidebar-logo {
+    font-size: clamp(27px, 2.1vw, 36px) !important;
+    line-height: 0.9 !important;
+    letter-spacing: 0 !important;
+  }
+
+  .premium-sidebar-brand p {
+    margin-top: 8px !important;
+    font-size: clamp(10px, 0.78vw, 13px) !important;
+    line-height: 1.2 !important;
+    color: #dbeafe !important;
+  }
+
+  .premium-sidebar .sidebar-nav-item,
+  .premium-sidebar .sidebar-calculator-shortcut {
+    min-height: clamp(48px, 5.7vh, 58px) !important;
+    padding: 0 clamp(13px, 1.1vw, 18px) !important;
+    border-radius: 12px !important;
+    background: rgba(30, 41, 59, 0.86) !important;
+    color: #f8fafc !important;
+    gap: clamp(10px, 0.9vw, 14px) !important;
+    box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.06) !important;
+  }
+
+  .premium-sidebar .sidebar-nav-item.active,
+  .premium-sidebar.nav-grid .nav-btn.active,
+  .premium-sidebar .nav-mini-y.active {
+    background: linear-gradient(135deg, #2f68ff 0%, #7c2dff 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 14px 28px rgba(79, 70, 229, 0.28) !important;
+  }
+
+  .premium-sidebar .sidebar-nav-item svg,
+  .premium-sidebar .sidebar-calculator-shortcut svg {
+    width: clamp(18px, 1.25vw, 22px) !important;
+    height: clamp(18px, 1.25vw, 22px) !important;
+    flex: 0 0 auto !important;
+  }
+
+  .premium-sidebar .sidebar-nav-item span,
+  .premium-sidebar .sidebar-calculator-shortcut span {
+    font-size: clamp(11px, 0.78vw, 14px) !important;
+    font-weight: 900 !important;
+    letter-spacing: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-sidebar-footer {
+    margin-top: auto !important;
+    gap: 10px !important;
+  }
+
+  .premium-sidebar .sidebar-daily-card {
+    padding: 14px !important;
+    border-radius: 12px !important;
+    background: rgba(51, 65, 85, 0.74) !important;
+  }
+
+  .premium-sidebar .sidebar-daily-card span,
+  .premium-sidebar .sidebar-daily-card small {
+    font-size: 11px !important;
+  }
+
+  .premium-sidebar .sidebar-daily-card b {
+    font-size: clamp(18px, 1.4vw, 23px) !important;
+  }
+
+  .premium-dashboard .app-shell > .hero-banner {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) clamp(190px, 17vw, 250px) !important;
+    align-items: center !important;
+    gap: clamp(16px, 1.5vw, 24px) !important;
+    padding: clamp(16px, 1.4vw, 22px) clamp(22px, 1.8vw, 32px) !important;
+    border-radius: 14px !important;
+    background:
+      radial-gradient(circle at 82% 5%, rgba(138, 92, 246, 0.48), transparent 36%),
+      linear-gradient(135deg, #06122b 0%, #112c73 58%, #4f36d7 100%) !important;
+    color: #ffffff !important;
+    overflow: hidden !important;
+  }
+
+  .hero-banner-copy,
+  .brand-title-row,
+  .brand-center {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .hero-banner .brand-main-line {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: clamp(10px, 1vw, 18px) !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .hero-banner h1,
+  .hero-banner .brand-main-line h1 {
+    font-size: clamp(42px, 3.9vw, 64px) !important;
+    line-height: 0.85 !important;
+    letter-spacing: 0 !important;
+    margin: 0 !important;
+  }
+
+  .hero-banner .since-badge,
+  .hero-banner .live-clock {
+    min-height: 0 !important;
+    padding: 7px 15px !important;
+    border-radius: 999px !important;
+    font-size: clamp(12px, 0.95vw, 16px) !important;
+    font-weight: 900 !important;
+    white-space: nowrap !important;
+  }
+
+  .hero-banner-text {
+    text-align: center !important;
+    margin-top: 4px !important;
+  }
+
+  .hero-banner-text strong {
+    display: block !important;
+    font-size: clamp(28px, 2.65vw, 44px) !important;
+    line-height: 0.95 !important;
+    letter-spacing: 0 !important;
+  }
+
+  .hero-banner-text p,
+  .hero-banner p {
+    margin: 7px 0 0 !important;
+    font-size: clamp(14px, 1.1vw, 18px) !important;
+    line-height: 1.1 !important;
+    color: #eef4ff !important;
+  }
+
+  .sync-message {
+    width: min(620px, 72%) !important;
+    min-height: 28px !important;
+    margin: 12px auto 0 !important;
+    padding: 5px 14px !important;
+    border-radius: 999px !important;
+    font-size: clamp(10px, 0.8vw, 12px) !important;
+    font-weight: 900 !important;
+  }
+
+  .hero-banner-visual {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+
+  .hero-banner-visual .mockup-window {
+    width: 100% !important;
+    min-height: clamp(92px, 11vh, 120px) !important;
+    border-radius: 16px !important;
+    padding: 18px !important;
+    background: rgba(255, 255, 255, 0.13) !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.10) !important;
+  }
+
+  .hero-banner .status-pill {
+    top: 12px !important;
+    right: 12px !important;
+    font-size: 10px !important;
+    padding: 6px 12px !important;
+  }
+
+  .premium-dashboard .app-shell > .section {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 0 !important;
+  }
+
+  .premium-dashboard .kasa-home-section {
+    overflow: hidden !important;
+  }
+
+  .kasa-home-dashboard {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(330px, 0.92fr) minmax(390px, 1.08fr) minmax(218px, 0.58fr);
+    grid-template-rows: minmax(0, 1fr) clamp(140px, 18vh, 178px);
+    gap: clamp(10px, 0.9vw, 14px);
+    overflow: hidden;
+  }
+
+  .kasa-home-sales {
+    grid-column: 1 / 3;
+    grid-row: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .kasa-home-sales .sale-layout {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(330px, 0.9fr) minmax(390px, 1.1fr) !important;
+    gap: clamp(10px, 0.9vw, 14px) !important;
+    align-items: stretch !important;
+    overflow: hidden !important;
+  }
+
+  .kasa-home-summary-column {
+    grid-column: 3;
+    grid-row: 1;
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: 1.18fr 1fr 1fr;
+    gap: clamp(10px, 0.9vw, 14px);
+    overflow: hidden;
+  }
+
+  .kasa-home-bottom-summaries {
+    grid-column: 1 / 3;
+    grid-row: 2;
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(10px, 0.9vw, 14px);
+    overflow: hidden;
+  }
+
+  .kasa-home-actions {
+    grid-column: 3;
+    grid-row: 2;
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: minmax(62px, 0.86fr) minmax(68px, 1fr);
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .kasa-home-actions .kasa-home-cash-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    color: #ffffff;
+    text-align: center;
+    background: linear-gradient(135deg, #071225 0%, #173a9c 100%);
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
+    overflow: hidden;
+  }
+
+  .kasa-home-actions .kasa-home-cash-card.negative {
+    background: linear-gradient(135deg, #450a0a 0%, #dc2626 100%);
+  }
+
+  .kasa-home-actions .kasa-home-cash-card span {
+    font-size: clamp(9px, 0.75vw, 12px);
+    font-weight: 900;
+    line-height: 1.1;
+  }
+
+  .kasa-home-actions .kasa-home-cash-card b {
+    font-size: clamp(20px, 1.8vw, 30px);
+    line-height: 1;
+  }
+
+  .kasa-home-action-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    min-height: 0;
+  }
+
+  .kasa-home-action-grid .choice {
+    min-height: 0 !important;
+    height: 100% !important;
+    margin: 0 !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+    color: #172033 !important;
+    border: 1px solid #dbe3f0 !important;
+    font-size: clamp(9px, 0.74vw, 12px) !important;
+    font-weight: 900 !important;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06) !important;
+  }
+
+  .kasa-home-dashboard .card,
+  .kasa-home-dashboard .compact-summary-card {
+    border: 1px solid rgba(203, 213, 225, 0.74) !important;
+    border-radius: 14px !important;
+    background: rgba(255, 255, 255, 0.93) !important;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  .kasa-home-dashboard .large-sales-panel,
+  .kasa-home-dashboard .large-accessory-panel {
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+    padding: clamp(14px, 1.05vw, 18px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .kasa-home-dashboard .large-sales-title,
+  .kasa-home-dashboard .large-accessory-title {
+    text-align: left !important;
+    font-size: clamp(18px, 1.45vw, 24px) !important;
+    line-height: 1 !important;
+    margin: 0 0 16px !important;
+    padding-bottom: 14px !important;
+    border-bottom: 1px solid #e5eaf3 !important;
+  }
+
+  .kasa-home-dashboard .big-sale-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .kasa-home-dashboard .big-sale-btn {
+    min-height: clamp(40px, 5.2vh, 48px) !important;
+    padding: 8px 10px !important;
+    border-radius: 9px !important;
+    font-size: clamp(12px, 0.95vw, 16px) !important;
+    font-weight: 950 !important;
+  }
+
+  .kasa-home-dashboard .large-sales-panel input,
+  .kasa-home-dashboard .large-sales-panel select,
+  .kasa-home-dashboard .large-accessory-panel input,
+  .kasa-home-dashboard .large-accessory-panel select {
+    min-height: clamp(36px, 4.5vh, 44px) !important;
+    height: clamp(36px, 4.5vh, 44px) !important;
+    margin-top: 6px !important;
+    padding: 0 12px !important;
+    border-radius: 9px !important;
+    font-size: clamp(12px, 0.9vw, 14px) !important;
+  }
+
+  .kasa-home-dashboard .large-sales-panel .two {
+    gap: 10px !important;
+  }
+
+  .kasa-home-dashboard .remaining-box {
+    min-height: clamp(44px, 5.2vh, 54px) !important;
+    border-radius: 10px !important;
+  }
+
+  .kasa-home-dashboard .large-sales-panel .primary,
+  .kasa-home-dashboard .large-accessory-panel .primary {
+    min-height: clamp(38px, 4.8vh, 46px) !important;
+    border-radius: 9px !important;
+  }
+
+  .kasa-home-dashboard .large-accessory-panel > p {
+    font-size: clamp(11px, 0.86vw, 14px) !important;
+    line-height: 1.35 !important;
+    margin: 0 0 14px !important;
+  }
+
+  .kasa-home-dashboard .shortcut-limit-info {
+    min-height: 34px !important;
+    padding: 8px 10px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .kasa-home-dashboard .large-accessory-panel .accessory-user-shortcuts.compact-shortcuts {
+    min-height: clamp(112px, 17vh, 174px) !important;
+    max-height: clamp(112px, 17vh, 174px) !important;
+    padding: 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .kasa-home-dashboard .empty-shortcut-note {
+    font-size: clamp(11px, 0.86vw, 14px) !important;
+    line-height: 1.45 !important;
+    text-align: center !important;
+  }
+
+  .kasa-home-dashboard .accessory-shortcut-price-row {
+    margin: 12px 0 14px !important;
+    gap: 10px !important;
+  }
+
+  .kasa-home-dashboard .large-accessory-panel h3 {
+    margin: 10px 0 7px !important;
+    font-size: clamp(11px, 0.82vw, 13px) !important;
+  }
+
+  .kasa-home-dashboard .accessory-select-tabs,
+  .kasa-home-dashboard .accessory-sub-tabs {
+    gap: 8px !important;
+  }
+
+  .kasa-home-dashboard .accessory-select-tabs .choice,
+  .kasa-home-dashboard .accessory-sub-tabs .choice {
+    min-height: 32px !important;
+    padding: 7px 10px !important;
+    border-radius: 8px !important;
+    font-size: clamp(10px, 0.78vw, 12px) !important;
+  }
+
+  .kasa-home-dashboard .compact-summary-card {
+    min-height: 0 !important;
+    max-height: none !important;
+    height: 100% !important;
+    padding: clamp(12px, 1vw, 16px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    overflow: hidden !important;
+  }
+
+  .kasa-home-dashboard .compact-summary-card.total {
+    overflow-y: auto !important;
+  }
+
+  .kasa-home-dashboard .compact-summary-card h3 {
+    margin: 0 0 8px !important;
+    font-size: clamp(13px, 1vw, 17px) !important;
+    line-height: 1.1 !important;
+    color: #172033 !important;
+  }
+
+  .kasa-home-dashboard .compact-summary-lines {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 7px !important;
+    min-height: 0 !important;
+  }
+
+  .kasa-home-dashboard .compact-summary-line {
+    min-height: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+  }
+
+  .kasa-home-dashboard .compact-summary-line span,
+  .kasa-home-dashboard .compact-summary-line b {
+    font-size: clamp(11px, 0.83vw, 13px) !important;
+    line-height: 1.1 !important;
+  }
+
+  .kasa-home-dashboard .compact-summary-total {
+    margin-top: auto !important;
+    min-height: 34px !important;
+    padding: 8px 10px !important;
+    border-radius: 9px !important;
+  }
+
+  .kasa-home-dashboard .compact-summary-total span,
+  .kasa-home-dashboard .compact-summary-total b {
+    font-size: clamp(10px, 0.78vw, 12px) !important;
+  }
+}
+
+@media (min-width: 921px) and (max-width: 1320px) {
+  .premium-dashboard {
+    --target-sidebar: clamp(184px, 14vw, 210px);
+    --target-hero: clamp(118px, 15vh, 138px);
+  }
+
+  .hero-banner-visual {
+    display: none !important;
+  }
+
+  .premium-dashboard .app-shell > .hero-banner {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .kasa-home-dashboard {
+    grid-template-columns: minmax(300px, 0.92fr) minmax(340px, 1.08fr) minmax(190px, 0.58fr);
+    grid-template-rows: minmax(0, 1fr) clamp(120px, 17vh, 152px);
+  }
+
+  .kasa-home-sales .sale-layout {
+    grid-template-columns: minmax(300px, 0.9fr) minmax(340px, 1.1fr) !important;
+  }
+}
+
+@media (min-width: 921px) and (max-height: 760px) {
+  .premium-dashboard {
+    --target-pad: 8px;
+    --target-hero: 112px;
+  }
+
+  .premium-sidebar .sidebar-nav-item,
+  .premium-sidebar .sidebar-calculator-shortcut {
+    min-height: 40px !important;
+  }
+
+  .premium-sidebar-brand {
+    padding-bottom: 10px !important;
+  }
+
+  .hero-banner h1,
+  .hero-banner .brand-main-line h1 {
+    font-size: clamp(32px, 3vw, 44px) !important;
+  }
+
+  .hero-banner-text strong {
+    font-size: clamp(21px, 2.1vw, 30px) !important;
+  }
+
+  .sync-message {
+    margin-top: 8px !important;
+  }
+
+  .kasa-home-dashboard {
+    grid-template-rows: minmax(0, 1fr) 122px;
+  }
+
+  .kasa-home-dashboard .large-sales-panel,
+  .kasa-home-dashboard .large-accessory-panel {
+    padding: 11px !important;
+  }
+
+  .kasa-home-dashboard .big-sale-btn {
+    min-height: 34px !important;
+  }
+
+  .kasa-home-dashboard .large-accessory-panel .accessory-user-shortcuts.compact-shortcuts {
+    min-height: 78px !important;
+    max-height: 96px !important;
+  }
+}
+
+/* Nihai kabul gorseli: tek ekran, sabit oranlar ve cakisma temizligi */
+@media (min-width: 921px) {
+  .premium-dashboard {
+    --target-pad: clamp(9px, 0.85vw, 14px) !important;
+    --target-sidebar: clamp(220px, 14vw, 242px) !important;
+    --target-hero: clamp(136px, 15.5vh, 160px) !important;
+  }
+
+  .premium-dashboard .app-shell {
+    grid-template-columns: var(--target-sidebar) minmax(0, 1fr) !important;
+    grid-template-rows: var(--target-hero) minmax(0, 1fr) !important;
+    gap: clamp(10px, 0.95vw, 16px) clamp(14px, 1vw, 18px) !important;
+  }
+
+  .premium-dashboard .app-shell > .hero-banner {
+    grid-template-columns: minmax(0, 1fr) clamp(190px, 15vw, 240px) !important;
+    padding: clamp(14px, 1.25vw, 20px) clamp(20px, 1.7vw, 28px) !important;
+  }
+
+  .premium-dashboard .hero-banner h1,
+  .premium-dashboard .hero-banner .brand-main-line h1 {
+    font-size: clamp(40px, 3.45vw, 58px) !important;
+  }
+
+  .premium-dashboard .hero-banner-text strong {
+    font-size: clamp(25px, 2.35vw, 38px) !important;
+  }
+
+  .premium-dashboard .hero-banner-text p,
+  .premium-dashboard .hero-banner p {
+    font-size: clamp(13px, 1vw, 16px) !important;
+  }
+
+  .premium-dashboard .sync-message {
+    margin-top: 10px !important;
+    min-height: 26px !important;
+  }
+
+  .premium-dashboard .premium-sidebar {
+    padding: clamp(16px, 1.25vw, 22px) clamp(13px, 0.95vw, 17px) !important;
+    gap: clamp(8px, 0.9vh, 12px) !important;
+  }
+
+  .premium-sidebar .sidebar-nav-item,
+  .premium-sidebar .sidebar-calculator-shortcut {
+    min-height: clamp(46px, 5.3vh, 56px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard {
+    grid-template-columns: minmax(360px, 0.86fr) minmax(430px, 1.04fr) minmax(236px, 0.48fr) !important;
+    grid-template-rows: minmax(0, 1fr) clamp(128px, 17vh, 164px) !important;
+    gap: clamp(10px, 0.85vw, 14px) !important;
+  }
+
+  .premium-dashboard .kasa-home-sales .sale-layout {
+    grid-template-columns: minmax(360px, 0.92fr) minmax(430px, 1.08fr) !important;
+    gap: clamp(10px, 0.85vw, 14px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel,
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    padding: clamp(13px, 0.95vw, 16px) !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel > .large-sales-title,
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel > .large-accessory-title {
+    text-align: left !important;
+    font-size: clamp(17px, 1.35vw, 22px) !important;
+    line-height: 1 !important;
+    margin: 0 0 12px !important;
+    padding-bottom: 12px !important;
+    border-bottom: 1px solid #e5eaf3 !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel > .large-sales-title {
+    padding-left: 42px !important;
+    position: relative !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel > .large-sales-title::before,
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel > .large-accessory-title::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: -5px;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #eef4ff, #ffffff);
+    box-shadow: inset 0 0 0 1px #dbe7ff;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel > .large-accessory-title {
+    padding-left: 42px !important;
+    position: relative !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .big-sale-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin: 0 0 12px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .big-sale-grid .big-sale-btn:nth-child(n),
+  .premium-dashboard .kasa-home-dashboard .large-sales-button:nth-child(n) {
+    grid-column: auto !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .big-sale-btn,
+  .premium-dashboard .kasa-home-dashboard .large-sales-button {
+    min-height: 38px !important;
+    height: 38px !important;
+    padding: 6px 8px !important;
+    border-radius: 8px !important;
+    font-size: clamp(11px, 0.82vw, 14px) !important;
+    line-height: 1.05 !important;
+    font-weight: 950 !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel input,
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel select {
+    min-height: 36px !important;
+    height: 36px !important;
+    margin-top: 6px !important;
+    padding: 0 10px !important;
+    border-radius: 8px !important;
+    font-size: clamp(11px, 0.82vw, 13px) !important;
+    line-height: 1 !important;
+    font-weight: 850 !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel .two {
+    grid-template-columns: minmax(0, 1fr) minmax(112px, 0.42fr) !important;
+    gap: 9px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .remaining-box {
+    min-height: 36px !important;
+    height: 42px !important;
+    margin-top: 6px !important;
+    padding: 5px 8px !important;
+    border-radius: 9px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .remaining-box span {
+    font-size: 10px !important;
+    line-height: 1 !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .remaining-box b {
+    font-size: clamp(18px, 1.55vw, 26px) !important;
+    line-height: 1 !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel .primary {
+    min-height: 39px !important;
+    height: 39px !important;
+    margin-top: 9px !important;
+    border-radius: 8px !important;
+    font-size: clamp(11px, 0.86vw, 14px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel .warning {
+    padding: 6px 8px !important;
+    gap: 6px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel > p {
+    font-size: clamp(10px, 0.78vw, 12px) !important;
+    line-height: 1.35 !important;
+    margin: 0 0 10px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .shortcut-limit-info {
+    min-height: 34px !important;
+    padding: 7px 10px !important;
+    margin: 0 0 10px !important;
+    font-size: clamp(13px, 1.05vw, 18px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .accessory-user-shortcuts.compact-shortcuts {
+    min-height: clamp(106px, 15.2vh, 150px) !important;
+    max-height: clamp(106px, 15.2vh, 150px) !important;
+    padding: 10px !important;
+    margin-bottom: 10px !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .empty-shortcut-note {
+    font-size: clamp(10px, 0.78vw, 12px) !important;
+    line-height: 1.4 !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .accessory-shortcut-price-row {
+    grid-template-columns: minmax(0, 1fr) minmax(160px, 0.58fr) !important;
+    gap: 10px !important;
+    margin: 0 0 10px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel input,
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel select {
+    min-height: 38px !important;
+    height: 38px !important;
+    margin-top: 0 !important;
+    border-radius: 8px !important;
+    font-size: clamp(11px, 0.82vw, 13px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .primary {
+    min-height: 38px !important;
+    height: 38px !important;
+    border-radius: 8px !important;
+    font-size: clamp(11px, 0.82vw, 13px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel h3 {
+    margin: 8px 0 6px !important;
+    font-size: clamp(10px, 0.76vw, 12px) !important;
+    line-height: 1.1 !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .accessory-select-tabs,
+  .premium-dashboard .kasa-home-dashboard .accessory-sub-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .accessory-sub-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .accessory-select-tabs .choice,
+  .premium-dashboard .kasa-home-dashboard .accessory-sub-tabs .choice {
+    min-height: 31px !important;
+    padding: 6px 8px !important;
+    border-radius: 8px !important;
+    font-size: clamp(9px, 0.72vw, 11px) !important;
+    line-height: 1.05 !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column {
+    grid-template-rows: 1fr 0.92fr 0.92fr !important;
+    gap: clamp(10px, 0.85vw, 14px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-card {
+    min-height: 0 !important;
+    height: 100% !important;
+    padding: clamp(10px, 0.82vw, 13px) !important;
+    gap: 6px !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-card h3 {
+    margin: 0 0 6px !important;
+    font-size: clamp(13px, 0.96vw, 16px) !important;
+    line-height: 1.05 !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-lines {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-line {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    min-height: 15px !important;
+    padding: 0 !important;
+    border-top: 0 !important;
+    gap: 8px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-line span,
+  .premium-dashboard .kasa-home-dashboard .compact-summary-line b {
+    font-size: clamp(10px, 0.74vw, 12px) !important;
+    line-height: 1.05 !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-total {
+    min-height: 30px !important;
+    padding: 7px 9px !important;
+    border-radius: 8px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-total span,
+  .premium-dashboard .kasa-home-dashboard .compact-summary-total b {
+    font-size: clamp(9px, 0.72vw, 11px) !important;
+    line-height: 1.05 !important;
+  }
+
+  .premium-dashboard .kasa-home-bottom-summaries {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    gap: clamp(10px, 0.85vw, 14px) !important;
+  }
+
+  .premium-dashboard .kasa-home-actions {
+    grid-template-rows: minmax(58px, 0.82fr) minmax(58px, 0.92fr) !important;
+    gap: 7px !important;
+  }
+
+  .premium-dashboard .kasa-home-actions .kasa-home-cash-card {
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+  }
+
+  .premium-dashboard .kasa-home-actions .kasa-home-cash-card span {
+    font-size: clamp(8px, 0.65vw, 10px) !important;
+  }
+
+  .premium-dashboard .kasa-home-actions .kasa-home-cash-card b {
+    font-size: clamp(18px, 1.5vw, 26px) !important;
+  }
+
+  .premium-dashboard .kasa-home-action-grid {
+    gap: 7px !important;
+  }
+
+  .premium-dashboard .kasa-home-action-grid .choice {
+    min-height: 28px !important;
+    height: 100% !important;
+    padding: 4px 8px !important;
+    font-size: clamp(8px, 0.66vw, 10px) !important;
+    line-height: 1.05 !important;
+  }
+}
+
+@media (min-width: 921px) and (max-height: 820px) {
+  .premium-dashboard {
+    --target-hero: 126px !important;
+    --target-pad: 8px !important;
+  }
+
+  .premium-dashboard .premium-sidebar {
+    gap: 8px !important;
+  }
+
+  .premium-sidebar .sidebar-nav-item,
+  .premium-sidebar .sidebar-calculator-shortcut {
+    min-height: 40px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard {
+    grid-template-rows: minmax(0, 1fr) 118px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel,
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel {
+    padding: 10px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel > .large-sales-title,
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel > .large-accessory-title {
+    margin-bottom: 8px !important;
+    padding-bottom: 9px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .big-sale-btn,
+  .premium-dashboard .kasa-home-dashboard .large-sales-button {
+    height: 32px !important;
+    min-height: 32px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel input,
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel select {
+    height: 32px !important;
+    min-height: 32px !important;
+    margin-top: 5px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .accessory-user-shortcuts.compact-shortcuts {
+    min-height: 72px !important;
+    max-height: 92px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-lines {
+    gap: 4px !important;
+  }
+}
+
+/* Sag kolon kesilme ve aksesuar metni kaldirma sonrasi nihai tasma duzeltmesi */
+@media (min-width: 921px) {
+  .premium-dashboard .app-shell > .section,
+  .premium-dashboard .kasa-home-dashboard,
+  .premium-dashboard .kasa-home-sales,
+  .premium-dashboard .kasa-home-sales .sale-layout,
+  .premium-dashboard .kasa-home-summary-column,
+  .premium-dashboard .kasa-home-bottom-summaries,
+  .premium-dashboard .kasa-home-actions {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .premium-dashboard .app-shell > .section {
+    padding-right: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard {
+    width: 100% !important;
+    grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.05fr) minmax(210px, 0.48fr) !important;
+    grid-template-rows: minmax(0, 1fr) clamp(124px, 16vh, 156px) !important;
+  }
+
+  .premium-dashboard .kasa-home-sales .sale-layout {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel > p {
+    display: none !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-limit-info {
+    margin-top: 0 !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-card {
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-line,
+  .premium-dashboard .kasa-home-dashboard .compact-summary-total {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) max-content !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-line span,
+  .premium-dashboard .kasa-home-dashboard .compact-summary-total span {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-line b,
+  .premium-dashboard .kasa-home-dashboard .compact-summary-total b {
+    min-width: max-content !important;
+    white-space: nowrap !important;
+    padding-right: 1px !important;
+  }
+
+  .premium-dashboard .kasa-home-action-grid .choice {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-align: center !important;
+    word-break: keep-all !important;
+  }
+}
+
+@media (min-width: 921px) and (max-width: 1500px) {
+  .premium-dashboard {
+    --target-sidebar: clamp(200px, 13vw, 224px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard {
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.04fr) minmax(196px, 0.46fr) !important;
+    gap: 10px !important;
+  }
+
+  .premium-dashboard .kasa-home-sales .sale-layout {
+    grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr) !important;
+    gap: 10px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-card {
+    padding: 9px 10px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-line span,
+  .premium-dashboard .kasa-home-dashboard .compact-summary-line b {
+    font-size: clamp(9px, 0.7vw, 11px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-total span,
+  .premium-dashboard .kasa-home-dashboard .compact-summary-total b {
+    font-size: clamp(8px, 0.66vw, 10px) !important;
+  }
+}
+
+/* Kullanici istegi: banner kisalsin, aksesuar kontrolleri yarilansin, ozet satirlari gorunsun */
+@media (min-width: 921px) {
+  .premium-dashboard {
+    --target-hero: clamp(108px, 12vh, 126px) !important;
+  }
+
+  .premium-dashboard .app-shell {
+    grid-template-rows: var(--target-hero) minmax(0, 1fr) !important;
+  }
+
+  .premium-dashboard .app-shell > .hero-banner {
+    padding: clamp(10px, 0.9vw, 14px) clamp(18px, 1.5vw, 24px) !important;
+  }
+
+  .premium-dashboard .hero-banner h1,
+  .premium-dashboard .hero-banner .brand-main-line h1 {
+    font-size: clamp(34px, 3vw, 48px) !important;
+  }
+
+  .premium-dashboard .hero-banner .since-badge,
+  .premium-dashboard .hero-banner .live-clock {
+    padding: 5px 12px !important;
+    font-size: clamp(10px, 0.82vw, 13px) !important;
+  }
+
+  .premium-dashboard .hero-banner-text strong {
+    font-size: clamp(21px, 2vw, 32px) !important;
+  }
+
+  .premium-dashboard .hero-banner-text p,
+  .premium-dashboard .hero-banner p {
+    margin-top: 4px !important;
+    font-size: clamp(11px, 0.9vw, 14px) !important;
+  }
+
+  .premium-dashboard .sync-message {
+    min-height: 20px !important;
+    margin-top: 7px !important;
+    padding: 3px 10px !important;
+    font-size: clamp(8px, 0.68vw, 10px) !important;
+  }
+
+  .premium-dashboard .hero-banner-visual .mockup-window {
+    min-height: clamp(70px, 8vh, 88px) !important;
+    padding: 12px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard {
+    grid-template-rows: minmax(0, 1fr) clamp(150px, 19vh, 188px) !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column {
+    grid-template-rows: 1.08fr 1fr 1fr !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel {
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-limit-info {
+    min-height: 18px !important;
+    height: 18px !important;
+    padding: 2px 8px !important;
+    margin: 0 0 6px !important;
+    border-radius: 8px !important;
+    font-size: clamp(9px, 0.72vw, 11px) !important;
+    line-height: 1 !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .accessory-user-shortcuts.compact-shortcuts {
+    flex: 1 1 auto !important;
+    min-height: clamp(160px, 24vh, 250px) !important;
+    max-height: none !important;
+    padding: 12px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .empty-shortcut-note {
+    font-size: clamp(10px, 0.74vw, 12px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .accessory-shortcut-price-row {
+    grid-template-columns: minmax(0, 1fr) minmax(90px, 0.35fr) !important;
+    gap: 6px !important;
+    margin: 0 0 5px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel input,
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel select,
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .primary {
+    min-height: 20px !important;
+    height: 20px !important;
+    padding: 0 8px !important;
+    border-radius: 6px !important;
+    font-size: clamp(8px, 0.62vw, 10px) !important;
+    line-height: 1 !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel h3 {
+    margin: 5px 0 3px !important;
+    font-size: clamp(7px, 0.55vw, 9px) !important;
+    line-height: 1 !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .accessory-select-tabs,
+  .premium-dashboard .kasa-home-dashboard .accessory-sub-tabs {
+    gap: 4px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .accessory-select-tabs .choice,
+  .premium-dashboard .kasa-home-dashboard .accessory-sub-tabs .choice {
+    min-height: 16px !important;
+    height: 16px !important;
+    padding: 2px 5px !important;
+    border-radius: 5px !important;
+    font-size: clamp(6px, 0.5vw, 8px) !important;
+    line-height: 1 !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-card {
+    padding: clamp(8px, 0.68vw, 11px) !important;
+    gap: 4px !important;
+    overflow: visible !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-card h3 {
+    margin-bottom: 5px !important;
+    font-size: clamp(11px, 0.86vw, 14px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-lines {
+    gap: 4px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-line {
+    min-height: 13px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-line span,
+  .premium-dashboard .kasa-home-dashboard .compact-summary-line b {
+    font-size: clamp(8px, 0.66vw, 10px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-total {
+    min-height: 24px !important;
+    padding: 5px 8px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-total span,
+  .premium-dashboard .kasa-home-dashboard .compact-summary-total b {
+    font-size: clamp(7px, 0.6vw, 9px) !important;
+  }
+}
+
+@media (min-width: 921px) and (max-height: 820px) {
+  .premium-dashboard {
+    --target-hero: 102px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard {
+    grid-template-rows: minmax(0, 1fr) 140px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .accessory-user-shortcuts.compact-shortcuts {
+    min-height: 138px !important;
+  }
+}
+
+/* Son kullanici istegi: alt ozetleri daralt, aksiyonlari dikey al, sag ozetleri uzat */
+@media (min-width: 921px) {
+  .premium-dashboard .kasa-home-dashboard {
+    grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.05fr) minmax(220px, 0.52fr) !important;
+    grid-template-rows: minmax(0, 1fr) clamp(132px, 17vh, 170px) !important;
+    align-items: stretch !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column {
+    grid-column: 3 !important;
+    grid-row: 1 / 3 !important;
+    display: grid !important;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.08fr) minmax(58px, auto) !important;
+    gap: clamp(8px, 0.7vw, 12px) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column .compact-summary-card {
+    min-height: 0 !important;
+    max-height: none !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column .compact-summary-card h3 {
+    font-size: clamp(11px, 0.86vw, 14px) !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column .compact-summary-lines {
+    gap: 4px !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column .compact-summary-line {
+    min-height: 13px !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column .compact-summary-line span,
+  .premium-dashboard .kasa-home-summary-column .compact-summary-line b {
+    font-size: clamp(8px, 0.64vw, 10px) !important;
+    line-height: 1.05 !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column .compact-summary-total {
+    min-height: 24px !important;
+    padding: 5px 8px !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column .compact-summary-total span,
+  .premium-dashboard .kasa-home-summary-column .compact-summary-total b {
+    font-size: clamp(7px, 0.58vw, 9px) !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column .kasa-home-cash-card {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    min-height: 58px !important;
+    padding: 8px 10px !important;
+    border: 0 !important;
+    border-radius: 10px !important;
+    background: linear-gradient(135deg, #071226 0%, #173a9c 100%) !important;
+    color: #ffffff !important;
+    text-align: center !important;
+    box-shadow: 0 16px 30px rgba(15, 23, 42, .16) !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column .kasa-home-cash-card.negative {
+    background: linear-gradient(135deg, #450a0a 0%, #dc2626 100%) !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column .kasa-home-cash-card span {
+    color: #ffffff !important;
+    font-size: clamp(8px, 0.65vw, 10px) !important;
+    font-weight: 1000 !important;
+    line-height: 1.1 !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column .kasa-home-cash-card b {
+    color: #ffffff !important;
+    font-size: clamp(18px, 1.5vw, 26px) !important;
+    font-weight: 1000 !important;
+    line-height: 1 !important;
+  }
+
+  .premium-dashboard .kasa-home-bottom-summaries {
+    grid-column: 1 / 3 !important;
+    grid-row: 2 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 0.58fr) minmax(128px, 0.42fr) !important;
+    gap: clamp(8px, 0.7vw, 12px) !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-mini-summaries {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: clamp(8px, 0.7vw, 12px) !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-mini-summaries .compact-summary-card {
+    min-height: 0 !important;
+    max-height: none !important;
+    height: 100% !important;
+    padding: clamp(7px, 0.58vw, 10px) !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-mini-summaries .compact-summary-card h3 {
+    font-size: clamp(10px, 0.78vw, 13px) !important;
+    margin-bottom: 4px !important;
+  }
+
+  .premium-dashboard .kasa-home-mini-summaries .compact-summary-lines {
+    gap: 3px !important;
+  }
+
+  .premium-dashboard .kasa-home-mini-summaries .compact-summary-line {
+    min-height: 12px !important;
+  }
+
+  .premium-dashboard .kasa-home-mini-summaries .compact-summary-line span,
+  .premium-dashboard .kasa-home-mini-summaries .compact-summary-line b {
+    font-size: clamp(7px, 0.58vw, 9px) !important;
+  }
+
+  .premium-dashboard .kasa-home-mini-summaries .compact-summary-total {
+    min-height: 22px !important;
+    padding: 4px 7px !important;
+  }
+
+  .premium-dashboard .kasa-home-mini-summaries .compact-summary-total span,
+  .premium-dashboard .kasa-home-mini-summaries .compact-summary-total b {
+    font-size: clamp(7px, 0.55vw, 9px) !important;
+  }
+
+  .premium-dashboard .kasa-home-action-stack {
+    display: grid !important;
+    grid-template-rows: repeat(4, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-action-stack .choice {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 4px 8px !important;
+    border: 1px solid #dbe3f0 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    color: #172033 !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, .06) !important;
+    font-size: clamp(8px, 0.66vw, 10px) !important;
+    font-weight: 1000 !important;
+    line-height: 1.05 !important;
+    text-align: center !important;
+    white-space: normal !important;
+  }
+
+  .premium-dashboard .kasa-home-actions,
+  .premium-dashboard .kasa-home-action-grid {
+    display: none !important;
+  }
+}
+
+@media (min-width: 921px) and (max-width: 1500px) {
+  .premium-dashboard .kasa-home-dashboard {
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.04fr) minmax(196px, 0.48fr) !important;
+    grid-template-rows: minmax(0, 1fr) clamp(124px, 16vh, 156px) !important;
+  }
+
+  .premium-dashboard .kasa-home-bottom-summaries {
+    grid-template-columns: minmax(0, 0.55fr) minmax(118px, 0.45fr) !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column {
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.08fr) 54px !important;
+    gap: 8px !important;
+  }
+}
+
+/* Son duzeltme: yonetim yazisi, teknik okunurlugu, satis butonu ve zoom konumu */
+@media (min-width: 921px) {
+  #ceplogZoomControl {
+    top: 54px !important;
+    right: 24px !important;
+    left: auto !important;
+    bottom: auto !important;
+    z-index: 999999 !important;
+    transform: scale(.78) !important;
+    transform-origin: top right !important;
+  }
+
+  .premium-dashboard .premium-sidebar .sidebar-nav-item span,
+  .premium-dashboard .premium-sidebar .sidebar-nav-item svg {
+    background: transparent !important;
+    color: inherit !important;
+    -webkit-text-fill-color: currentColor !important;
+    box-shadow: none !important;
+    filter: none !important;
+    mix-blend-mode: normal !important;
+    text-decoration: none !important;
+  }
+
+  .premium-dashboard .premium-sidebar .sidebar-nav-item {
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .premium-sidebar .nav-mini-y,
+  .premium-dashboard .premium-sidebar .nav-mini-y.active {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: clamp(46px, 5.3vh, 56px) !important;
+    padding: 0 clamp(13px, 1.1vw, 18px) !important;
+    border-radius: 12px !important;
+    justify-content: flex-start !important;
+    background: rgba(30, 41, 59, 0.86) !important;
+    color: #f8fafc !important;
+  }
+
+  .premium-dashboard .premium-sidebar .nav-mini-y.active {
+    background: linear-gradient(135deg, #2f68ff 0%, #7c2dff 100%) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard {
+    grid-template-rows: minmax(0, 1fr) clamp(112px, 14vh, 142px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel {
+    padding: 8px 10px !important;
+    gap: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    scrollbar-width: thin !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel > .large-sales-title {
+    margin: 0 0 6px !important;
+    padding: 0 0 7px 34px !important;
+    font-size: clamp(16px, 1.18vw, 20px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel > .large-sales-title::before {
+    top: -3px !important;
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 8px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .big-sale-grid {
+    gap: 5px !important;
+    margin: 0 0 7px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .big-sale-btn,
+  .premium-dashboard .kasa-home-dashboard .large-sales-button {
+    min-height: 27px !important;
+    height: 27px !important;
+    padding: 3px 6px !important;
+    border-radius: 7px !important;
+    font-size: clamp(9px, 0.68vw, 11px) !important;
+    line-height: 1 !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel input,
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel select {
+    min-height: 28px !important;
+    height: 28px !important;
+    margin-top: 4px !important;
+    padding: 0 8px !important;
+    border-radius: 7px !important;
+    font-size: clamp(9px, 0.68vw, 11px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel .two {
+    gap: 6px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel .remaining-box {
+    min-height: 28px !important;
+    height: 32px !important;
+    margin-top: 4px !important;
+    padding: 3px 6px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel .remaining-box span {
+    font-size: 8px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel .remaining-box b {
+    font-size: clamp(15px, 1.1vw, 20px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel .warning {
+    margin-top: 4px !important;
+    padding: 4px 6px !important;
+    font-size: clamp(8px, 0.62vw, 10px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel .warning input {
+    margin-top: 3px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel .primary {
+    min-height: 30px !important;
+    height: 30px !important;
+    margin-top: 6px !important;
+    border-radius: 7px !important;
+    font-size: clamp(9px, 0.7vw, 11px) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  #ceplogZoomControl {
+    top: 52px !important;
+    right: 12px !important;
+    left: auto !important;
+    transform: scale(.72) !important;
+    transform-origin: top right !important;
+  }
+}
+
+/* Hesap makinesi yeni satis basligina tasindi, sol gunluk ozet kaldirildi */
+@media (min-width: 921px) {
+  .premium-dashboard .premium-sidebar-footer,
+  .premium-dashboard .sidebar-daily-card,
+  .premium-dashboard .sidebar-calculator-shortcut {
+    display: none !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-heading {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 0 0 6px !important;
+    padding-bottom: 7px !important;
+    border-bottom: 1px solid #e5eaf3 !important;
+    min-height: 30px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-heading .large-sales-title {
+    position: relative !important;
+    margin: 0 !important;
+    padding: 0 0 0 34px !important;
+    border-bottom: 0 !important;
+    text-align: left !important;
+    font-size: clamp(16px, 1.18vw, 20px) !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-heading .large-sales-title::before {
+    content: "" !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: -4px !important;
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 8px !important;
+    background: linear-gradient(135deg, #eef4ff, #ffffff) !important;
+    box-shadow: inset 0 0 0 1px #dbe7ff !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .sales-calculator-button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 0 10px !important;
+    border: 1px solid #dbe3f0 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    color: #1d4ed8 !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, .06) !important;
+    font-size: clamp(8px, 0.64vw, 10px) !important;
+    font-weight: 1000 !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .sales-calculator-button svg {
+    width: 13px !important;
+    height: 13px !important;
+    flex: 0 0 auto !important;
+  }
+}
+
+@media (max-width: 920px) {
+  .premium-dashboard .premium-sidebar-footer,
+  .premium-dashboard .sidebar-daily-card,
+  .premium-dashboard .sidebar-calculator-shortcut {
+    display: none !important;
+  }
+
+  .large-sales-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .sales-calculator-button {
+    min-height: 34px;
+    padding: 0 10px;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 900;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
