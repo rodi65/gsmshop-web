@@ -227,7 +227,7 @@ export async function loadDashboardData() {
   const workspaceId = profile?.workspace_id || await getCurrentWorkspaceId();
   const [stock, sales, expenses, bank, closings, cash, contacts] = await Promise.all([
     supabase.from("stock_items").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
-    supabase.from("sales").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
+    supabase.from("sales").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.neq.deleted").order("created_at", { ascending: false }),
     supabase.from("expenses").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
     supabase.from("bank_movements").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
     supabase.from("cash_closings").select("*").eq("workspace_id", workspaceId).order("closing_date", { ascending: false }),
@@ -885,13 +885,16 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
   if (tableName === "sales") {
     const { data: saleBeforeCancel, error: saleReadError } = await supabase
       .from("sales")
-      .select("id, stock_item_id, product_name, status")
+      .select("id, stock_item_id, product_name, customer_name, cari_person, status")
       .eq("id", id)
       .eq("workspace_id", workspaceId)
       .maybeSingle();
 
     if (saleReadError) throw saleReadError;
     if (!saleBeforeCancel) throw new Error("İptal edilecek satış kaydı bulunamadı.");
+    if (["cancelled", "canceled", "iptal"].includes(String(saleBeforeCancel.status || "").toLowerCase())) {
+      throw new Error("Bu satış daha önce iptal edilmiş. İkinci kez iptal edilemez.");
+    }
 
     const stockItemId = saleBeforeCancel.stock_item_id;
 
@@ -917,6 +920,30 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
       p_reason: reason,
     }, "Finansal iptal fonksiyonu kurulmamış. Supabase financial_integrity SQL çalıştırılmalı.");
 
+    const { data: saleAfterCancel, error: saleAfterReadError } = await supabase
+      .from("sales")
+      .select("id, status")
+      .eq("id", id)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (saleAfterReadError) throw saleAfterReadError;
+    if (!saleAfterCancel) throw new Error("İptal sonrası satış kaydı tekrar okunamadı.");
+
+    if (!["cancelled", "canceled", "iptal"].includes(String(saleAfterCancel.status || "").toLowerCase())) {
+      const { error: saleStatusError } = await supabase
+        .from("sales")
+        .update({
+          status: "cancelled",
+          updated_by: user?.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .eq("workspace_id", workspaceId);
+
+      if (saleStatusError) throw saleStatusError;
+    }
+
     const { data: stockAfter, error: stockAfterReadError } = await supabase
       .from("stock_items")
       .select("id, quantity, status")
@@ -929,12 +956,13 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
 
     const afterQty = Number(stockAfter.quantity || 0);
     const requiredQty = beforeQty + 1;
+    const stockStatus = String(stockAfter.status || "").toLocaleLowerCase("tr-TR");
 
-    if (afterQty < requiredQty) {
+    if (afterQty < requiredQty || stockStatus !== "active") {
       const { error: stockReturnError } = await supabase
         .from("stock_items")
         .update({
-          quantity: requiredQty,
+          quantity: Math.max(afterQty, requiredQty),
           status: "active",
           updated_by: user?.id,
           updated_at: new Date().toISOString(),
@@ -943,6 +971,55 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
         .eq("workspace_id", workspaceId);
 
       if (stockReturnError) throw stockReturnError;
+    }
+
+    const movementCancelPayload = {
+      status: "cancelled",
+      updated_by: user?.id,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: cashRelatedSaleError } = await supabase
+      .from("cash_movements")
+      .update(movementCancelPayload)
+      .eq("workspace_id", workspaceId)
+      .eq("related_table", "sales")
+      .eq("related_id", id)
+      .or("status.is.null,status.neq.deleted");
+
+    if (cashRelatedSaleError) throw cashRelatedSaleError;
+
+    const { error: bankRelatedSaleError } = await supabase
+      .from("bank_movements")
+      .update(movementCancelPayload)
+      .eq("workspace_id", workspaceId)
+      .eq("related_sale_id", id)
+      .or("status.is.null,status.neq.deleted");
+
+    if (bankRelatedSaleError) throw bankRelatedSaleError;
+
+    const { error: bankRelatedIdError } = await supabase
+      .from("bank_movements")
+      .update(movementCancelPayload)
+      .eq("workspace_id", workspaceId)
+      .eq("related_table", "sales")
+      .eq("related_id", id)
+      .or("status.is.null,status.neq.deleted");
+
+    if (bankRelatedIdError) throw bankRelatedIdError;
+
+    const receivableNames = Array.from(new Set([
+      saleBeforeCancel.customer_name,
+      saleBeforeCancel.cari_person,
+    ]
+      .map((name) => String(name || "").trim())
+      .filter(Boolean)));
+
+    for (const customerName of receivableNames) {
+      await callFinancialRpc("rebuild_customer_receivable", {
+        p_workspace_id: workspaceId,
+        p_customer_name: customerName,
+      });
     }
 
     return result;

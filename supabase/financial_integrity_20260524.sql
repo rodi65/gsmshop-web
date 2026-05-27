@@ -490,12 +490,19 @@ begin
          updated_by = auth.uid(),
          updated_at = now()
    where workspace_id = p_workspace_id
-     and related_sale_id = p_sale_id
+     and (
+       related_sale_id = p_sale_id
+       or (
+         related_table = 'sales'
+         and related_id = p_sale_id::text
+       )
+     )
      and coalesce(status, 'active') <> 'deleted';
 
   if v_sale.stock_item_id is not null then
     update public.stock_items
        set quantity = coalesce(quantity, 0) + 1,
+           status = 'active',
            updated_by = auth.uid(),
            updated_at = now()
      where id = v_sale.stock_item_id
@@ -503,6 +510,10 @@ begin
   end if;
 
   perform public.rebuild_customer_receivable(p_workspace_id, v_sale.customer_name);
+  if nullif(trim(coalesce(v_sale.cari_person, '')), '') is not null
+     and lower(trim(coalesce(v_sale.cari_person, ''))) <> lower(trim(coalesce(v_sale.customer_name, ''))) then
+    perform public.rebuild_customer_receivable(p_workspace_id, v_sale.cari_person);
+  end if;
 
   if to_regclass('public.audit_logs') is not null then
     begin

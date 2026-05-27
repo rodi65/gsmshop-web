@@ -653,6 +653,8 @@ const fromDbSale = (sale) => ({
   id: sale.id,
   type: sale.sale_type,
   productId: sale.stock_item_id,
+  stock_item_id: sale.stock_item_id,
+  product_id: sale.stock_item_id,
   productName: sale.product_name,
   productBarcode: "",
   productBuyPrice: Number(sale.buy_cost || 0),
@@ -1288,10 +1290,10 @@ const isSaleCancelAction = (modal) => {
     const rowId = String(row?.id || row?.saleId || row?.relatedId || row?.related_id || "");
     const rowDescription = normalizeKasaBrainText(row?.description);
     const rowParty = normalizeKasaBrainText(row?.party);
-    const rowTotal = Number(row?.total || 0);
-    const rowCash = Number(row?.cash || 0);
-    const rowBank = Number(row?.bank || 0);
-    const rowDebt = Number(row?.debt || 0);
+    const rowTotal = parseMoneyInput(row?.total || 0);
+    const rowCash = parseMoneyInput(row?.cash || 0);
+    const rowBank = parseMoneyInput(row?.bank || 0);
+    const rowDebt = parseMoneyInput(row?.debt || 0);
 
     return (sales || []).find((sale) => {
       const saleId = String(sale?.id || sale?.saleId || "");
@@ -1312,7 +1314,7 @@ const isSaleCancelAction = (modal) => {
         sale?.party
       );
 
-      const saleTotal = Number(
+      const saleTotal = parseMoneyInput(
         sale?.total ||
         sale?.totalAmount ||
         sale?.salePrice ||
@@ -1321,9 +1323,9 @@ const isSaleCancelAction = (modal) => {
         0
       );
 
-      const saleCash = Number(sale?.cash || sale?.cash_amount || 0);
-      const saleBank = Number(sale?.card || sale?.bank || sale?.bank_amount || sale?.card_amount || 0);
-      const saleDebt = Number(sale?.remaining || sale?.debt || sale?.cari || 0);
+      const saleCash = parseMoneyInput(sale?.cash || sale?.cash_amount || 0);
+      const saleBank = parseMoneyInput(sale?.card || sale?.bank || sale?.bank_amount || sale?.card_amount || 0);
+      const saleDebt = parseMoneyInput(sale?.remaining || sale?.debt || sale?.cari || 0);
 
       const idMatch = rowId && saleId && rowId === saleId;
       const descriptionMatch =
@@ -1524,6 +1526,16 @@ const isSaleCancelAction = (modal) => {
     ) {
       window.alert("Kasa Beyni: Bu satış daha önce iptal edilmiş. İkinci kez iptal edilemez.");
       return false;
+    }
+
+    if (!targetSale?.id || String(targetSale.id).startsWith("report-row-")) {
+      window.alert(
+        "Kasa Beyni: Bu rapor satırı gerçek satış kaydıyla eşleşmedi.\n\n" +
+        "İşlem durduruldu. Kasa, stok, banka ve cari local/geçici olarak değiştirilmedi.\n" +
+        "Raporu yenileyip tekrar deneyin."
+      );
+      await refreshFromDatabase();
+      return true;
     }
 
     const alreadyReversed = (cashMovements || []).some((movement) => {
@@ -2443,7 +2455,17 @@ const isSameSalesListDay = (item, dateKey) => {
       const cash = paymentDistribution.cash;
       const card = paymentDistribution.card;
       const remaining = paymentDistribution.debt;
+      const saleId = sale.id || sale.saleId || "";
+      const stockItemId = sale.stock_item_id || sale.productId || sale.product_id || null;
       rows.push({
+        id: saleId,
+        saleId,
+        relatedTable: "sales",
+        related_table: "sales",
+        relatedId: saleId,
+        related_id: saleId,
+        stock_item_id: stockItemId,
+        productId: stockItemId,
         date: reportDateValue(sale),
         tone: inactive ? "cancel" : "sale",
         type: inactive ? "İptal" : "Satış",
@@ -2697,7 +2719,8 @@ const isSameSalesListDay = (item, dateKey) => {
     has(sale.productBarcode, query)
   );
 
-  const sortedSales = sortSalesForList(activeSales);
+  const salesListRecords = safeSales.filter((sale) => isSameSalesListDay(sale, salesListDate));
+  const sortedSales = sortSalesForList(salesListRecords);
   const sortedFilteredSales = sortSalesForList(filteredSales);
 
   const visibleSalesListRows = sortedFilteredSales.filter((sale) =>
@@ -2705,7 +2728,7 @@ const isSameSalesListDay = (item, dateKey) => {
   );
   const combinedSalesListRows = [
     ...sortedSales.map((sale) => ({ kind: "sale", date: sale.date, sale })),
-    ...technicalServiceMovements.map((movement) => {
+    ...technicalServiceMovements.filter((movement) => isSameSalesListDay(movement, salesListDate)).map((movement) => {
       const service = technicalServices.find((item) => String(item.id) === String(movement.serviceId));
       return { kind: "technical", date: movement.date, movement, service };
     }),
@@ -4984,6 +5007,7 @@ const isSameSalesListDay = (item, dateKey) => {
                   }
 
                   const { sale } = row;
+                  const saleInactive = !isActiveRecord(sale);
                   const paymentDistribution = normalizeSalePaymentDistributionForReport(sale);
                   return [
                     index + 1,
@@ -5001,7 +5025,7 @@ const isSameSalesListDay = (item, dateKey) => {
                     money(paymentDistribution.debt),
                     money(sale.profit),
                     sale.status || "active",
-                    <button className="edit-btn" onClick={() => openSaleEditor(sale)}><Pencil size={14} /> Düzenle</button>,
+                    saleInactive ? "İptal edildi" : <button className="edit-btn" onClick={() => openSaleEditor(sale)}><Pencil size={14} /> Düzenle</button>,
                   ];
                 })} />
               </section>
@@ -5213,11 +5237,6 @@ const isSameSalesListDay = (item, dateKey) => {
                     <button
                       key={action}
                       type="button"
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        setKasaBrainModal({ action, row });
-                      }}
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
@@ -5237,9 +5256,6 @@ const isSameSalesListDay = (item, dateKey) => {
                         zIndex: 9999,
                         pointerEvents: "auto"
                       }}
-                      onClick={() =>
-                        setKasaBrainModal({ action, row })
-                      }
                     >
                       {action}
                     </button>
@@ -5396,7 +5412,9 @@ const isSameSalesListDay = (item, dateKey) => {
             >
               {kasaBrainModal.action === "Detay"
                 ? "Detay modu: Bu ekran sadece kayıt bilgisini gösterir. Şifre, sebep, audit log veya finansal işlem oluşturmaz."
-                : "Phase 4 güvenli mod: Onayla butonu sadece ön audit log oluşturur. Satış, kasa, stok, cari veya iade kaydı değiştirmez."}
+                : isSaleCancelAction(kasaBrainModal)
+                  ? "Satış iptal modu: Onay sonrası gerçek satış kaydı Supabase güvenli iptal motoruyla iptal edilir. Stok, kasa, banka ve cari etkileri birlikte işlenir."
+                  : "Güvenli mod: Bu işlem sadece ön audit log oluşturur. Satış, kasa, stok, cari veya iade kaydı değiştirmez."}
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
@@ -5434,7 +5452,6 @@ const isSameSalesListDay = (item, dateKey) => {
                   </button>
                   <button
                     type="button"
-                    onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); handleKasaBrainPreAudit(); }}
                     onClick={(event) => { event.preventDefault(); event.stopPropagation(); handleKasaBrainPreAudit(); }}
                     style={{
                       border: "none",
@@ -5446,7 +5463,7 @@ const isSameSalesListDay = (item, dateKey) => {
                       fontWeight: 900
                     }}
                   >
-                    Ön Audit Log Oluştur
+                    {isSaleCancelAction(kasaBrainModal) ? "Satış İptalini Onayla" : "Ön Audit Log Oluştur"}
                   </button>
                 </>
               )}
