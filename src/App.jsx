@@ -2720,8 +2720,7 @@ const isSameSalesListDay = (item, dateKey) => {
     bank: totals.bank + Number(row.bank || 0),
     debt: totals.debt + Number(row.debt || 0),
     refund: totals.refund + Number(row.refund || 0),
-    netCash: totals.netCash + Number(row.total || 0),
-  }), { buy: 0, sale: 0, cash: 0, bank: 0, debt: 0, refund: 0, netCash: 0 });
+  }), { buy: 0, sale: 0, cash: 0, bank: 0, debt: 0, refund: 0 });
 
   const cashWithBankIncoming = financeSummary.expectedCash;
   const alertFinancialValidation = (validation) => {
@@ -5410,7 +5409,6 @@ const isSameSalesListDay = (item, dateKey) => {
                     <div><span>Toplam Kart / Banka</span><b className={dailyCashReportTotals.bank < 0 ? "money-negative" : ""}>{money(dailyCashReportTotals.bank)}</b></div>
                     <div><span>Toplam Borç / Cari</span><b>{money(dailyCashReportTotals.debt)}</b></div>
                     <div><span>Toplam İade / İptal</span><b className="money-negative">{money(dailyCashReportTotals.refund)}</b></div>
-                    <div className="daily-report-net"><span>Net Kasa Etkisi</span><b className={dailyCashReportTotals.netCash < 0 ? "money-negative" : ""}>{money(dailyCashReportTotals.netCash)}</b></div>
                   </div>
                 </section>
               </div>

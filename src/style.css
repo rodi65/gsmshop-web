@@ -237,7 +237,7 @@ small { color: #64748b; }
 
 .daily-report-totals {
   display: grid;
-  grid-template-columns: repeat(7, minmax(130px, 1fr));
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
   gap: 10px;
   margin-top: 14px;
 }
@@ -261,20 +261,6 @@ small { color: #64748b; }
   margin-top: 4px;
   font-size: 17px;
   font-weight: 1000;
-}
-
-.daily-report-totals .daily-report-net {
-  background: #020617;
-  border-color: #020617;
-  color: white;
-}
-
-.daily-report-totals .daily-report-net span {
-  color: #cbd5e1;
-}
-
-.daily-report-totals .daily-report-net b {
-  color: white;
 }
 
 .query-hints { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 18px; }
