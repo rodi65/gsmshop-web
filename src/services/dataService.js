@@ -885,26 +885,27 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
   if (tableName === "sales") {
     const { data: saleBeforeCancel, error: saleReadError } = await supabase
       .from("sales")
-      .select("id, stock_item_id, status")
+      .select("id, stock_item_id, product_name, status")
       .eq("id", id)
       .eq("workspace_id", workspaceId)
       .maybeSingle();
 
     if (saleReadError) throw saleReadError;
+    if (!saleBeforeCancel) throw new Error("İptal edilecek satış kaydı bulunamadı.");
 
-    const stockItemId = saleBeforeCancel?.stock_item_id || null;
-    let stockQuantityBefore = null;
+    const stockItemId = saleBeforeCancel.stock_item_id || null;
+    let stockBeforeQuantity = null;
 
     if (stockItemId) {
       const { data: stockBefore, error: stockBeforeError } = await supabase
         .from("stock_items")
-        .select("id, quantity")
+        .select("id, quantity, status")
         .eq("id", stockItemId)
         .eq("workspace_id", workspaceId)
         .maybeSingle();
 
       if (stockBeforeError) throw stockBeforeError;
-      stockQuantityBefore = Number(stockBefore?.quantity || 0);
+      stockBeforeQuantity = Number(stockBefore?.quantity || 0);
     }
 
     const result = await callFinancialRpc("cancel_sale_with_effects", {
@@ -916,29 +917,31 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
     if (stockItemId) {
       const { data: stockAfter, error: stockAfterError } = await supabase
         .from("stock_items")
-        .select("id, quantity")
+        .select("id, quantity, status")
         .eq("id", stockItemId)
         .eq("workspace_id", workspaceId)
         .maybeSingle();
 
       if (stockAfterError) throw stockAfterError;
 
-      const stockQuantityAfter = Number(stockAfter?.quantity || 0);
-      const expectedMinimum = Number(stockQuantityBefore || 0) + 1;
+      if (stockAfter) {
+        const afterQuantity = Number(stockAfter.quantity || 0);
+        const expectedQuantity = Number(stockBeforeQuantity || 0) + 1;
 
-      if (stockAfter && stockQuantityAfter < expectedMinimum) {
-        const { error: stockRestoreError } = await supabase
-          .from("stock_items")
-          .update({
-            quantity: expectedMinimum,
-            status: "active",
-            updated_by: user?.id,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", stockItemId)
-          .eq("workspace_id", workspaceId);
+        if (afterQuantity < expectedQuantity) {
+          const { error: restoreError } = await supabase
+            .from("stock_items")
+            .update({
+              quantity: expectedQuantity,
+              status: "active",
+              updated_by: user?.id,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", stockItemId)
+            .eq("workspace_id", workspaceId);
 
-        if (stockRestoreError) throw stockRestoreError;
+          if (restoreError) throw restoreError;
+        }
       }
     }
 
