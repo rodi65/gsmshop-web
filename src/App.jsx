@@ -1464,7 +1464,7 @@ const isSaleCancelAction = (modal) => {
     return restored;
   };
 
-  const handleSaleCancel = ({ reason, password }) => {
+  const handleSaleCancel = async ({ reason, password }) => {
     const row = kasaBrainModal?.row || {};
     const targetSale = findSaleForKasaBrainRow(row);
 
@@ -1545,6 +1545,62 @@ const isSaleCancelAction = (modal) => {
     if (alreadyReversed) {
       window.alert("Kasa Beyni: Bu satış için iptal ters hareketi daha önce oluşturulmuş. İkinci kez iptal edilemez.");
       return false;
+    }
+
+    if (targetSale?.id && !String(targetSale.id).startsWith("report-row-")) {
+      try {
+        await cancelRecord("sales", targetSale.id, reason || "Kasa Beyni satış iptali");
+        await refreshFromDatabase();
+
+        const logRecord = {
+          id: `kasa-brain-real-${Date.now()}`,
+          createdAt: nowIso,
+          action: kasaBrainModal.action || "Satış İptal",
+          recordNo: row.no || null,
+          saleId: targetSale.id,
+          saleFound: true,
+          type: row.type || "Satış",
+          description: row.description || "",
+          party: row.party || "",
+          cash: rowCash,
+          bank: rowBank,
+          debt: rowDebt,
+          total: rowTotal,
+          reason,
+          status: "REAL_SALE_CANCEL_SUPABASE_RPC",
+          result: "cancel_sale_with_effects RPC called through cancelRecord; stock/cash/bank/cari effects handled by backend",
+          passwordUsed: Boolean(password)
+        };
+
+        try {
+          const currentLogs = JSON.parse(localStorage.getItem("ceplogKasaBrainAuditLogs") || "[]");
+          localStorage.setItem("ceplogKasaBrainAuditLogs", JSON.stringify([logRecord, ...currentLogs]));
+        } catch (logError) {
+          console.error("Kasa Beyni satış iptal audit log yazılamadı:", logError);
+        }
+
+        window.alert(
+          `Kasa Beyni: Satış iptal edildi.\n` +
+          `Kayıt No: ${row.no || "-"}\n` +
+          `Stok, kasa, banka ve cari etkileri Supabase güvenli iptal motoru üzerinden işlendi.\n` +
+          `Gerçek silme yapılmadı.`
+        );
+
+        setSyncMessage(`Kasa Beyni: Satış iptal edildi. Supabase iptal motoru çalıştı. Kayıt No: ${row.no}.`);
+        setKasaBrainReason("");
+        setKasaBrainPassword("");
+        setKasaBrainModal(null);
+        return true;
+      } catch (error) {
+        console.error("Kasa Beyni Supabase satış iptal hatası:", error);
+        window.alert(
+          `Kasa Beyni: Satış iptali Supabase güvenli motorunda başarısız oldu.\n\n` +
+          `${error.message || error}\n\n` +
+          `İşlem durduruldu. Kasa, stok, banka ve cari elle/local değiştirilmedi.`
+        );
+        await refreshFromDatabase();
+        return true;
+      }
     }
 
     if (targetSale) {
@@ -1733,7 +1789,7 @@ const isSameSalesListDay = (item, dateKey) => {
     window.alert(`Kasa Beyni Detay\n\n${lines.join("\n")}`);
   };
 
-  const handleKasaBrainPreAudit = () => {
+  const handleKasaBrainPreAudit = async () => {
     if (!kasaBrainModal) {
       window.alert("Kasa Beyni: Seçili işlem bulunamadı.");
       return;
@@ -1758,7 +1814,7 @@ const isSameSalesListDay = (item, dateKey) => {
     }
 
     if (isSaleCancelAction(kasaBrainModal)) {
-      const done = handleSaleCancel({ reason, password });
+      const done = await handleSaleCancel({ reason, password });
       if (done) return;
     }
 
