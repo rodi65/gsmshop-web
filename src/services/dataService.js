@@ -1051,7 +1051,6 @@ export async function createBankWithdrawal(payload) {
 }
 
 export async function updateSaleRecord(id, payload) {
-  const user = await getCurrentUser();
   const workspaceId = await getCurrentWorkspaceId();
   const { data: saleBeforeUpdate, error: saleBeforeError } = await supabase
     .from("sales")
@@ -1073,19 +1072,23 @@ export async function updateSaleRecord(id, payload) {
     product_name: payload.product_name || "",
     buy_cost: toDbNumber(payload.buy_cost),
     profit_amount: toDbNumber(payload.profit_amount),
-    updated_by: user?.id,
-    updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase
-    .from("sales")
-    .update(updatePayload)
-    .eq("id", id)
-    .eq("workspace_id", workspaceId)
-    .select()
-    .single();
-
-  if (error) throw error;
+  const data = await callFinancialRpc("update_sale_with_effects", {
+    p_sale_id: id,
+    p_workspace_id: workspaceId,
+    p_total_amount: updatePayload.total_amount,
+    p_cash_amount: updatePayload.cash_amount,
+    p_card_amount: updatePayload.card_amount,
+    p_remaining_amount: updatePayload.remaining_amount,
+    p_bank_name: updatePayload.bank_name,
+    p_customer_name: updatePayload.customer_name,
+    p_customer_phone: updatePayload.customer_phone,
+    p_product_name: updatePayload.product_name,
+    p_buy_cost: updatePayload.buy_cost,
+    p_profit_amount: updatePayload.profit_amount,
+    p_cari_person: payload.cari_person || payload.customer_name || "",
+  }, "Satış düzeltme transaction fonksiyonu kurulmamış. Supabase central_financial_rpc_phase1_20260528.sql dosyasını SQL Editor’da tekrar çalıştırın.");
 
   await createAuditLog({
     tableName: "sales",
@@ -1114,7 +1117,7 @@ export async function updateStockItem(id, payload) {
   if (stockBeforeError) console.warn("Stok audit eski kayıt okunamadı.", stockBeforeError);
 
   const buyTotal = toDbNumber(payload.buy_price) * Number(payload.quantity || 0);
-  const paid = toDbNumber(payload.supplier_paid);
+  const paid = toDbNumber(payload.supplier_paid) + toDbNumber(payload.bank_paid);
   if (paid > buyTotal) throw new Error("Ödeme tutarı alış tutarını aşamaz.");
   const result = await callFinancialRpc("update_stock_with_effects", {
     p_stock_id: id,
@@ -1127,7 +1130,10 @@ export async function updateStockItem(id, payload) {
     p_category: payload.category || "",
     p_seller_person: payload.seller_person || "",
     p_seller_phone: payload.seller_phone || "",
-  });
+    p_bank_paid: toDbNumber(payload.bank_paid),
+    p_bank_name: payload.bank_name || "",
+    p_product_name: payload.product_name || "",
+  }, "Alım düzeltme transaction fonksiyonu kurulmamış. Supabase central_financial_rpc_phase1_20260528.sql dosyasını SQL Editor’da tekrar çalıştırın.");
 
   const { data: stockAfterUpdate, error: stockAfterError } = await supabase
     .from("stock_items")
@@ -1264,12 +1270,12 @@ export async function cancelStockPurchase(id, reason = "Alım iptal edildi") {
     throw new Error("Bu alım iptal işlemi daha önce işlenmiş. İkinci kez çalıştırılamaz.");
   }
 
-  try {
-    const result = await callFinancialRpc("cancel_stock_purchase_with_effects", {
-      p_stock_item_id: id,
-      p_workspace_id: workspaceId,
-      p_reason: reason,
-    }, "Alım iptal transaction fonksiyonu kurulmamış. Supabase financial_transaction_rpcs_20260528.sql dosyasını SQL Editor’da tekrar çalıştırın.");
+	  try {
+	    const result = await callFinancialRpc("cancel_stock_purchase_with_effects", {
+	      p_stock_id: id,
+	      p_workspace_id: workspaceId,
+	      p_reason: reason,
+	    }, "Alım iptal transaction fonksiyonu kurulmamış. Supabase central_financial_rpc_phase1_20260528.sql dosyasını SQL Editor’da tekrar çalıştırın.");
 
     const { data: stockAfterCancel, error: stockAfterError } = await supabase
       .from("stock_items")

@@ -150,6 +150,16 @@ const validatePaymentDistribution = ({
   }
   return { ok: true, total, cash, card, debt };
 };
+const withKasaBrainTimeout = (promise, message = "İşlem zaman aşımına uğradı. Lütfen sayfayı yenileyip tekrar kontrol edin.", ms = 30000) => {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([
+    promise.finally(() => window.clearTimeout(timeoutId)),
+    timeout,
+  ]);
+};
 const cleanMoneyTyping = (value) => String(value || "").replace(/\D/g, "");
 const stripMoneyForEdit = (value) => String(value || "").replace(/\D/g, "");
 const cleanPhone = (value) => String(value || "").replace(/\D/g, "").slice(0, 11);
@@ -1313,6 +1323,8 @@ export default function App() {
   const [kasaBrainModal, setKasaBrainModal] = useState(null);
   const [kasaBrainReason, setKasaBrainReason] = useState("");
   const [kasaBrainPassword, setKasaBrainPassword] = useState("");
+  const [kasaBrainProcessing, setKasaBrainProcessing] = useState(false);
+  const [kasaBrainEditDraft, setKasaBrainEditDraft] = useState(null);
   const pendingActionKeysRef = useRef(new Set());
 
   function beginPendingAction(key, message = "Bu işlem zaten devam ediyor. Lütfen bekleyin.") {
@@ -1484,8 +1496,17 @@ const isSaleCancelAction = (modal) => {
       .replace(/\s+/g, " ")
       .trim();
 
+  function closeKasaBrainModal() {
+    setKasaBrainReason("");
+    setKasaBrainPassword("");
+    setKasaBrainEditDraft(null);
+    setKasaBrainModal(null);
+  }
+
   const findSaleForKasaBrainRow = (row) => {
-    const rowId = String(row?.id || row?.saleId || row?.relatedId || row?.related_id || "");
+    const rowType = normalizeKasaBrainText(row?.type);
+    if (!rowType.includes("satış") && !rowType.includes("satis")) return null;
+    const rowId = String(row?.saleId || row?.relatedSaleId || (normalizeKasaBrainText(row?.relatedTable || row?.related_table) === "sales" ? row?.relatedId || row?.related_id : "") || row?.id || "");
     const rowDescription = normalizeKasaBrainText(row?.description);
     const rowParty = normalizeKasaBrainText(row?.party);
     const rowTotal = parseMoneyInput(row?.total || 0);
@@ -1608,6 +1629,210 @@ const isSaleCancelAction = (modal) => {
       return descriptionMatch && partyMatch && cashMatch && debtMatch;
     });
   };
+
+  function buildKasaBrainEditDraft(action, row = {}) {
+    if (action !== "Düzelt") return null;
+
+    const sale = findSaleForKasaBrainRow(row);
+    if (sale) {
+      return {
+        mode: "sale",
+        id: sale.id,
+        type: sale.type || sale.sale_type || "Satış",
+        productName: sale.productName || sale.product_name || row.description || "",
+        customer: sale.customer || sale.customer_name || "",
+        customerPhone: sale.customerPhone || sale.customer_phone || "",
+        cariPerson: sale.cariPerson || sale.cari_person || sale.customer || sale.customer_name || "",
+        buy: formatMoneyInput(sale.productBuyPrice || sale.buy_cost || row.buy || 0),
+        total: formatMoneyInput(sale.total || sale.total_amount || row.sale || row.total || 0),
+        cash: formatMoneyInput(sale.cash || sale.cash_amount || row.cash || 0),
+        card: formatMoneyInput(sale.card || sale.card_amount || row.bank || 0),
+        bank: sale.bank || sale.bank_name || "",
+      };
+    }
+
+    const stockItem = findStockForKasaBrainRow(row);
+    if (stockItem) {
+      const cashPaid = activeCashMovements
+        .filter((movement) => movementMatchesStock(stockItem, movement) && isPurchasePaymentMovement(movement))
+        .reduce((sum, movement) => sum + cashMovementAmount(movement), 0);
+      const linkedBankPurchases = activeBankMovements
+        .filter((movement) => movementMatchesStock(stockItem, movement) && isPurchasePaymentMovement(movement));
+      const bankPaid = linkedBankPurchases.reduce((sum, movement) => sum + bankMovementAmount(movement), 0);
+      const fallbackPaid = parseMoneyInput(stockItem.supplierPaid || stockItem.supplier_paid || 0);
+      const visibleCashPaid = Math.abs(cashPaid) || (!bankPaid ? fallbackPaid : 0);
+      const firstBank = linkedBankPurchases.find((movement) => movement.bank || movement.bank_name);
+      return {
+        mode: "stock",
+        id: stockItem.id,
+        module: stockItem.module || "",
+        deviceType: stockItem.deviceType || stockItem.device_type || "",
+        condition: stockItem.condition || stockItem.category || "",
+        category: stockItem.category || stockItem.condition || "",
+        accessorySubType: stockItem.accessorySubType || stockItem.sub_type || "",
+        brand: stockItem.brand || "",
+        model: stockItem.model || "",
+        memory: stockItem.memory || "",
+        name: stockItem.name || stockItem.productName || stockItem.product_name || row.description || "",
+        barcode: stockItem.barcode || stockItem.imei || "",
+        buy: formatMoneyInput(stockItem.buy || stockItem.buy_price || row.buy || Math.abs(row.total || 0)),
+        sell: formatMoneyInput(stockItem.sell || stockItem.sell_price || 0),
+        qty: Number(stockItem.qty || stockItem.quantity || 1),
+        supplier: stockItem.supplier || stockItem.supplier_name || row.party || "",
+        sellerPerson: stockItem.sellerPerson || stockItem.seller_person || "",
+        sellerPhone: stockItem.sellerPhone || stockItem.seller_phone || "",
+        acquisitionType: stockItem.acquisitionType || stockItem.acquisition_type || "Tedarikçi Firma",
+        cashPaid: formatMoneyInput(visibleCashPaid),
+        bankPaid: formatMoneyInput(Math.abs(bankPaid)),
+        bank: firstBank?.bank || firstBank?.bank_name || "",
+        supplierPaid: formatMoneyInput(visibleCashPaid + Math.abs(bankPaid)),
+        sellerCariRemaining: Number(stockItem.sellerCariRemaining || stockItem.seller_cari_remaining || 0),
+        note: stockItem.note || "",
+      };
+    }
+
+    return null;
+  }
+
+  function renderKasaBrainEditFields() {
+    if (kasaBrainModal?.action !== "Düzelt") return null;
+
+    const draft = kasaBrainEditDraft;
+    if (!draft) {
+      return (
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b", fontWeight: 800 }}>
+          Bu rapor satırı düzenlenebilir satış veya alım kaydıyla açık bağlantılı değil.
+        </div>
+      );
+    }
+
+    const setDraftValue = (key, value) => setKasaBrainEditDraft((prev) => ({ ...(prev || draft), [key]: value }));
+    const fieldStyle = {
+      width: "100%",
+      border: "1px solid #cbd5e1",
+      borderRadius: 10,
+      padding: "8px 10px",
+      fontSize: 13,
+      fontWeight: 800,
+      outline: "none",
+      background: "#fff",
+    };
+    const labelStyle = { display: "grid", gap: 4, fontSize: 11, fontWeight: 900, color: "#475569" };
+    const moneyField = (label, key, placeholder = "0 TL") => (
+      <label style={labelStyle}>
+        {label}
+        <input
+          type="text"
+          inputMode="numeric"
+          value={draft[key] || ""}
+          placeholder={placeholder}
+          onFocus={() => setDraftValue(key, stripMoneyForEdit(draft[key]))}
+          onChange={(event) => setDraftValue(key, cleanMoneyTyping(event.target.value))}
+          onBlur={() => setDraftValue(key, formatMoneyInput(draft[key]))}
+          style={fieldStyle}
+        />
+      </label>
+    );
+    const textField = (label, key, placeholder = "", full = false) => (
+      <label style={{ ...labelStyle, gridColumn: full ? "1 / -1" : undefined }}>
+        {label}
+        <input
+          value={draft[key] || ""}
+          placeholder={placeholder}
+          onChange={(event) => setDraftValue(key, event.target.value)}
+          style={fieldStyle}
+        />
+      </label>
+    );
+    const bankField = (
+      <label style={labelStyle}>
+        Banka
+        <select
+          value={draft.bank || ""}
+          onChange={(event) => handleBankSelect(event.target.value, (value) => setDraftValue("bank", value))}
+          style={fieldStyle}
+        >
+          <option value="">Banka seç</option>
+          {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+          <option value="__add_bank__">+ Banka Ekle</option>
+        </select>
+      </label>
+    );
+
+    if (draft.mode === "sale") {
+      const total = parseMoneyInput(draft.total);
+      const cash = parseMoneyInput(draft.cash);
+      const card = parseMoneyInput(draft.card);
+      const buy = parseMoneyInput(draft.buy);
+      const remaining = Math.max(total - cash - card, 0);
+      const profit = Math.max(total - buy, 0);
+      return (
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 16, background: "#f8fafc", border: "1px solid #dbeafe" }}>
+          <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 900 }}>Satış Düzeltme</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+            {textField("Ürün / Cihaz", "productName", "", true)}
+            {textField("Müşteri", "customer")}
+            {textField("Cari Kişi", "cariPerson")}
+            {textField("Telefon", "customerPhone")}
+            {moneyField("Alış Fiyatı", "buy")}
+            {moneyField("Satış Fiyatı", "total")}
+            {moneyField("Nakit", "cash")}
+            {moneyField("Kart / Banka", "card")}
+            {bankField}
+            <div style={{ display: "grid", gap: 4, padding: 9, borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0", fontWeight: 900 }}>
+              <span style={{ color: "#475569", fontSize: 12 }}>Kalan / Cari</span>
+              <b>{money(remaining)}</b>
+            </div>
+            <div style={{ display: "grid", gap: 4, padding: 9, borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0", fontWeight: 900 }}>
+              <span style={{ color: "#475569", fontSize: 12 }}>Kâr</span>
+              <b>{money(profit)}</b>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (draft.mode === "stock") {
+      const buy = parseMoneyInput(draft.buy);
+      const qty = Math.max(Number(draft.qty || 1), 1);
+      const cashPaid = parseMoneyInput(draft.cashPaid);
+      const bankPaid = parseMoneyInput(draft.bankPaid);
+      const purchaseTotal = buy * qty;
+      const remaining = Math.max(purchaseTotal - cashPaid - bankPaid, 0);
+      return (
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 16, background: "#fff7ed", border: "1px solid #fed7aa" }}>
+          <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 900 }}>Alım Düzeltme</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+            {textField("Ürün / Cihaz", "name", "", true)}
+            {textField("Tedarikçi", "supplier")}
+            {textField("Satıcı / Cari", "sellerPerson")}
+            {textField("Satıcı Telefon", "sellerPhone")}
+            {moneyField("Alış Fiyatı", "buy")}
+            {moneyField("Satış Fiyatı", "sell")}
+            <label style={labelStyle}>
+              Adet
+              <input
+                type="number"
+                min="1"
+                value={draft.qty || 1}
+                onChange={(event) => setDraftValue("qty", event.target.value)}
+                style={fieldStyle}
+              />
+            </label>
+            {moneyField("Nakit Ödenen", "cashPaid")}
+            {moneyField("Banka Ödenen", "bankPaid")}
+            {bankField}
+            <div style={{ display: "grid", gap: 4, padding: 9, borderRadius: 10, background: "#fff", border: "1px solid #fed7aa", fontWeight: 900 }}>
+              <span style={{ color: "#9a3412", fontSize: 12 }}>Cari / Kalan Borç</span>
+              <b>{money(remaining)}</b>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  }
 
   const restoreStockForCancelledSale = (targetSale) => {
     const productId = String(
@@ -2144,14 +2369,23 @@ const isSameSalesListDay = (item, dateKey) => {
     window.alert(`Kasa Beyni Detay\n\n${lines.join("\n")}`);
   };
 
-  const handleKasaBrainPreAudit = async () => {
-    if (!kasaBrainModal) {
-      window.alert("Kasa Beyni: Seçili işlem bulunamadı.");
-      return;
-    }
+	  const handleKasaBrainPreAudit = async () => {
+	    if (kasaBrainProcessing) return;
+
+	    if (!kasaBrainModal) {
+	      window.alert("Kasa Beyni: Seçili işlem bulunamadı.");
+	      return;
+	    }
 
     const reason = String(kasaBrainReason || "").trim();
     const password = String(kasaBrainPassword || "").trim();
+    const action = String(kasaBrainModal.action || "");
+    const row = kasaBrainModal.row || {};
+
+    if (action === "Detay") {
+      closeKasaBrainModal();
+      return;
+    }
 
     if (reason.length < 3) {
       window.alert("Kasa Beyni: İşlem sebebi en az 3 karakter olmalıdır.");
@@ -2160,6 +2394,123 @@ const isSameSalesListDay = (item, dateKey) => {
 
     if (!password) {
       window.alert("Kasa Beyni: Yetkili şifresi girilmelidir.");
+      return;
+    }
+
+    if (action === "Düzelt") {
+      const passwords = getSecurityPasswords();
+      if (password !== passwords.editPassword) {
+        alert("Şifre hatalı. İşlem yapılmadı.");
+        return;
+      }
+
+      const draft = kasaBrainEditDraft || buildKasaBrainEditDraft(action, row);
+      if (!draft?.id) {
+        alert("Bu rapor satırı düzenlenebilir satış veya alım kaydıyla bağlantılı değil.");
+        return;
+      }
+
+      try {
+        setKasaBrainProcessing(true);
+        setSyncMessage("Kasa Beyni: Düzeltme işleniyor...");
+
+        if (draft.mode === "sale") {
+          const total = parseMoneyInput(draft.total);
+          const cash = parseMoneyInput(draft.cash);
+          const card = parseMoneyInput(draft.card);
+          const paymentCheck = validatePaymentDistribution({
+            totalAmount: total,
+            cashAmount: cash,
+            cardAmount: card,
+            messages: { overpaid: "Nakit + kart toplamı satış fiyatını aşamaz." },
+          });
+          if (!paymentCheck.ok) {
+            alert(paymentCheck.message);
+            return;
+          }
+          if (card > 0 && !draft.bank) {
+            alert("Kart/Banka tutarı varsa banka seçilmelidir.");
+            return;
+          }
+
+          const remaining = Math.max(total - cash - card, 0);
+          const buyCost = parseMoneyInput(draft.buy);
+          await withKasaBrainTimeout(
+            updateSaleRecord(draft.id, {
+              sale_type: draft.type,
+              product_name: draft.productName,
+              customer_name: draft.customer || draft.cariPerson || "",
+              customer_phone: draft.customerPhone || "",
+              cari_person: draft.cariPerson || draft.customer || "",
+              total_amount: total,
+              cash_amount: cash,
+              card_amount: card,
+              remaining_amount: remaining,
+              buy_cost: buyCost,
+              profit_amount: Math.max(total - buyCost, 0),
+              bank_name: draft.bank || "",
+            }),
+            "Satış düzeltme zaman aşımına uğradı. Lütfen sayfayı yenileyip Günlük Kasa Raporu’nu kontrol edin."
+          );
+        } else if (draft.mode === "stock") {
+          const buy = parseMoneyInput(draft.buy);
+          const sell = parseMoneyInput(draft.sell);
+          const qty = Number(draft.qty || 1);
+          const cashPaid = parseMoneyInput(draft.cashPaid ?? draft.supplierPaid);
+          const bankPaid = parseMoneyInput(draft.bankPaid);
+          const paid = cashPaid + bankPaid;
+          const purchaseTotal = buy * Math.max(qty, 1);
+          if (paid > purchaseTotal) {
+            alert("Ödenen tutar alış toplamını aşamaz.");
+            return;
+          }
+          if (bankPaid > 0 && !draft.bank) {
+            alert("Banka ödemesi varsa banka seçilmelidir.");
+            return;
+          }
+
+          await withKasaBrainTimeout(
+            updateStockItem(draft.id, {
+              module: draft.module,
+              device_type: draft.deviceType,
+              category: draft.module === "Cihaz" ? draft.condition : draft.category,
+              sub_type: draft.accessorySubType,
+              brand: draft.brand,
+              model: draft.model,
+              memory: draft.memory,
+              product_name: draft.name || draft.model || "Ürün",
+              barcode: draft.module === "Cihaz" ? "" : draft.barcode,
+              imei: draft.module === "Cihaz" ? draft.barcode : "",
+              buy_price: buy,
+              sell_price: sell,
+              quantity: qty,
+              supplier_name: draft.supplier || "",
+              seller_person: draft.sellerPerson || "",
+              seller_phone: draft.sellerPhone || "",
+              acquisition_type: draft.acquisitionType || "Tedarikçi Firma",
+              supplier_paid: cashPaid,
+              bank_paid: bankPaid,
+              bank_name: draft.bank || "",
+              seller_cari_remaining: Math.max(purchaseTotal - paid, 0),
+              note: draft.note || "",
+            }),
+            "Alım düzeltme zaman aşımına uğradı. Lütfen sayfayı yenileyip Günlük Kasa Raporu’nu kontrol edin."
+          );
+        } else {
+          alert("Bu düzeltme türü desteklenmiyor.");
+          return;
+        }
+
+        await refreshFromDatabase();
+        setSyncMessage("Düzeltme uygulandı. Kasa/banka/cari etkileri finans sistemiyle yenilendi.");
+        alert("Düzeltme uygulandı.");
+        closeKasaBrainModal();
+      } catch (error) {
+        console.error("Kasa Beyni düzeltme hatası", error);
+        alert(error.message || "Düzeltme uygulanamadı.");
+      } finally {
+        setKasaBrainProcessing(false);
+      }
       return;
     }
 
@@ -2178,7 +2529,6 @@ const isSameSalesListDay = (item, dateKey) => {
       if (done) return;
     }
 
-    const row = kasaBrainModal.row || {};
     const logRecord = {
       id: `kasa-brain-${Date.now()}`,
       createdAt: new Date().toISOString(),
@@ -2207,9 +2557,7 @@ const isSameSalesListDay = (item, dateKey) => {
 
     window.alert(`Kasa Beyni ön audit log oluşturuldu.\nİşlem: ${logRecord.action}\nKayıt No: ${logRecord.recordNo}\nGerçek finansal işlem yapılmadı.`);
     setSyncMessage(`Kasa Beyni ön audit log oluşturuldu: ${logRecord.action} / Kayıt No: ${logRecord.recordNo}. Gerçek finansal işlem yapılmadı.`);
-    setKasaBrainReason("");
-    setKasaBrainPassword("");
-    setKasaBrainModal(null);
+    closeKasaBrainModal();
   };
   const [selectedSupplierAccount, setSelectedSupplierAccount] = useState(null);
   const [selectedReceivableMovement, setSelectedReceivableMovement] = useState(null);
@@ -3266,7 +3614,7 @@ const isSameSalesListDay = (item, dateKey) => {
     }
 
     if (type.includes("alımı")) {
-      return ["Detay", "Alım İptal"];
+      return ["Detay", "Düzelt", "Alım İptal"];
     }
 
     if (type.includes("nakit girişi") || type.includes("manuel nakit")) {
@@ -3274,7 +3622,7 @@ const isSameSalesListDay = (item, dateKey) => {
     }
 
     if (type.includes("alım ödemesi")) {
-      return ["Detay", "Alım İptal"];
+      return ["Detay", "Düzelt", "Alım İptal"];
     }
 
     return ["Detay"];
@@ -6189,6 +6537,9 @@ const isSameSalesListDay = (item, dateKey) => {
                             onClick={(event) => {
                               event.preventDefault();
                               event.stopPropagation();
+                              setKasaBrainReason("");
+                              setKasaBrainPassword("");
+                              setKasaBrainEditDraft(buildKasaBrainEditDraft(action, row));
                               setKasaBrainModal({ action, row });
                             }}
                             style={{
@@ -6236,31 +6587,33 @@ const isSameSalesListDay = (item, dateKey) => {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: 20
+            padding: 16
           }}
-          onClick={() => setKasaBrainModal(null)}
+          onClick={closeKasaBrainModal}
         >
           <div
             style={{
-              width: "min(560px, 96vw)",
+              width: "min(720px, 96vw)",
+              maxHeight: "92vh",
+              overflowY: "auto",
               background: "#fff",
-              borderRadius: 22,
+              borderRadius: 20,
               boxShadow: "0 24px 80px rgba(15, 23, 42, 0.35)",
-              padding: 24,
+              padding: 18,
               color: "#0f172a"
             }}
             onClick={(event) => event.stopPropagation()}
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900 }}>Kasa Beyni</h2>
-                <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 14, fontWeight: 700 }}>
-                  Kritik işlem ön izleme merkezi
-                </p>
+	                <h2 style={{ margin: 0, fontSize: 21, fontWeight: 900 }}>Kasa Beyni</h2>
+	                <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 13, fontWeight: 700 }}>
+	                  Kritik işlem ön izleme merkezi
+	                </p>
               </div>
               <button
                 type="button"
-                onClick={() => setKasaBrainModal(null)}
+	                onClick={closeKasaBrainModal}
                 style={{
                   border: "none",
                   background: "#f1f5f9",
@@ -6274,54 +6627,60 @@ const isSameSalesListDay = (item, dateKey) => {
               </button>
             </div>
 
-            <div style={{ marginTop: 18, display: "grid", gap: 10 }}>
-              {[
-                ["İşlem", kasaBrainModal.action],
-                ["Kayıt No", kasaBrainModal.row?.no],
-                ["İşlem Türü", kasaBrainModal.row?.type],
-                ["Ürün Açıklaması", reportTextCell(kasaBrainModal.row?.descriptionLines || kasaBrainModal.row?.description)],
-                ["Müşteri / Tedarikçi", kasaBrainModal.row?.party || "-"],
-                ["Nakit", money(kasaBrainModal.row?.cash || 0)],
-                ["Kart / Banka", money(kasaBrainModal.row?.bank || 0)],
-                ["Borç / Cari", money(kasaBrainModal.row?.debt || 0)],
-                ["Toplam", money(kasaBrainModal.row?.total || 0)]
-              ].map(([label, value]) => (
-                <div
-                  key={label}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "150px 1fr",
-                    gap: 12,
-                    padding: "10px 12px",
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: 14,
-                    fontSize: 14
-                  }}
-                >
+	            <div style={{ marginTop: 12, display: "grid", gap: 7 }}>
+	              {(kasaBrainModal.action === "Düzelt" ? [
+	                ["İşlem", kasaBrainModal.action],
+	                ["İşlem Türü", kasaBrainModal.row?.type],
+	                ["Toplam", money(kasaBrainModal.row?.total || 0)]
+	              ] : [
+	                ["İşlem", kasaBrainModal.action],
+	                ["Kayıt No", kasaBrainModal.row?.no],
+	                ["İşlem Türü", kasaBrainModal.row?.type],
+	                ["Ürün Açıklaması", reportTextCell(kasaBrainModal.row?.descriptionLines || kasaBrainModal.row?.description)],
+	                ["Müşteri / Tedarikçi", kasaBrainModal.row?.party || "-"],
+	                ["Nakit", money(kasaBrainModal.row?.cash || 0)],
+	                ["Kart / Banka", money(kasaBrainModal.row?.bank || 0)],
+	                ["Borç / Cari", money(kasaBrainModal.row?.debt || 0)],
+	                ["Toplam", money(kasaBrainModal.row?.total || 0)]
+	              ]).map(([label, value]) => (
+	                <div
+	                  key={label}
+	                  style={{
+	                    display: "grid",
+	                    gridTemplateColumns: "120px 1fr",
+	                    gap: 10,
+	                    padding: "7px 10px",
+	                    background: "#f8fafc",
+	                    border: "1px solid #e2e8f0",
+	                    borderRadius: 12,
+	                    fontSize: 13
+	                  }}
+	                >
                   <strong style={{ color: "#475569" }}>{label}</strong>
                   <span style={{ fontWeight: 800 }}>{value || "-"}</span>
                 </div>
-              ))}
-            </div>
+	              ))}
+	            </div>
 
-            {kasaBrainModal.action !== "Detay" && (
-              <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
-                <label style={{ display: "grid", gap: 6, fontWeight: 900, color: "#334155" }}>
-                  İşlem Sebebi
+	            {renderKasaBrainEditFields()}
+
+	            {kasaBrainModal.action !== "Detay" && (
+	              <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+	                <label style={{ display: "grid", gap: 6, fontWeight: 900, color: "#334155" }}>
+	                  İşlem Sebebi
                   <textarea
                     value={kasaBrainReason}
                     onChange={(event) => setKasaBrainReason(event.target.value)}
                     placeholder="Örn: Müşteri iade istedi, yanlış satış kaydı, hatalı tahsilat..."
-                    rows={3}
-                    style={{
-                      width: "100%",
-                      border: "1px solid #cbd5e1",
-                      borderRadius: 14,
-                      padding: 12,
-                      fontSize: 14,
-                      resize: "vertical",
-                      outline: "none"
+	                    rows={2}
+	                    style={{
+	                      width: "100%",
+	                      border: "1px solid #cbd5e1",
+	                      borderRadius: 12,
+	                      padding: 10,
+	                      fontSize: 13,
+	                      resize: "vertical",
+	                      outline: "none"
                     }}
                   />
                 </label>
@@ -6333,13 +6692,13 @@ const isSameSalesListDay = (item, dateKey) => {
                     value={kasaBrainPassword}
                     onChange={(event) => setKasaBrainPassword(event.target.value)}
                     placeholder="Yetkili şifresini gir"
-                    style={{
-                      width: "100%",
-                      border: "1px solid #cbd5e1",
-                      borderRadius: 14,
-                      padding: 12,
-                      fontSize: 14,
-                      outline: "none"
+	                    style={{
+	                      width: "100%",
+	                      border: "1px solid #cbd5e1",
+	                      borderRadius: 12,
+	                      padding: 10,
+	                      fontSize: 13,
+	                      outline: "none"
                     }}
                   />
                 </label>
@@ -6348,30 +6707,32 @@ const isSameSalesListDay = (item, dateKey) => {
 
             <div
               style={{
-                marginTop: 18,
-                padding: 14,
-                background: "#fff7ed",
-                border: "1px solid #fed7aa",
-                borderRadius: 16,
-                color: "#9a3412",
-                fontWeight: 800,
-                fontSize: 14
-              }}
-            >
-              {kasaBrainModal.action === "Detay"
-                ? "Detay modu: Bu ekran sadece kayıt bilgisini gösterir. Şifre, sebep, audit log veya finansal işlem oluşturmaz."
-                : isSaleCancelAction(kasaBrainModal)
-                  ? "Satış iptal modu: Onay sonrası gerçek satış kaydı Supabase güvenli iptal motoruyla iptal edilir. Stok, kasa, banka ve cari etkileri birlikte işlenir."
-                  : isPurchaseCancelAction(kasaBrainModal)
-                    ? "Alım iptal modu: Onay sonrası stok kaydı pasifleştirilir; kasa, banka ve cari etkileri Supabase güvenli iptal motoruyla birlikte işlenir."
-                  : "Güvenli mod: Bu işlem sadece ön audit log oluşturur. Satış, kasa, stok, cari veya iade kaydı değiştirmez."}
-            </div>
+	                marginTop: 12,
+	                padding: 12,
+	                background: ["Satış İade", "Satış İptal", "Alım İptal", "Düzelt"].includes(kasaBrainModal.action) ? "#ecfdf5" : "#fff7ed",
+	                border: ["Satış İade", "Satış İptal", "Alım İptal", "Düzelt"].includes(kasaBrainModal.action) ? "1px solid #bbf7d0" : "1px solid #fed7aa",
+	                borderRadius: 14,
+	                color: ["Satış İade", "Satış İptal", "Alım İptal", "Düzelt"].includes(kasaBrainModal.action) ? "#166534" : "#9a3412",
+	                fontWeight: 800,
+	                fontSize: 13
+	              }}
+	            >
+	              {kasaBrainModal.action === "Detay"
+	                ? "Bu ekran sadece kayıt detayını gösterir. Veri değişmez."
+	                : isSaleCancelAction(kasaBrainModal)
+	                  ? "Satış iptal modu: Onay sonrası gerçek satış kaydı Supabase güvenli iptal motoruyla iptal edilir. Stok, kasa, banka ve cari etkileri birlikte işlenir."
+	                  : isPurchaseCancelAction(kasaBrainModal)
+	                    ? "Alım iptal modu: Onay sonrası stok kaydı pasifleştirilir; kasa, banka ve cari etkileri Supabase güvenli iptal motoruyla birlikte işlenir."
+	                    : kasaBrainModal.action === "Düzelt"
+	                      ? "Bu işlem Günlük Kasa Raporu üzerinden kontrollü finansal düzeltme akışını çalıştırır. Stok ekranından iptal/düzeltme yapılmaz."
+	                      : "Güvenli mod: Bu işlem sadece ön audit log oluşturur. Satış, kasa, stok, cari veya iade kaydı değiştirmez."}
+	            </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
-              {kasaBrainModal.action === "Detay" ? (
-                <button
-                  type="button"
-                  onClick={() => setKasaBrainModal(null)}
+	            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+	              {kasaBrainModal.action === "Detay" ? (
+	                <button
+	                  type="button"
+	                  onClick={closeKasaBrainModal}
                   style={{
                     border: "none",
                     background: "#0f172a",
@@ -6386,9 +6747,9 @@ const isSameSalesListDay = (item, dateKey) => {
                 </button>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => setKasaBrainModal(null)}
+	                  <button
+	                    type="button"
+	                    onClick={closeKasaBrainModal}
                     style={{
                       border: "1px solid #cbd5e1",
                       background: "#fff",
@@ -6400,25 +6761,30 @@ const isSameSalesListDay = (item, dateKey) => {
                   >
                     Vazgeç
                   </button>
-                  <button
-                    type="button"
-                    onClick={(event) => { event.preventDefault(); event.stopPropagation(); handleKasaBrainPreAudit(); }}
-                    style={{
-                      border: "none",
-                      background: "#0f172a",
-                      color: "#fff",
-                      borderRadius: 12,
-                      padding: "10px 14px",
-                      cursor: "pointer",
-                      fontWeight: 900
-                    }}
-                  >
-                    {isSaleCancelAction(kasaBrainModal)
-                      ? "Satış İptalini Onayla"
-                      : isPurchaseCancelAction(kasaBrainModal)
-                        ? "Alım İptalini Onayla"
-                        : "Ön Audit Log Oluştur"}
-                  </button>
+	                  <button
+	                    type="button"
+	                    onClick={(event) => { event.preventDefault(); event.stopPropagation(); handleKasaBrainPreAudit(); }}
+	                    disabled={kasaBrainProcessing}
+	                    style={{
+	                      border: "none",
+	                      background: kasaBrainProcessing ? "#64748b" : "#0f172a",
+	                      color: "#fff",
+	                      borderRadius: 12,
+	                      padding: "10px 14px",
+	                      cursor: kasaBrainProcessing ? "wait" : "pointer",
+	                      fontWeight: 900
+	                    }}
+	                  >
+	                    {kasaBrainProcessing
+	                      ? "İşleniyor..."
+	                      : kasaBrainModal.action === "Düzelt"
+	                        ? "Düzeltmeyi Uygula"
+	                        : isSaleCancelAction(kasaBrainModal)
+	                      ? "Satış İptalini Onayla"
+	                      : isPurchaseCancelAction(kasaBrainModal)
+	                        ? "Alım İptalini Onayla"
+	                        : "Ön Audit Log Oluştur"}
+	                  </button>
                 </>
               )}
             </div>
