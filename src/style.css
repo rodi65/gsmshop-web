@@ -8817,3 +8817,457 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   font-weight: 1000 !important;
   white-space: nowrap !important;
 }
+
+/* Sonbuttonduzeltilmiss referans gorseline gore ana ekran */
+@media (min-width: 921px) {
+  .premium-dashboard {
+    --target-pad: clamp(8px, 0.72vw, 12px) !important;
+    --target-sidebar: clamp(230px, 15.7vw, 260px) !important;
+    --target-hero: clamp(144px, 16vh, 168px) !important;
+    padding: var(--target-pad) !important;
+    background:
+      radial-gradient(circle at 78% 0%, rgba(80, 70, 229, .12), transparent 30%),
+      linear-gradient(135deg, #edf4ff 0%, #f8fbff 54%, #eef2ff 100%) !important;
+  }
+
+  .premium-dashboard .app-shell {
+    grid-template-columns: var(--target-sidebar) minmax(0, 1fr) !important;
+    grid-template-rows: var(--target-hero) minmax(0, 1fr) !important;
+    gap: clamp(10px, .8vw, 14px) clamp(12px, 1vw, 18px) !important;
+  }
+
+  .premium-dashboard .premium-sidebar {
+    padding: clamp(14px, 1vw, 18px) !important;
+    border-radius: 18px !important;
+    gap: clamp(8px, .75vh, 11px) !important;
+    background:
+      radial-gradient(circle at 86% 10%, rgba(124, 58, 237, .20), transparent 28%),
+      linear-gradient(180deg, #020817 0%, #071426 52%, #04101f 100%) !important;
+    border: 1px solid rgba(96, 165, 250, .16) !important;
+    box-shadow: 0 24px 56px rgba(2, 8, 23, .25) !important;
+  }
+
+  .premium-dashboard .premium-sidebar-brand {
+    display: grid !important;
+    gap: 12px !important;
+    margin: 0 0 10px !important;
+    padding: clamp(18px, 1.45vw, 26px) clamp(18px, 1.35vw, 24px) !important;
+    border: 1px solid rgba(59, 130, 246, .56) !important;
+    border-radius: 16px !important;
+    background:
+      radial-gradient(circle at 92% 88%, rgba(124, 58, 237, .32), transparent 34%),
+      radial-gradient(circle at 18% 0%, rgba(14, 165, 233, .16), transparent 28%),
+      linear-gradient(145deg, rgba(2, 6, 23, .98), rgba(4, 16, 35, .96)) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.08),
+      0 0 28px rgba(59, 130, 246, .16) !important;
+  }
+
+  .premium-dashboard .premium-sidebar-logo {
+    font-size: clamp(32px, 2.55vw, 45px) !important;
+    line-height: .9 !important;
+    letter-spacing: 0 !important;
+  }
+
+  .premium-dashboard .premium-sidebar-logo b {
+    color: #0ea5ff !important;
+  }
+
+  .premium-dashboard .premium-sidebar-brand p {
+    margin: 0 !important;
+    color: #ffffff !important;
+    font-size: clamp(10px, .78vw, 13px) !important;
+    font-weight: 1000 !important;
+    line-height: 1.15 !important;
+  }
+
+  .premium-dashboard .sidebar-contact-links {
+    display: grid !important;
+    gap: 7px !important;
+    margin: 0 0 12px !important;
+  }
+
+  .premium-dashboard .sidebar-contact-links a {
+    min-height: clamp(36px, 4vh, 44px) !important;
+    padding: 0 clamp(13px, 1vw, 18px) !important;
+    border-radius: 9px !important;
+    background: rgba(15, 23, 42, .82) !important;
+    border: 1px solid rgba(148, 163, 184, .10) !important;
+    color: #ffffff !important;
+    font-size: clamp(10px, .76vw, 12px) !important;
+    font-weight: 1000 !important;
+  }
+
+  .premium-dashboard .sidebar-contact-links a svg {
+    width: clamp(17px, 1.1vw, 20px) !important;
+    height: clamp(17px, 1.1vw, 20px) !important;
+  }
+
+  .premium-dashboard .premium-sidebar .sidebar-nav-item,
+  .premium-dashboard .premium-sidebar .nav-mini-y,
+  .premium-dashboard .premium-sidebar .nav-mini-y.active {
+    min-height: clamp(54px, 6.1vh, 68px) !important;
+    padding: 0 clamp(17px, 1.18vw, 22px) !important;
+    border-radius: 10px !important;
+    background: rgba(18, 31, 55, .94) !important;
+    border: 1px solid rgba(148, 163, 184, .09) !important;
+    gap: clamp(13px, 1vw, 18px) !important;
+  }
+
+  .premium-dashboard .premium-sidebar .sidebar-nav-item.active,
+  .premium-dashboard .premium-sidebar.nav-grid .nav-btn.active,
+  .premium-dashboard .premium-sidebar .nav-mini-y.active {
+    background: linear-gradient(135deg, #1267ff 0%, #8a18ff 100%) !important;
+    box-shadow: 0 16px 30px rgba(79, 70, 229, .32) !important;
+  }
+
+  .premium-dashboard .premium-sidebar .sidebar-nav-item span {
+    font-size: clamp(12px, .86vw, 15px) !important;
+    font-weight: 1000 !important;
+  }
+
+  .premium-dashboard .premium-sidebar .sidebar-nav-item svg {
+    width: clamp(19px, 1.35vw, 24px) !important;
+    height: clamp(19px, 1.35vw, 24px) !important;
+  }
+
+  .premium-dashboard .app-shell > .hero-banner {
+    grid-template-columns: minmax(0, 1fr) !important;
+    padding: clamp(20px, 1.45vw, 28px) clamp(26px, 2vw, 38px) !important;
+    border-radius: 15px !important;
+    background:
+      radial-gradient(circle at 93% 18%, rgba(147, 51, 234, .48), transparent 34%),
+      radial-gradient(circle at 22% 8%, rgba(59, 130, 246, .20), transparent 30%),
+      linear-gradient(135deg, #061226 0%, #0b245d 55%, #5626d9 100%) !important;
+    box-shadow: 0 18px 48px rgba(15, 23, 42, .18) !important;
+  }
+
+  .premium-dashboard .hero-banner-visual {
+    display: none !important;
+  }
+
+  .premium-dashboard .hero-banner-copy {
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .premium-dashboard .hero-banner .brand-main-line {
+    justify-content: center !important;
+    gap: clamp(14px, 1.2vw, 22px) !important;
+  }
+
+  .premium-dashboard .hero-banner h1,
+  .premium-dashboard .hero-banner .brand-main-line h1 {
+    font-size: clamp(46px, 4.05vw, 68px) !important;
+    line-height: .78 !important;
+  }
+
+  .premium-dashboard .hero-banner .since-badge,
+  .premium-dashboard .hero-banner .live-clock {
+    padding: 8px 16px !important;
+    font-size: clamp(12px, .9vw, 15px) !important;
+    background: rgba(255, 255, 255, .12) !important;
+  }
+
+  .premium-dashboard .hero-banner-text {
+    margin-top: 10px !important;
+  }
+
+  .premium-dashboard .hero-banner-text strong {
+    font-size: clamp(30px, 2.75vw, 45px) !important;
+    line-height: .95 !important;
+  }
+
+  .premium-dashboard .hero-banner-text p,
+  .premium-dashboard .hero-banner p {
+    margin-top: 9px !important;
+    font-size: clamp(14px, 1.08vw, 18px) !important;
+  }
+
+  .premium-dashboard .hero-banner .status-pill {
+    top: 16px !important;
+    right: 16px !important;
+    padding: 6px 13px !important;
+    border-radius: 999px !important;
+  }
+
+  #ceplogZoomControl {
+    top: clamp(72px, 8.8vh, 88px) !important;
+    right: clamp(26px, 2vw, 38px) !important;
+    left: auto !important;
+    bottom: auto !important;
+    transform: scale(.82) !important;
+    transform-origin: top right !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard {
+    grid-template-columns: minmax(0, .86fr) minmax(0, 1.12fr) minmax(250px, .62fr) !important;
+    grid-template-rows: minmax(0, 1fr) clamp(174px, 23vh, 218px) !important;
+    gap: clamp(10px, .82vw, 14px) !important;
+  }
+
+  .premium-dashboard .kasa-home-sales .sale-layout {
+    grid-template-columns: minmax(0, .84fr) minmax(0, 1.16fr) !important;
+    gap: clamp(10px, .82vw, 14px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel,
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel {
+    padding: clamp(14px, 1.02vw, 18px) !important;
+    border-radius: 13px !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-heading {
+    min-height: 36px !important;
+    margin-bottom: 13px !important;
+    padding-bottom: 12px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-heading .large-sales-title,
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel > .large-accessory-title {
+    font-size: clamp(18px, 1.35vw, 23px) !important;
+    padding-left: 40px !important;
+    margin-bottom: 13px !important;
+    padding-bottom: 12px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-heading .large-sales-title::before,
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel > .large-accessory-title::before {
+    width: 26px !important;
+    height: 26px !important;
+    border-radius: 8px !important;
+    top: -4px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .sales-calculator-button {
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 12px !important;
+    border-radius: 8px !important;
+    font-size: clamp(9px, .68vw, 11px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .big-sale-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-bottom: 13px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .big-sale-btn,
+  .premium-dashboard .kasa-home-dashboard .large-sales-button {
+    min-height: 37px !important;
+    height: 37px !important;
+    border-radius: 7px !important;
+    font-size: clamp(10px, .78vw, 13px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel input,
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel select {
+    min-height: 38px !important;
+    height: 38px !important;
+    margin-top: 8px !important;
+    border-radius: 8px !important;
+    font-size: clamp(11px, .82vw, 13px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel .two {
+    grid-template-columns: minmax(0, 1fr) minmax(120px, .42fr) !important;
+    gap: 10px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .remaining-box {
+    height: 43px !important;
+    min-height: 38px !important;
+    margin-top: 8px !important;
+    border-radius: 8px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel .primary {
+    height: 40px !important;
+    min-height: 40px !important;
+    margin-top: 10px !important;
+    border-radius: 8px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-limit-info {
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 8px 12px !important;
+    margin: 0 0 13px !important;
+    border-radius: 8px !important;
+    font-size: clamp(12px, .92vw, 15px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .accessory-user-shortcuts.compact-shortcuts {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: none !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-auto-rows: minmax(78px, 1fr) !important;
+    align-content: start !important;
+    gap: 12px !important;
+    padding: 12px !important;
+    margin: 0 !important;
+    border: 1px solid #f59e0b !important;
+    border-radius: 12px !important;
+    background: linear-gradient(180deg, #fff9dc 0%, #fff4bf 100%) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-chip {
+    min-height: 78px !important;
+    height: auto !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-chip > button:first-child {
+    min-height: 78px !important;
+    padding: 10px 12px !important;
+    border-radius: 8px !important;
+    background: rgba(255, 249, 219, .92) !important;
+    box-shadow: none !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-chip > button:first-child span {
+    font-size: clamp(11px, .82vw, 13px) !important;
+    line-height: 1.18 !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column {
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1.02fr) minmax(0, 1.26fr) minmax(82px, 96px) !important;
+    gap: clamp(10px, .82vw, 14px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-card {
+    padding: clamp(12px, .92vw, 16px) !important;
+    gap: 7px !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-card h3 {
+    font-size: clamp(14px, 1vw, 17px) !important;
+    margin-bottom: 8px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-lines {
+    gap: 7px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-line {
+    min-height: 16px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-line span,
+  .premium-dashboard .kasa-home-dashboard .compact-summary-line b {
+    font-size: clamp(10px, .76vw, 12px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .compact-summary-total {
+    min-height: 30px !important;
+    padding: 7px 10px !important;
+    border-radius: 8px !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column .kasa-home-cash-card {
+    min-height: 82px !important;
+    border-radius: 9px !important;
+  }
+
+  .premium-dashboard .kasa-home-summary-column .kasa-home-cash-card b {
+    font-size: clamp(24px, 2vw, 34px) !important;
+  }
+
+  .premium-dashboard .kasa-home-bottom-summaries {
+    grid-template-columns: minmax(0, .66fr) minmax(240px, .34fr) !important;
+    gap: clamp(10px, .82vw, 14px) !important;
+  }
+
+  .premium-dashboard .kasa-home-mini-summaries {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: clamp(10px, .82vw, 14px) !important;
+  }
+
+  .premium-dashboard .kasa-home-action-stack {
+    grid-template-rows: repeat(4, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .premium-dashboard .kasa-home-action-stack .choice {
+    min-height: 0 !important;
+    height: 100% !important;
+    border-radius: 7px !important;
+    font-size: clamp(10px, .72vw, 12px) !important;
+  }
+}
+
+@media (min-width: 921px) and (max-width: 1500px) {
+  .premium-dashboard {
+    --target-sidebar: clamp(216px, 15.2vw, 236px) !important;
+    --target-hero: clamp(132px, 15vh, 154px) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard {
+    grid-template-columns: minmax(0, .84fr) minmax(0, 1.1fr) minmax(226px, .6fr) !important;
+    grid-template-rows: minmax(0, 1fr) clamp(160px, 22vh, 196px) !important;
+  }
+
+  .premium-dashboard .hero-banner h1,
+  .premium-dashboard .hero-banner .brand-main-line h1 {
+    font-size: clamp(40px, 3.55vw, 58px) !important;
+  }
+
+  .premium-dashboard .hero-banner-text strong {
+    font-size: clamp(25px, 2.35vw, 38px) !important;
+  }
+
+  .premium-dashboard .premium-sidebar .sidebar-nav-item,
+  .premium-dashboard .premium-sidebar .nav-mini-y,
+  .premium-dashboard .premium-sidebar .nav-mini-y.active {
+    min-height: clamp(49px, 5.6vh, 60px) !important;
+  }
+}
+
+@media (min-width: 921px) and (max-height: 820px) {
+  .premium-dashboard {
+    --target-hero: 126px !important;
+  }
+
+  .premium-dashboard .premium-sidebar .sidebar-nav-item,
+  .premium-dashboard .premium-sidebar .nav-mini-y,
+  .premium-dashboard .premium-sidebar .nav-mini-y.active {
+    min-height: 43px !important;
+  }
+
+  .premium-dashboard .premium-sidebar-brand {
+    padding: 14px 16px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard {
+    grid-template-rows: minmax(0, 1fr) 148px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel input,
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel select {
+    height: 32px !important;
+    min-height: 32px !important;
+    margin-top: 5px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel .primary {
+    height: 34px !important;
+    min-height: 34px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .accessory-user-shortcuts.compact-shortcuts {
+    grid-auto-rows: minmax(60px, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-chip,
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-chip > button:first-child {
+    min-height: 60px !important;
+  }
+}

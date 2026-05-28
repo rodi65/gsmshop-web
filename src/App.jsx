@@ -4839,17 +4839,17 @@ const isSameSalesListDay = (item, dateKey) => {
         <nav className="nav-grid premium-sidebar">
           <div className="premium-sidebar-brand">
             <div className="premium-sidebar-logo"><span>CEP</span><b>LOG</b></div>
-            <p>Profesyonel GSM yönetim paneli</p>
-            <div className="sidebar-contact-links">
-              <a href="https://www.ceplog.com" target="_blank" rel="noreferrer">
-                <Globe size={14} />
-                <span>www.ceplog.com</span>
-              </a>
-              <a href="https://wa.me/905303088372" target="_blank" rel="noreferrer" className="sidebar-whatsapp-link">
-                <MessageCircle size={14} />
-                <span>WhatsApp</span>
-              </a>
-            </div>
+            <p>İşini Yönet, Kasanı Kontrol Et.</p>
+          </div>
+          <div className="sidebar-contact-links">
+            <a href="https://www.ceplog.com" target="_blank" rel="noreferrer">
+              <Globe size={14} />
+              <span>www.ceplog.com</span>
+            </a>
+            <a href="https://wa.me/905303088372" target="_blank" rel="noreferrer" className="sidebar-whatsapp-link">
+              <MessageCircle size={14} />
+              <span>WhatsApp</span>
+            </a>
           </div>
 
           <button
