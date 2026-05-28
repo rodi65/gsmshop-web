@@ -4889,7 +4889,7 @@ const isSameSalesListDay = (item, dateKey) => {
               <small>Akıllı GSM yönetimi</small>
             </div>
           </div>
-          <div className="status-pill">WEB TEST</div>
+          {isLocalhostRuntime() && <div className="status-pill">WEB TEST</div>}
         </header>
 
         <nav className="nav-grid premium-sidebar">
