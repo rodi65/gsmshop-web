@@ -6069,17 +6069,23 @@ const isSameSalesListDay = (item, dateKey) => {
         <header className="hero hero-banner">
           <div className="hero-banner-copy">
             <div className="brand-title-row">
-              <div className="brand-center">
-                <div className="brand-main-line">
+              <div className="brand-center hero-mockup-grid">
+                <div className="hero-brand-block">
                   <h1><span>CEP</span><span className="brand-log">LOG</span></h1>
-                  <span className="since-badge">Since 1999</span>
-                  <div className="live-clock">
-                    {clockNow.toLocaleDateString("tr-TR")} • {clockNow.toLocaleTimeString("tr-TR", { hour12: false })}
+                  <div className="hero-module-chips" aria-label="CEPLOG modülleri">
+                    <span>Kasa</span>
+                    <span>Stok</span>
+                    <span>Satış</span>
+                    <span>Servis</span>
                   </div>
                 </div>
                 <div className="hero-banner-text">
                   <strong>Satıştan kasaya, stoktan servise tek panel.</strong>
                   <p>Gün sonu kontrolü, cari takibi ve hızlı satış akışı bir arada</p>
+                </div>
+                <div className="hero-date-card" aria-label="Tarih ve saat">
+                  <b>{clockNow.toLocaleDateString("tr-TR")}</b>
+                  <strong>{clockNow.toLocaleTimeString("tr-TR", { hour12: false })}</strong>
                 </div>
               </div>
             </div>
