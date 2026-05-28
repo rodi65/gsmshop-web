@@ -787,6 +787,37 @@ export async function createStockItem(payload) {
     stockPayload.seller_cari_remaining = remaining;
   }
 
+  try {
+    const rpcStock = await callFinancialRpc("create_stock_with_effects", {
+      p_workspace_id: workspaceId,
+      p_module: stockPayload.module || "",
+      p_device_type: stockPayload.device_type || "",
+      p_category: stockPayload.category || "",
+      p_sub_type: stockPayload.sub_type || "",
+      p_brand: stockPayload.brand || "",
+      p_model: stockPayload.model || "",
+      p_memory: stockPayload.memory || "",
+      p_product_name: stockPayload.product_name || "Ürün",
+      p_barcode: stockPayload.barcode || "",
+      p_imei: stockPayload.imei || "",
+      p_buy_price: toDbNumber(stockPayload.buy_price),
+      p_sell_price: toDbNumber(stockPayload.sell_price),
+      p_quantity: Number(stockPayload.quantity || 1),
+      p_supplier_name: stockPayload.supplier_name || "",
+      p_seller_person: stockPayload.seller_person || "",
+      p_seller_phone: stockPayload.seller_phone || "",
+      p_acquisition_type: stockPayload.acquisition_type || "",
+      p_supplier_paid: toDbNumber(stockPayload.supplier_paid),
+      p_seller_cari_remaining: Number(stockPayload.seller_cari_remaining || 0),
+      p_note: stockPayload.note || "",
+    }, "Stok kayıt transaction fonksiyonu kurulmamış. Supabase SQL migration çalıştırılmalı.");
+    return rpcStock;
+  } catch (error) {
+    const rpcError = error?.cause || error;
+    if (!isMissingRpcError(rpcError)) throw error;
+    console.warn("create_stock_with_effects RPC kurulmamış; eski stok kayıt akışı kullanılacak.", rpcError);
+  }
+
   const { data, error } = await supabase
     .from("stock_items")
     .insert([{ ...stockPayload, workspace_id: workspaceId, status: stockPayload.status || "active", created_by: user?.id, updated_by: user?.id }])
@@ -846,6 +877,31 @@ export async function createSale(payload) {
     created_by: user?.id,
     updated_by: user?.id,
   };
+
+  try {
+    const rpcSale = await callFinancialRpc("create_sale_with_effects", {
+      p_workspace_id: workspaceId,
+      p_sale_group: salePayload.sale_group || "",
+      p_sale_type: salePayload.sale_type || "",
+      p_stock_item_id: salePayload.stock_item_id || null,
+      p_product_name: salePayload.product_name || "Satış",
+      p_customer_name: salePayload.customer_name || "",
+      p_customer_phone: salePayload.customer_phone || "",
+      p_cari_person: salePayload.cari_person || "",
+      p_total_amount: toDbNumber(salePayload.total_amount),
+      p_cash_amount: toDbNumber(salePayload.cash_amount),
+      p_card_amount: toDbNumber(salePayload.card_amount),
+      p_remaining_amount: toDbNumber(salePayload.remaining_amount),
+      p_buy_cost: toDbNumber(salePayload.buy_cost),
+      p_profit_amount: toDbNumber(salePayload.profit_amount),
+      p_bank_name: salePayload.bank_name || "",
+    }, "Satış transaction fonksiyonu kurulmamış. Supabase SQL migration çalıştırılmalı.");
+    return rpcSale;
+  } catch (error) {
+    const rpcError = error?.cause || error;
+    if (!isMissingRpcError(rpcError)) throw error;
+    console.warn("create_sale_with_effects RPC kurulmamış; eski satış kayıt akışı kullanılacak.", rpcError);
+  }
 
   let stockItemToDecrease = null;
   if (payload.stock_item_id) {
