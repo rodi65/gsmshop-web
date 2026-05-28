@@ -5167,68 +5167,62 @@ const isSameSalesListDay = (item, dateKey) => {
         )}
 
         {active === "yonetim" && (
-          <section className="section management-section">
-            <div className="management-hero card">
-              <div>
-                <h2>Yönetim Paneli</h2>
-                <p>Program sahibi, lisans, güvenlik, kullanıcı yetkileri, yedekleme ve log işlemleri buradan yönetilir.</p>
+          <section className="section management-section compact-management-section">
+            <div className="management-compact-shell">
+              <div className="management-left-stack">
+                <div className="card management-card compact-license-card">
+                  <h2>Firma / Lisans Özeti</h2>
+                  <div className="management-info-list compact-license-list">
+                    <div><span>Program</span><b>CEPLOG</b></div>
+                    <div><span>Lisans Sahibi</span><b>{currentUser?.email || "Kayıtlı Kullanıcı"}</b></div>
+                    <div><span>Aktif Workspace</span><b>{activeWorkspaceId || "-"}</b></div>
+                    <div><span>Paket</span><b>Professional</b></div>
+                    <div><span>Durum</span><b>Aktif</b></div>
+                    <div><span>Lisansı Aldığınız Tarih</span><b>Tanımlanacak</b></div>
+                    <div><span>Kalan Lisans Tarihi</span><b>Tanımlanacak</b></div>
+                  </div>
+                  <div className="logout-panel compact-logout-panel">
+                    <span>Giriş yapan kullanıcı: <b>{currentUser?.email || "Kayıtlı Kullanıcı"}</b></span>
+                    <button className="logout-btn" type="button" onClick={handleLogout}>ÇIKIŞ YAP</button>
+                  </div>
+                </div>
+
+                <div className="card management-card security-password-card compact-security-card">
+                  <h2>GÜVENLİK ŞİFRELERİ</h2>
+                  <div className="security-password-list compact-security-list">
+                    {securityPasswordFields.map((field) => (
+                      <div className="security-password-row" key={field.key}>
+                        <label>
+                          <span>{field.label}</span>
+                          <input
+                            type={visibleSecurityPasswords[field.key] ? "text" : "password"}
+                            value={securityPasswordDrafts[field.key] || ""}
+                            onChange={(event) => updateSecurityPasswordDraft(field.key, event.target.value)}
+                            placeholder={field.label}
+                          />
+                        </label>
+                        <div className="security-password-actions">
+                          <button className="edit-btn" type="button" onClick={() => toggleSecurityPasswordVisibility(field.key)}>
+                            {visibleSecurityPasswords[field.key] ? "Gizle" : "Göster"}
+                          </button>
+                          <button className="primary security-save-btn" type="button" onClick={() => saveSecurityPasswordField(field.key)}>
+                            Kaydet
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div className="management-badge">
-                <span>CEPLOG PRO</span>
-                <b>Since 1999</b>
-              </div>
+
+              <div className="card management-card management-future-panel" aria-label="Gelecek yönetim bilgileri alanı" />
             </div>
 
-            <div className="management-grid">
-              <div className="card management-card">
-                <h2>Firma / Lisans Özeti</h2>
-                <div className="management-info-list">
-                  <div><span>Program</span><b>CEPLOG</b></div>
-                  <div><span>Lisans Sahibi</span><b>{currentUser?.email || "Kayıtlı Kullanıcı"}</b></div>
-                  <div><span>Aktif Workspace</span><b>{activeWorkspaceId || "-"}</b></div>
-                  <div><span>Paket</span><b>Professional</b></div>
-                  <div><span>Durum</span><b>Aktif</b></div>
-                  <div><span>Son Yedek</span><b>Manuel Kontrol</b></div>
-                </div>
-                <div className="logout-panel">
-                  <span>Giriş yapan kullanıcı: <b>{currentUser?.email || "Kayıtlı Kullanıcı"}</b></span>
-                  <button className="logout-btn" type="button" onClick={handleLogout}>ÇIKIŞ YAP</button>
-                </div>
-              </div>
-
-              <div className="card management-card security-password-card">
-                <h2>GÜVENLİK ŞİFRELERİ</h2>
-                <p>Düzenleme, iptal ve silme işlemleri için ayrı güvenlik şifreleri belirleyin.</p>
-
-                <div className="security-password-list">
-                  {securityPasswordFields.map((field) => (
-                    <div className="security-password-row" key={field.key}>
-                      <label>
-                        <span>{field.label}</span>
-                        <input
-                          type={visibleSecurityPasswords[field.key] ? "text" : "password"}
-                          value={securityPasswordDrafts[field.key] || ""}
-                          onChange={(event) => updateSecurityPasswordDraft(field.key, event.target.value)}
-                          placeholder={field.label}
-                        />
-                      </label>
-                      <div className="security-password-actions">
-                        <button className="edit-btn" type="button" onClick={() => toggleSecurityPasswordVisibility(field.key)}>
-                          {visibleSecurityPasswords[field.key] ? "Gizle" : "Göster"}
-                        </button>
-                        <button className="primary security-save-btn" type="button" onClick={() => saveSecurityPasswordField(field.key)}>
-                          Kaydet
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
+            <div className="management-tools-compact-grid">
               {isLocalhostRuntime() && (
-                <div className="card management-card">
+                <div className="card management-card compact-tool-card">
                   <h2>TEMİZ TEST BAŞLANGICI</h2>
-                  <p>Localhost testlerinde alıcı, satıcı, cari, ödeme, tahsilat ve kasa kontrolleri 0 bakiye prensibiyle denenebilir. Gerçek sıfırlama Kasa &gt; Kasa Kapanış içindeki çift onaylı test butonuyla yapılır.</p>
+                  <p>Localhost testleri çift onaylı kasa kapanış sıfırlama alanından yapılır.</p>
                   <div className="management-info-list">
                     <div><span>Ortam</span><b>Localhost test</b></div>
                     <div><span>Veri sıfırlama</span><b>Çift onaylı</b></div>
@@ -5247,18 +5241,16 @@ const isSameSalesListDay = (item, dateKey) => {
                 </div>
               )}
 
-              <div className="card management-card management-screenshot-card">
+              <div className="card management-card management-screenshot-card compact-tool-card">
                 <h2>Ana Ekran SS</h2>
-                <p>Ana ekran fotoğrafını cihazına PNG olarak indirir.</p>
                 <button className="screenshot-round-btn" type="button" onClick={captureHomeScreenshot}>
                   <span>Ana ekran fotoğrafı</span>
                   <Camera size={24} />
                 </button>
               </div>
 
-              <div className="card management-card shortcut-delete-card">
+              <div className="card management-card shortcut-delete-card compact-tool-card">
                 <h2>Kısayol Sil</h2>
-                <p>Oluşturulmuş aksesuar kısayollarını buradan yönet.</p>
                 <div className="shortcut-delete-list">
                   {accessoryShortcuts.map((shortcut) => (
                     <div className="shortcut-delete-row" key={shortcut.id}>
@@ -5278,50 +5270,33 @@ const isSameSalesListDay = (item, dateKey) => {
                 </div>
               </div>
 
-              <div className="card management-card">
+              <div className="card management-card compact-tool-card compact-backup-card">
                 <h2>Yedekleme Merkezi</h2>
-                <p>Stok, satış, kasa, banka, cari, gider ve aksesuar kısayolları tek JSON dosyası olarak yedeklenir.</p>
-
                 <div className="backup-actions">
                   <button className="primary backup-btn" type="button" onClick={downloadBackupFile}>
-                    <Save size={18} /> Cihaza / PC’ye Yedek İndir
+                    <Save size={18} /> Yedek İndir
                   </button>
 
                   <button className="primary backup-btn drive-btn" type="button" onClick={shareBackupFile}>
-                    <ShieldCheck size={18} /> Google Drive / Paylaş
+                    <ShieldCheck size={18} /> Paylaş
                   </button>
 
                   <button className="primary backup-btn mail-btn" type="button" onClick={prepareEmailBackup}>
-                    <ReceiptText size={18} /> Mail İçin Yedek Hazırla
+                    <ReceiptText size={18} /> Mail Hazırla
                   </button>
                 </div>
+              </div>
 
-                <div className="backup-warning">
-                  <b>Not:</b> Google Drive’a doğrudan otomatik yükleme için ileride Google Drive API bağlantısı gerekir. Bu sürümde dosya indirilir veya cihazın paylaşım menüsü açılır.
+              <div className="card management-card compact-tool-card compact-preview-card">
+                <h2>Yedek Önizleme</h2>
+                <div className="backup-preview-grid compact-backup-preview-grid">
+                  <Stat title="Stok" value={activeStock.length} />
+                  <Stat title="Satış" value={activeSales.length} />
+                  <Stat title="Cari" value={activeContacts.length} />
+                  <Stat title="Kasa" value={activeCashMovements.length} />
+                  <Stat title="Banka" value={activeBankMovements.length} />
+                  <Stat title="Gider" value={activeExpenses.length} />
                 </div>
-              </div>
-            </div>
-
-            <div className="card management-card">
-              <h2>Yedek Önizleme</h2>
-              <div className="backup-preview-grid">
-                <Stat title="Stok Kaydı" value={activeStock.length} />
-                <Stat title="Satış Kaydı" value={activeSales.length} />
-                <Stat title="Cari Kayıt" value={activeContacts.length} />
-                <Stat title="Kasa Hareketi" value={activeCashMovements.length} />
-                <Stat title="Banka Hareketi" value={activeBankMovements.length} />
-                <Stat title="Gider Kaydı" value={activeExpenses.length} />
-              </div>
-            </div>
-
-            <div className="card management-card">
-              <h2>Sonraki Yönetim Modülleri</h2>
-              <div className="management-roadmap">
-                <div><b>Güvenlik</b><span>Kritik işlem şifresi değiştirme</span></div>
-                <div><b>Kullanıcılar</b><span>Owner / Yönetici / Personel rolleri</span></div>
-                <div><b>Yetkiler</b><span>Satış silme, kâr görme, kasa kapatma izinleri</span></div>
-                <div><b>Loglar</b><span>Kim hangi işlemi yaptı takibi</span></div>
-                <div><b>Drive API</b><span>Gerçek otomatik Google Drive yedekleme</span></div>
               </div>
             </div>
           </section>
