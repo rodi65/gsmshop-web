@@ -17,6 +17,7 @@ alter table if exists public.cash_movements
 alter table public.bank_movements
   add column if not exists workspace_id text,
   add column if not exists direction text,
+  add column if not exists related_sale_id uuid,
   add column if not exists related_table text,
   add column if not exists related_id text,
   add column if not exists updated_by uuid references auth.users(id),
@@ -31,6 +32,51 @@ alter table public.bank_movements alter column status set default 'active';
 
 create index if not exists bank_movements_related_idx
 on public.bank_movements(related_table, related_id);
+
+create index if not exists bank_movements_related_sale_idx
+on public.bank_movements(related_sale_id);
+
+do $$
+declare
+  constraint_name text;
+begin
+  for constraint_name in
+    select conname
+    from pg_constraint
+    where conrelid = 'public.bank_movements'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) ilike '%movement_type%'
+  loop
+    execute format('alter table public.bank_movements drop constraint if exists %I', constraint_name);
+  end loop;
+
+  alter table public.bank_movements
+    add constraint bank_movements_movement_type_check
+    check (
+      movement_type in (
+        'Bankaya Giden',
+        'Bankadan Çekilen',
+        'Komisyon',
+        'Düzeltme',
+        'Teknik Servis Geliri',
+        'Teknik Servis Kaparo',
+        'Teknik Servis Tahsilat',
+        'Teknik Servis İade',
+        'Alım Ödemesi',
+        'Cihaz Alım Ödemesi',
+        'Telefon Alım Ödemesi',
+        'Stok Alım Ödemesi',
+        'Stok Ödemesi',
+        'Aksesuar Alım Ödemesi',
+        'Ürün Alım Ödemesi',
+        'Tedarikçi Ödemesi',
+        'Alım İptali',
+        'Stok Ödemesi İptali',
+        'Alım Ödemesi İptali',
+        'Tedarikçi Ödemesi İptali'
+      )
+    );
+end $$;
 
 create or replace function public.create_sale_with_effects(
   p_workspace_id text,

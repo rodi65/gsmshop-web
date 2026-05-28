@@ -597,6 +597,7 @@ export async function createBankMovement(payload) {
       bank_name: payload.bank_name,
       amount: toDbNumber(payload.amount),
       note: payload.note || "",
+      related_sale_id: payload.related_sale_id || null,
       related_table: payload.related_table || null,
       related_id: payload.related_id || null,
       related_service_id: serviceReferenceId || null,
@@ -617,6 +618,7 @@ export async function createBankMovement(payload) {
         direction: payload.direction || "in",
         bank_name: payload.bank_name,
         amount: toDbNumber(payload.amount),
+        related_sale_id: payload.related_sale_id || null,
         related_table: payload.related_table || null,
         related_id: payload.related_id || null,
         related_service_id: serviceReferenceId || null,
@@ -952,9 +954,22 @@ export async function createSale(payload) {
     });
   }
 
-  // Satışta kart/banka tutarı sales.card_amount alanında tutulur.
-  // bank_movements tablosuna "Bankaya Giden" tipi yazılmıyor.
-  // Çünkü Supabase check constraint bu tipi kabul etmiyor ve satış sonrası gereksiz hata üretiyor.
+  if (toDbNumber(salePayload.card_amount) > 0 && salePayload.bank_name) {
+    try {
+      await createBankMovement({
+        movement_type: "Bankaya Giden",
+        direction: "in",
+        bank_name: salePayload.bank_name,
+        amount: toDbNumber(salePayload.card_amount),
+        related_sale_id: sale.id,
+        related_table: "sales",
+        related_id: sale.id,
+        note: `${payload.product_name || "Satış"} kart/banka tahsilat`,
+      });
+    } catch (bankError) {
+      console.error("Satış kaydedildi ancak banka hareketi oluşturulamadı.", bankError);
+    }
+  }
 
   if (toDbNumber(salePayload.remaining_amount) > 0 && (payload.cari_person || payload.customer_name)) {
     await findOrCreateContact({
