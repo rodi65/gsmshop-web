@@ -9375,3 +9375,33 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-chip > button:first-child span {
   overflow-wrap: anywhere !important;
 }
+
+/* Yeni Satis formu zoomda kesilmesin; kaydet butonu her zaman erisilebilir kalsin */
+@media (min-width: 921px) {
+  .premium-dashboard .kasa-home-sales,
+  .premium-dashboard .kasa-home-sales .sale-layout {
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel {
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain !important;
+    padding-bottom: 10px !important;
+    scroll-padding-bottom: 54px !important;
+    scrollbar-width: thin !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-sales-panel .primary {
+    position: sticky !important;
+    bottom: 0 !important;
+    z-index: 4 !important;
+    box-shadow:
+      0 -10px 18px rgba(255, 255, 255, .96),
+      0 12px 22px rgba(37, 99, 235, .2) !important;
+  }
+}
