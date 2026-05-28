@@ -7,18 +7,14 @@ export function CartItemRow({ item, money, onUpdate, onRemove }) {
   const canIncrease = item.productType === "service" || Number(item.quantity || 0) < maxQuantity;
 
   return (
-    <div className="cart-item-row">
-      <div className="cart-item-main">
-        <div>
+    <tr className="cart-item-row">
+      <td>
+        <div className="cart-table-product">
           <strong>{item.productName}</strong>
           <small>{item.productTypeLabel}{item.imei ? ` • IMEI: ${item.imei}` : ""}</small>
         </div>
-        <button type="button" className="cart-icon-btn danger" onClick={() => onRemove(item.cartItemId)} aria-label="Sepetten sil">
-          <Trash2 size={15} />
-        </button>
-      </div>
-
-      <div className="cart-item-controls">
+      </td>
+      <td>
         <div className="cart-qty-control">
           <button type="button" className="cart-icon-btn" disabled={!canDecrease} onClick={() => onUpdate(item.cartItemId, { quantity: Math.max(Number(item.quantity || 1) - 1, 1) })}>
             <Minus size={14} />
@@ -34,31 +30,17 @@ export function CartItemRow({ item, money, onUpdate, onRemove }) {
             <Plus size={14} />
           </button>
         </div>
-
-        <input
-          className="cart-money-input"
-          inputMode="numeric"
-          value={item.unitPriceText}
-          onChange={(event) => onUpdate(item.cartItemId, { unitPriceText: event.target.value })}
-          onBlur={() => onUpdate(item.cartItemId, { formatUnitPrice: true })}
-          aria-label="Birim fiyat"
-        />
-        <input
-          className="cart-money-input"
-          inputMode="numeric"
-          value={item.discountText}
-          onChange={(event) => onUpdate(item.cartItemId, { discountText: event.target.value })}
-          onBlur={() => onUpdate(item.cartItemId, { formatDiscount: true })}
-          aria-label="İndirim"
-        />
-      </div>
-
-      <div className="cart-item-totals">
-        <span>Toplam <b>{money(item.lineTotal)}</b></span>
-        <span className={Number(item.lineProfit || 0) < 0 ? "loss" : "profit"}>Kar <b>{money(item.lineProfit)}</b></span>
-      </div>
-      {item.note && <small className="cart-item-note">{item.note}</small>}
-    </div>
+      </td>
+      <td>
+        <div className="cart-table-amount">
+          <b>{money(item.lineTotal)}</b>
+          <span className={Number(item.lineProfit || 0) < 0 ? "loss" : "profit"}>{money(item.lineProfit)}</span>
+          <button type="button" className="cart-icon-btn danger" onClick={() => onRemove(item.cartItemId)} aria-label="Sepetten sil">
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </td>
+    </tr>
   );
 }
 
@@ -88,16 +70,28 @@ export function CartPaymentBox({
   return (
     <div className="cart-payment-box">
       <div className="cart-payment-actions">
-        <button type="button" onClick={() => onSetFullPayment("cash")}>Tamamı Nakit</button>
-        <button type="button" onClick={() => onSetFullPayment("card")}>Tamamı Kart</button>
-        <button type="button" onClick={() => onSetFullPayment("cari")}>Tamamı Cari</button>
+        <button type="button" onClick={() => onSetFullPayment("cash")}>Nakit</button>
+        <button type="button" onClick={() => onSetFullPayment("card")}>Kart</button>
+        <button type="button" onClick={() => onSetFullPayment("cari")}>Cari</button>
       </div>
 
-      <div className="cart-payment-grid">
-        <input inputMode="numeric" placeholder="Nakit" value={payments.cashAmount} onChange={(event) => onPaymentChange("cashAmount", event.target.value)} />
-        <input inputMode="numeric" placeholder="Kart / POS" value={payments.cardAmount} onChange={(event) => onPaymentChange("cardAmount", event.target.value)} />
-        <input inputMode="numeric" placeholder="Banka" value={payments.bankAmount} onChange={(event) => onPaymentChange("bankAmount", event.target.value)} />
-        <input inputMode="numeric" placeholder="Cari kalan" value={payments.cariAmount} onChange={(event) => onPaymentChange("cariAmount", event.target.value)} />
+      <div className="payment-box">
+        <label>
+          <span>Nakit</span>
+          <input inputMode="numeric" value={payments.cashAmount} onChange={(event) => onPaymentChange("cashAmount", event.target.value)} />
+        </label>
+        <label>
+          <span>Kart</span>
+          <input inputMode="numeric" value={payments.cardAmount} onChange={(event) => onPaymentChange("cardAmount", event.target.value)} />
+        </label>
+        <label>
+          <span>Banka</span>
+          <input inputMode="numeric" value={payments.bankAmount} onChange={(event) => onPaymentChange("bankAmount", event.target.value)} />
+        </label>
+        <label>
+          <span>Cari</span>
+          <input inputMode="numeric" value={payments.cariAmount} onChange={(event) => onPaymentChange("cariAmount", event.target.value)} />
+        </label>
       </div>
 
       <select value={bankName} onChange={(event) => onBankChange(event.target.value)}>
@@ -144,33 +138,48 @@ export default function CartPanel({
 }) {
   return (
     <aside className="card pad kasa-cart cart-panel">
-      <div className="cart-panel-header">
-        <div>
-          <h2><ShoppingCart size={18} /> SATIŞ SEPETİ</h2>
-          <p>{items.length ? `${summary.totalQuantity} ürün / kalem` : "Sepet boş"}</p>
-        </div>
-        <span className="cart-count-badge">{items.length}</span>
+      <div className="top-line cart-top-line">
+        <h2>Satış Sepeti</h2>
+        <button type="button" className="cart-clear-btn" disabled={!items.length || processing} onClick={onClear}>Temizle</button>
       </div>
 
-      <div className="cart-items-list">
-        {items.length ? items.map((item) => (
-          <CartItemRow
-            key={item.cartItemId}
-            item={item}
-            money={money}
-            onUpdate={onUpdateItem}
-            onRemove={onRemoveItem}
-          />
-        )) : (
-          <div className="cart-empty-state">
-            <ShoppingCart size={30} />
-            <strong>Sepet boş.</strong>
-            <span>Ürün ara, barkod/IMEI seç veya hızlı satıştan sepete ekle.</span>
-          </div>
-        )}
+      <div className="cart-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ürün</th>
+              <th>Adet</th>
+              <th>Tutar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.length ? items.map((item) => (
+              <CartItemRow
+                key={item.cartItemId}
+                item={item}
+                money={money}
+                onUpdate={onUpdateItem}
+                onRemove={onRemoveItem}
+              />
+            )) : (
+              <tr>
+                <td colSpan="3">
+                  <div className="cart-empty-state">
+                    <ShoppingCart size={26} />
+                    <strong>Sepet boş.</strong>
+                    <span>Ürün ara veya hızlı satıştan sepete ekle.</span>
+                  </div>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
-      <CartSummary summary={summary} money={money} />
+      <div className="cart-total">
+        <span>Genel Toplam</span>
+        <b>{money(summary.netTotal)}</b>
+      </div>
 
       <CartPaymentBox
         payments={payments}
@@ -185,15 +194,9 @@ export default function CartPanel({
         onSetFullPayment={onSetFullPayment}
       />
 
-      <textarea
-        className="cart-note"
-        placeholder="Satış notu"
-        value={note}
-        onChange={(event) => onNoteChange(event.target.value)}
-      />
+      <textarea className="cart-note" placeholder="Satış notu" value={note} onChange={(event) => onNoteChange(event.target.value)} />
 
       <div className="cart-footer-actions">
-        <button type="button" className="choice" disabled={!items.length || processing} onClick={onClear}>Sepeti Temizle</button>
         <button type="button" className="primary cart-checkout-btn" disabled={!items.length || processing} onClick={onCheckout}>
           {processing ? "İşleniyor..." : "Satışı Tamamla"}
         </button>

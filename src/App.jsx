@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Login from "./components/Login";
 import CashClosingPanel from "./components/CashClosingPanel";
 import CartPanel from "./components/sales/CartPanel";
-import ProductSearchForCart from "./components/sales/ProductSearchForCart";
 import { runReadOnlyReconciliation } from "./lib/business/reconciliation";
 import { createSaleTransaction } from "./lib/business/transactionEngine";
 
@@ -6079,8 +6078,8 @@ const isSameSalesListDay = (item, dateKey) => {
                   </div>
                 </div>
                 <div className="hero-banner-text">
-                  <strong>İşinizi Kolaylaştıran Akıllı Yönetim Sistemi</strong>
-                  <p>Kasa • Stok • Satış • Teknik Servis • Raporlama</p>
+                  <strong>Satıştan kasaya, stoktan servise tek panel.</strong>
+                  <p>Gün sonu kontrolü, cari takibi ve hızlı satış akışı bir arada</p>
                 </div>
               </div>
             </div>
@@ -6104,7 +6103,7 @@ const isSameSalesListDay = (item, dateKey) => {
         <nav className="nav-grid premium-sidebar">
           <div className="premium-sidebar-brand">
             <div className="premium-sidebar-logo"><span>CEP</span><b>LOG</b></div>
-            <p>İşini Yönet, Kasanı Kontrol Et.</p>
+            <p>İşini Yönet, Kazan!</p>
           </div>
           <div className="sidebar-contact-links">
             <a href="https://www.ceplog.com" target="_blank" rel="noreferrer">
@@ -6680,23 +6679,11 @@ const isSameSalesListDay = (item, dateKey) => {
                   <button className="choice" type="button" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
                   <button className="choice" type="button" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
                   <button className="choice" type="button" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
-                  <button className="choice" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPANIŞ</button>
-                  <div className={cashWithBankIncoming < 0 ? "kasa-cash-total negative" : "kasa-cash-total"}>
-                    <span>TOPLAM KASADA OLMASI GEREKEN</span>
-                    <b>{money(cashWithBankIncoming)}</b>
-                  </div>
+                  <button className="choice" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPATMA</button>
                 </div>
 
                 <div className="kasa-layout">
                   <div className="card pad kasa-sale-card">
-                    <div className="kasa-panel-head">
-                      <h2>YENİ SATIŞ</h2>
-                      <button type="button" className="sales-calculator-button" onClick={openCalculator}>
-                        <Calculator size={16} />
-                        <span>Hesap</span>
-                      </button>
-                    </div>
-
                     <div className="kasa-category-grid">
                       {mainSaleGroups.map((group) => (
                         <button
@@ -6725,7 +6712,7 @@ const isSameSalesListDay = (item, dateKey) => {
                             });
                           }}
                         >
-                          {group}
+                          {group === "X" ? "Diğer" : group}
                         </button>
                       ))}
                     </div>
@@ -6800,31 +6787,75 @@ const isSameSalesListDay = (item, dateKey) => {
                       </div>
                     )}
 
-                    <button className="primary" type="button" onClick={addCurrentSaleFormToCart}><Plus size={16} /> SEPETE EKLE</button>
+                    {Number(saleTotal || 0) > 0 && (isProgramSale ? saleForm.search.trim() : selectedProduct) ? (
+                      <div className="kasa-sale-ready-card">
+                        <div className="kasa-sale-ready-head">
+                          <span>✓</span>
+                          <div>
+                            <b>Satış bilgileri tamamlandı</b>
+                            <small>Ürün sepete gönderilmeye hazır.</small>
+                          </div>
+                        </div>
+                        <div className="kasa-sale-ready-lines">
+                          <div><span>Ürün</span><b>{isProgramSale ? saleForm.search : productTitle(selectedProduct)}</b></div>
+                          <div><span>Fiyat</span><b>{money(saleTotal)}</b></div>
+                          <div><span>Nakit</span><b>{money(normalizeMoney(saleForm.cash))}</b></div>
+                          <div><span>Kart</span><b>{money(normalizeMoney(saleForm.card))}</b></div>
+                          <div><span>Cari</span><b>{money(saleRemaining)}</b></div>
+                        </div>
+                        <div className="kasa-sale-ready-actions">
+                          <button type="button" className="choice" onClick={openCalculator}>
+                            <Calculator size={15} />
+                            Düzenle
+                          </button>
+                          <button className="primary" type="button" onClick={addCurrentSaleFormToCart}>Satışı Sepete Yolla</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button className="primary" type="button" onClick={addCurrentSaleFormToCart}><Plus size={16} /> Satışı Sepete Yolla</button>
+                    )}
                   </div>
 
                   <main className="kasa-mid">
                     <section className="card pad kasa-quick">
                       <div className="quick-head">
                         <button type="button" className="quick-title-btn">HIZLI SATIŞ</button>
-                        <span>Kısayol: {visibleAccessoryShortcuts.length}</span>
+                        <div className="quick-search">
+                          <input
+                            placeholder="Ürün ara..."
+                            value={cartProductQuery}
+                            onChange={(event) => setCartProductQuery(event.target.value)}
+                          />
+                          <button type="button">ARA</button>
+                        </div>
                       </div>
 
-                      <ProductSearchForCart
-                        query={cartProductQuery}
-                        products={cartSearchResults}
-                        money={money}
-                        productTitle={productTitle}
-                        getLastSixBarcode={getLastSixBarcode}
-                        onQueryChange={setCartProductQuery}
-                        onAddProduct={addProductToCart}
-                      />
+                      {cartProductQuery.trim() && (
+                        <div className="cart-product-results kasa-search-results">
+                          {cartSearchResults.map((product) => (
+                            <button key={product.id} type="button" className="cart-product-result" onClick={() => addProductToCart(product)}>
+                              <strong>{productTitle(product)}</strong>
+                              <small>{getLastSixBarcode(product)}</small>
+                              <b>{money(product.sell || product.price || 0)}</b>
+                            </button>
+                          ))}
+                          {!cartSearchResults.length && <div className="cart-product-empty">Sonuç bulunamadı.</div>}
+                        </div>
+                      )}
+
+                      <div className="quick-sub">
+                        <span>KISAYOLLAR</span>
+                        <b>{visibleAccessoryShortcuts.length} ürün</b>
+                      </div>
 
                       <div className="quick-grid">
                         {visibleAccessoryShortcuts.map((shortcut) => (
                           <button key={shortcut.id} type="button" className="qitem" onClick={() => addShortcutToCart(shortcut)}>
-                            <span>{shortcut.label}</span>
-                            {shortcut.price && <b>{shortcut.price}</b>}
+                            <span className="qicon">▣</span>
+                            <span className="qtext">
+                              <strong>{shortcut.label}</strong>
+                              {shortcut.price && <small>{shortcut.price}</small>}
+                            </span>
                           </button>
                         ))}
                         {!visibleAccessoryShortcuts.length && (
@@ -6834,14 +6865,32 @@ const isSameSalesListDay = (item, dateKey) => {
                     </section>
 
                     <section className="card pad kasa-day">
-                      <h2>GÜN ÖZETİ RAPORU</h2>
+                      <div className="kasa-day-head">
+                        <div>
+                          <h2>Gün Özeti Raporu</h2>
+                          <p>Bugünkü nakit, kart ve cari hareketler</p>
+                        </div>
+                        <span className="kasa-date">{dailyReportDate ? new Date(dailyReportDate).toLocaleDateString("tr-TR", { day: "2-digit", month: "long" }) : "Bugün"}</span>
+                      </div>
                       <div className="kasa-day-grid">
-                        <div><span>Nakit Satış</span><b>{money(phoneIncomeSummary.cash + accessoryIncomeSummary.cash + otherIncomeSummary.cash)}</b></div>
-                        <div><span>Kart / Banka</span><b>{money(phoneIncomeSummary.card + accessoryIncomeSummary.card + otherIncomeSummary.card)}</b></div>
-                        <div><span>Cari Kalan</span><b>{money(report.remaining || 0)}</b></div>
-                        <div><span>Teknik Servis</span><b>{money(technicalIncomeSummary.total)}</b></div>
-                        <div><span>Alım Ödemeleri</span><b>{money(stockPurchasePayments || 0)}</b></div>
-                        <div><span>Kasa Net</span><b>{money(cashWithBankIncoming)}</b></div>
+                        <div className="summary-col">
+                          <h3>Nakit İşlemler</h3>
+                          <div className="srow"><span>Telefon Nakit</span><b>{money(phoneIncomeSummary.cash)}</b></div>
+                          <div className="srow"><span>Aksesuar Nakit</span><b>{money(accessoryIncomeSummary.cash)}</b></div>
+                          <div className="srow"><span>Diğerleri Nakit</span><b>{money(otherIncomeSummary.cash)}</b></div>
+                          <div className="srow"><span>Teknik Nakit</span><b>{money(technicalIncomeSummary.cash)}</b></div>
+                          <div className="srow danger"><span>Giderler</span><b>-{money(cashExpensePayments || 0)}</b></div>
+                          <div className="srow total"><span>Net Nakit</span><b>{money(cashWithBankIncoming)}</b></div>
+                        </div>
+                        <div className="summary-col">
+                          <h3>Kart / Cari İşlemler</h3>
+                          <div className="srow"><span>Telefon Kart</span><b>{money(phoneIncomeSummary.card)}</b></div>
+                          <div className="srow"><span>Aksesuar Kart</span><b>{money(accessoryIncomeSummary.card)}</b></div>
+                          <div className="srow"><span>Diğer Kart</span><b>{money(otherIncomeSummary.card)}</b></div>
+                          <div className="srow"><span>Teknik Kart</span><b>{money(technicalIncomeSummary.card)}</b></div>
+                          <div className="srow total"><span>Kart Toplamı</span><b>{money(phoneIncomeSummary.card + accessoryIncomeSummary.card + otherIncomeSummary.card + technicalIncomeSummary.card)}</b></div>
+                          <div className="srow"><span>Cari Kalan</span><b>{money(report.remaining || 0)}</b></div>
+                        </div>
                       </div>
                     </section>
                   </main>
