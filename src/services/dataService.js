@@ -418,7 +418,25 @@ export async function loadBankBalances(workspaceIdArg) {
 export async function loadDashboardData() {
   const profile = await getCurrentProfile();
   const workspaceId = profile?.workspace_id || await getCurrentWorkspaceId();
-  const [stock, sales, expenses, bank, closings, cash, contacts, auditLogs, businessTransactions, ledgerEntries] = await Promise.all([
+  const [
+    stock,
+    sales,
+    expenses,
+    bank,
+    closings,
+    cash,
+    contacts,
+    auditLogs,
+    businessTransactions,
+    ledgerEntries,
+    saleItems,
+    stockMovements,
+    cariMovements,
+    returns,
+    returnItems,
+    exchanges,
+    posMovements,
+  ] = await Promise.all([
     supabase.from("stock_items").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
     supabase.from("sales").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.neq.deleted").order("created_at", { ascending: false }),
     supabase.from("expenses").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
@@ -429,6 +447,13 @@ export async function loadDashboardData() {
     safeWorkspaceRows("audit_logs", workspaceId, { orderColumn: "changed_at", ascending: false }),
     safeWorkspaceRows("business_transactions", workspaceId),
     safeWorkspaceRows("ledger_entries", workspaceId),
+    safeWorkspaceRows("sale_items", workspaceId),
+    safeWorkspaceRows("stock_movements", workspaceId),
+    safeWorkspaceRows("cari_movements", workspaceId),
+    safeWorkspaceRows("returns", workspaceId),
+    safeWorkspaceRows("return_items", workspaceId),
+    safeWorkspaceRows("exchanges", workspaceId),
+    safeWorkspaceRows("pos_movements", workspaceId),
   ]);
 
   for (const response of [stock, sales, expenses, bank, closings]) {
@@ -459,6 +484,13 @@ export async function loadDashboardData() {
     auditLogs,
     businessTransactions,
     ledgerEntries,
+    saleItems,
+    stockMovements,
+    cariMovements,
+    returns,
+    returnItems,
+    exchanges,
+    posMovements,
   };
 }
 

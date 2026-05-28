@@ -28,6 +28,18 @@ function isCancelled(record: any): boolean {
   return Boolean(record?.is_deleted || record?.is_cancelled || record?.deleted_at || record?.cancelled_at || ["cancelled", "canceled", "iptal", "deleted", "silindi"].includes(status));
 }
 
+function sameId(a: unknown, b: unknown): boolean {
+  return String(a || "") !== "" && String(a || "") === String(b || "");
+}
+
+function rowAmount(row: any): number {
+  return Math.abs(toMoney(row?.amount ?? row?.total ?? row?.total_amount ?? 0));
+}
+
+function movementDirection(row: any): string {
+  return String(row?.direction || row?.movement_direction || "").trim().toUpperCase();
+}
+
 export function checkWorkspaceIds(tables: Record<string, any[]>): ReconciliationFinding[] {
   return Object.entries(tables).flatMap(([tableName, rows]) =>
     (rows || [])
@@ -43,6 +55,149 @@ export function checkWorkspaceIds(tables: Record<string, any[]>): Reconciliation
         }),
       ),
   );
+}
+
+export function checkMovementIntegrity(data: {
+  cashMovements?: any[];
+  bankMovements?: any[];
+  posMovements?: any[];
+  cariMovements?: any[];
+  stockMovements?: any[];
+}): ReconciliationFinding[] {
+  const findings: ReconciliationFinding[] = [];
+  const movementGroups: Array<[ReconciliationModule, string, any[], string[]]> = [
+    ["CASH", "cash_movements", data.cashMovements || [], ["IN", "OUT", "in", "out", "Giriş", "Çıkış", "giris", "cikis"]],
+    ["BANK", "bank_movements", data.bankMovements || [], ["IN", "OUT", "in", "out"]],
+    ["BANK", "pos_movements", data.posMovements || [], ["IN", "OUT"]],
+    ["CARI", "cari_movements", data.cariMovements || [], ["DEBIT", "CREDIT"]],
+  ];
+
+  movementGroups.forEach(([module, tableName, rows, allowedDirections]) => {
+    rows.forEach((row) => {
+      if (isCancelled(row)) return;
+      const amount = rowAmount(row);
+      const direction = movementDirection(row);
+      if (compareMoney(amount, 0) < 0) {
+        findings.push(finding({ severity: "ERROR", module, entityType: tableName, entityId: row.id || null, message: "Hareket tutari negatif olamaz.", actualValue: amount, suggestedFix: "Kaynak transaction/RPC kontrol edilmeli." }));
+      }
+      if (amount === 0) {
+        findings.push(finding({ severity: "WARNING", module, entityType: tableName, entityId: row.id || null, message: "Hareket tutari 0 gorunuyor.", actualValue: amount, suggestedFix: "Kayit islem turu ve tutar alani kontrol edilmeli." }));
+      }
+      if (direction && !allowedDirections.map((item) => item.toUpperCase()).includes(direction)) {
+        findings.push(finding({ severity: "WARNING", module, entityType: tableName, entityId: row.id || null, message: "Hareket yonu beklenen degerlerden farkli.", expectedValue: allowedDirections.join(", "), actualValue: direction, suggestedFix: "Direction normalize edilmeli." }));
+      }
+    });
+  });
+
+  (data.stockMovements || []).forEach((row) => {
+    if (isCancelled(row)) return;
+    if (!row.product_id && !row.stock_id && !row.related_stock_id) {
+      findings.push(finding({ severity: "ERROR", module: "STOCK", entityType: "stock_movements", entityId: row.id || null, message: "Stok hareketinde urun/stok baglantisi eksik.", suggestedFix: "Stok hareketi sadece transaction engine uzerinden olusmali." }));
+    }
+    if (toMoney(row.quantity_delta ?? row.quantity ?? 0) === 0) {
+      findings.push(finding({ severity: "ERROR", module: "STOCK", entityType: "stock_movements", entityId: row.id || null, message: "Stok hareket miktari 0 olamaz.", suggestedFix: "Kaynak stok transaction kontrol edilmeli." }));
+    }
+  });
+
+  return findings;
+}
+
+export function checkStockMovementConsistency(data: { stockItems?: any[]; stockMovements?: any[] }): ReconciliationFinding[] {
+  const movements = data.stockMovements || [];
+  if (!movements.length) return [];
+
+  return (data.stockItems || []).flatMap((stock) => {
+    if (isCancelled(stock)) return [];
+    const stockId = stock.id;
+    const movementQty = sumMoney(movements
+      .filter((movement) => sameId(movement.product_id, stockId) || sameId(movement.stock_id, stockId) || sameId(movement.related_stock_id, stockId))
+      .map((movement) => movement.quantity_delta ?? movement.quantity ?? 0));
+    const cardQty = toMoney(stock.quantity ?? stock.qty ?? (stock.module === "Cihaz" ? 1 : 0));
+    if (compareMoney(movementQty, cardQty) !== 0) {
+      return [
+        finding({
+          severity: "WARNING",
+          module: "STOCK",
+          entityType: "stock_items",
+          entityId: stockId || null,
+          message: "Stok karti miktari ile stock_movements toplami farkli.",
+          expectedValue: movementQty,
+          actualValue: cardQty,
+          suggestedFix: "Otomatik duzeltme yok; stok transaction gecmisi incelenmeli.",
+        }),
+      ];
+    }
+    return [];
+  });
+}
+
+export function checkCariMovementConsistency(data: { contacts?: any[]; cariMovements?: any[] }): ReconciliationFinding[] {
+  const movements = data.cariMovements || [];
+  if (!movements.length) return [];
+
+  return (data.contacts || []).flatMap((contact) => {
+    if (isCancelled(contact)) return [];
+    const contactId = contact.id;
+    const movementBalance = movements
+      .filter((movement) => sameId(movement.contact_id, contactId))
+      .reduce((sum, movement) => {
+        const amount = rowAmount(movement);
+        return movementDirection(movement) === "CREDIT" ? sum - amount : sum + amount;
+      }, 0);
+    const storedBalance = toMoney(contact.balance || 0);
+    if (compareMoney(movementBalance, storedBalance) !== 0) {
+      return [
+        finding({
+          severity: "WARNING",
+          module: "CARI",
+          entityType: "contacts",
+          entityId: contactId || null,
+          message: "Cari kart bakiyesi ile cari_movements toplamı farkli.",
+          expectedValue: movementBalance,
+          actualValue: storedBalance,
+          suggestedFix: "Cari bakiye hareketlerden turetilmeli; otomatik update yapilmaz.",
+        }),
+      ];
+    }
+    return [];
+  });
+}
+
+export function checkReturnExchangeConsistency(data: {
+  returns?: any[];
+  returnItems?: any[];
+  exchanges?: any[];
+  sales?: any[];
+}): ReconciliationFinding[] {
+  const findings: ReconciliationFinding[] = [];
+  const returnItems = data.returnItems || [];
+  const sales = data.sales || [];
+
+  (data.returns || []).forEach((returnRow) => {
+    const returnId = returnRow.id;
+    if (!returnRow.sale_id) {
+      findings.push(finding({ severity: "ERROR", module: "RETURN", entityType: "returns", entityId: returnId || null, message: "Iade kaydinda sale_id eksik.", suggestedFix: "Iade sadece satis baglantisiyla olusturulmali." }));
+    } else if (sales.length && !sales.some((sale) => sameId(sale.id, returnRow.sale_id))) {
+      findings.push(finding({ severity: "WARNING", module: "RETURN", entityType: "returns", entityId: returnId || null, message: "Iade kaydinin bagli satisi listede bulunamadi.", actualValue: returnRow.sale_id, suggestedFix: "Workspace veya silinmis satis durumu kontrol edilmeli." }));
+    }
+    if (!String(returnRow.reason || "").trim()) {
+      findings.push(finding({ severity: "WARNING", module: "RETURN", entityType: "returns", entityId: returnId || null, message: "Iade nedeni bos.", suggestedFix: "Iade nedeni zorunlu olmali." }));
+    }
+    if (returnItems.length && !returnItems.some((item) => sameId(item.return_id, returnId))) {
+      findings.push(finding({ severity: "ERROR", module: "RETURN", entityType: "returns", entityId: returnId || null, message: "Iade kaydi var ama return_items yok.", suggestedFix: "Urun bazli iade satirlari kontrol edilmeli." }));
+    }
+  });
+
+  (data.exchanges || []).forEach((exchange) => {
+    if (!exchange.old_sale_id || !exchange.new_sale_id) {
+      findings.push(finding({ severity: "WARNING", module: "EXCHANGE", entityType: "exchanges", entityId: exchange.id || null, message: "Degisim kaydinda eski/yeni satis baglantisi eksik.", suggestedFix: "Degisim eski iade + yeni satis + fiyat farki olarak olusmali." }));
+    }
+    if (!String(exchange.reason || "").trim()) {
+      findings.push(finding({ severity: "WARNING", module: "EXCHANGE", entityType: "exchanges", entityId: exchange.id || null, message: "Degisim nedeni bos.", suggestedFix: "Degisim nedeni zorunlu olmali." }));
+    }
+  });
+
+  return findings;
 }
 
 export function checkSalesConsistency(data: {
@@ -124,6 +279,13 @@ export function checkLedgerBalance(businessTransactions: any[] = [], ledgerEntri
 export function runReadOnlyReconciliation(data: Record<string, any[]>): ReconciliationFinding[] {
   return [
     ...checkWorkspaceIds(data),
+    ...checkMovementIntegrity({
+      cashMovements: data.cash_movements,
+      bankMovements: data.bank_movements,
+      posMovements: data.pos_movements,
+      cariMovements: data.cari_movements,
+      stockMovements: data.stock_movements,
+    }),
     ...checkSalesConsistency({
       sales: data.sales,
       saleItems: data.sale_items,
@@ -131,6 +293,14 @@ export function runReadOnlyReconciliation(data: Record<string, any[]>): Reconcil
       bankMovements: data.bank_movements,
       cariMovements: data.cari_movements,
       auditLogs: data.audit_logs,
+    }),
+    ...checkStockMovementConsistency({ stockItems: data.stock_items, stockMovements: data.stock_movements }),
+    ...checkCariMovementConsistency({ contacts: data.contacts, cariMovements: data.cari_movements }),
+    ...checkReturnExchangeConsistency({
+      returns: data.returns,
+      returnItems: data.return_items,
+      exchanges: data.exchanges,
+      sales: data.sales,
     }),
     ...checkLedgerBalance(data.business_transactions, data.ledger_entries),
   ];

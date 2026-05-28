@@ -1290,6 +1290,13 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState([]);
   const [businessTransactions, setBusinessTransactions] = useState([]);
   const [ledgerEntries, setLedgerEntries] = useState([]);
+  const [saleItems, setSaleItems] = useState([]);
+  const [stockMovements, setStockMovements] = useState([]);
+  const [cariMovements, setCariMovements] = useState([]);
+  const [returnsData, setReturnsData] = useState([]);
+  const [returnItems, setReturnItems] = useState([]);
+  const [exchanges, setExchanges] = useState([]);
+  const [posMovements, setPosMovements] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [kasaTab, setKasaTab] = useState("yeniSatis");
   const [dailyReportDate, setDailyReportDate] = useState(() => localDateKey(new Date()));
@@ -2732,6 +2739,13 @@ const isSameSalesListDay = (item, dateKey) => {
   const safeAuditLogs = Array.isArray(auditLogs) ? auditLogs : [];
   const safeBusinessTransactions = Array.isArray(businessTransactions) ? businessTransactions : [];
   const safeLedgerEntries = Array.isArray(ledgerEntries) ? ledgerEntries : [];
+  const safeSaleItems = Array.isArray(saleItems) ? saleItems : [];
+  const safeStockMovements = Array.isArray(stockMovements) ? stockMovements : [];
+  const safeCariMovements = Array.isArray(cariMovements) ? cariMovements : [];
+  const safeReturns = Array.isArray(returnsData) ? returnsData : [];
+  const safeReturnItems = Array.isArray(returnItems) ? returnItems : [];
+  const safeExchanges = Array.isArray(exchanges) ? exchanges : [];
+  const safePosMovements = Array.isArray(posMovements) ? posMovements : [];
   const safeContacts = Array.isArray(contacts) ? contacts : [];
   const activeStock = safeStock.filter(isActiveRecord);
   const activeSales = safeSales.filter(isActiveRecord);
@@ -3109,6 +3123,13 @@ const isSameSalesListDay = (item, dateKey) => {
     setAuditLogs(data.auditLogs || []);
     setBusinessTransactions(data.businessTransactions || []);
     setLedgerEntries(data.ledgerEntries || []);
+    setSaleItems(data.saleItems || []);
+    setStockMovements(data.stockMovements || []);
+    setCariMovements(data.cariMovements || []);
+    setReturnsData(data.returns || []);
+    setReturnItems(data.returnItems || []);
+    setExchanges(data.exchanges || []);
+    setPosMovements(data.posMovements || []);
     setActiveWorkspaceId(data.workspaceId || data.profile?.workspace_id || "");
     setDbReady(true);
     setSyncMessage(repairMessage || "Veriler Supabase ile senkronize.");
@@ -3500,6 +3521,13 @@ const isSameSalesListDay = (item, dateKey) => {
       audit_logs: safeAuditLogs,
       business_transactions: safeBusinessTransactions,
       ledger_entries: safeLedgerEntries,
+      sale_items: safeSaleItems,
+      stock_movements: safeStockMovements,
+      cari_movements: safeCariMovements,
+      returns: safeReturns,
+      return_items: safeReturnItems,
+      exchanges: safeExchanges,
+      pos_movements: safePosMovements,
     });
 
     const hasBusinessData = Boolean(
