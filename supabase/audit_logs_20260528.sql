@@ -24,9 +24,13 @@ alter table public.audit_logs
   add column if not exists request_key text;
 
 alter table public.audit_logs drop constraint if exists audit_logs_action_check;
+update public.audit_logs
+set action = upper(action)
+where action is not null;
+
 alter table public.audit_logs
   add constraint audit_logs_action_check
-  check (action in ('INSERT', 'UPDATE', 'DELETE', 'SOFT_DELETE', 'CANCEL'));
+  check (upper(action) in ('INSERT', 'UPDATE', 'DELETE', 'SOFT_DELETE', 'CANCEL'));
 
 create index if not exists audit_logs_workspace_changed_idx
 on public.audit_logs(workspace_id, changed_at desc);
