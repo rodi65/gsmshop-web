@@ -167,6 +167,29 @@ async function safeWorkspaceRows(tableName, workspaceId, { orderColumn = "create
   }
 }
 
+async function safeWorkspaceTable(tableName, workspaceId, options = {}) {
+  const { orderColumn = "created_at", ascending = false, limit = 500 } = options;
+  try {
+    let query = supabase.from(tableName).select("*").eq("workspace_id", workspaceId);
+    if (orderColumn) query = query.order(orderColumn, { ascending });
+    if (limit) query = query.limit(limit);
+    const { data, error } = await query;
+    if (error) {
+      if (isMissingSchemaError(error)) {
+        console.warn(`${tableName} tablosu/kolonu hazır değil; Sistem Kontrol bu kaynağı boş kabul edecek.`, error);
+        return { table: tableName, ready: false, rows: [], message: error.message || "Tablo veya kolon bulunamadı." };
+      }
+      throw error;
+    }
+    return { table: tableName, ready: true, rows: data || [], message: "" };
+  } catch (error) {
+    if (isMissingSchemaError(error)) {
+      return { table: tableName, ready: false, rows: [], message: error.message || "Tablo veya kolon bulunamadı." };
+    }
+    throw error;
+  }
+}
+
 function isMissingRpcError(error) {
   const message = String(error?.message || "").toLowerCase();
   return (
@@ -426,16 +449,16 @@ export async function loadDashboardData() {
     closings,
     cash,
     contacts,
-    auditLogs,
-    businessTransactions,
-    ledgerEntries,
-    saleItems,
-    stockMovements,
-    cariMovements,
-    returns,
-    returnItems,
-    exchanges,
-    posMovements,
+    auditLogsTable,
+    businessTransactionsTable,
+    ledgerEntriesTable,
+    saleItemsTable,
+    stockMovementsTable,
+    cariMovementsTable,
+    returnsTable,
+    returnItemsTable,
+    exchangesTable,
+    posMovementsTable,
   ] = await Promise.all([
     supabase.from("stock_items").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
     supabase.from("sales").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.neq.deleted").order("created_at", { ascending: false }),
@@ -444,16 +467,16 @@ export async function loadDashboardData() {
     supabase.from("cash_closings").select("*").eq("workspace_id", workspaceId).order("closing_date", { ascending: false }),
     supabase.from("cash_movements").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
     supabase.from("contacts").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
-    safeWorkspaceRows("audit_logs", workspaceId, { orderColumn: "changed_at", ascending: false }),
-    safeWorkspaceRows("business_transactions", workspaceId),
-    safeWorkspaceRows("ledger_entries", workspaceId),
-    safeWorkspaceRows("sale_items", workspaceId),
-    safeWorkspaceRows("stock_movements", workspaceId),
-    safeWorkspaceRows("cari_movements", workspaceId),
-    safeWorkspaceRows("returns", workspaceId),
-    safeWorkspaceRows("return_items", workspaceId),
-    safeWorkspaceRows("exchanges", workspaceId),
-    safeWorkspaceRows("pos_movements", workspaceId),
+    safeWorkspaceTable("audit_logs", workspaceId, { orderColumn: "changed_at", ascending: false }),
+    safeWorkspaceTable("business_transactions", workspaceId),
+    safeWorkspaceTable("ledger_entries", workspaceId),
+    safeWorkspaceTable("sale_items", workspaceId),
+    safeWorkspaceTable("stock_movements", workspaceId),
+    safeWorkspaceTable("cari_movements", workspaceId),
+    safeWorkspaceTable("returns", workspaceId),
+    safeWorkspaceTable("return_items", workspaceId),
+    safeWorkspaceTable("exchanges", workspaceId),
+    safeWorkspaceTable("pos_movements", workspaceId),
   ]);
 
   for (const response of [stock, sales, expenses, bank, closings]) {
@@ -481,16 +504,28 @@ export async function loadDashboardData() {
     cashClosings: closings.data || [],
     cashMovements: cash.error ? [] : cash.data || [],
     contacts: contacts.error ? [] : contacts.data || [],
-    auditLogs,
-    businessTransactions,
-    ledgerEntries,
-    saleItems,
-    stockMovements,
-    cariMovements,
-    returns,
-    returnItems,
-    exchanges,
-    posMovements,
+    auditLogs: auditLogsTable.rows,
+    businessTransactions: businessTransactionsTable.rows,
+    ledgerEntries: ledgerEntriesTable.rows,
+    saleItems: saleItemsTable.rows,
+    stockMovements: stockMovementsTable.rows,
+    cariMovements: cariMovementsTable.rows,
+    returns: returnsTable.rows,
+    returnItems: returnItemsTable.rows,
+    exchanges: exchangesTable.rows,
+    posMovements: posMovementsTable.rows,
+    schemaStatus: [
+      auditLogsTable,
+      businessTransactionsTable,
+      ledgerEntriesTable,
+      saleItemsTable,
+      stockMovementsTable,
+      cariMovementsTable,
+      returnsTable,
+      returnItemsTable,
+      exchangesTable,
+      posMovementsTable,
+    ].map(({ table, ready, message, rows }) => ({ table, ready, message, rowCount: rows.length })),
   };
 }
 

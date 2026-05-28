@@ -1297,6 +1297,7 @@ export default function App() {
   const [returnItems, setReturnItems] = useState([]);
   const [exchanges, setExchanges] = useState([]);
   const [posMovements, setPosMovements] = useState([]);
+  const [schemaStatus, setSchemaStatus] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [kasaTab, setKasaTab] = useState("yeniSatis");
   const [dailyReportDate, setDailyReportDate] = useState(() => localDateKey(new Date()));
@@ -2746,6 +2747,7 @@ const isSameSalesListDay = (item, dateKey) => {
   const safeReturnItems = Array.isArray(returnItems) ? returnItems : [];
   const safeExchanges = Array.isArray(exchanges) ? exchanges : [];
   const safePosMovements = Array.isArray(posMovements) ? posMovements : [];
+  const safeSchemaStatus = Array.isArray(schemaStatus) ? schemaStatus : [];
   const safeContacts = Array.isArray(contacts) ? contacts : [];
   const activeStock = safeStock.filter(isActiveRecord);
   const activeSales = safeSales.filter(isActiveRecord);
@@ -3130,6 +3132,7 @@ const isSameSalesListDay = (item, dateKey) => {
     setReturnItems(data.returnItems || []);
     setExchanges(data.exchanges || []);
     setPosMovements(data.posMovements || []);
+    setSchemaStatus(data.schemaStatus || []);
     setActiveWorkspaceId(data.workspaceId || data.profile?.workspace_id || "");
     setDbReady(true);
     setSyncMessage(repairMessage || "Veriler Supabase ile senkronize.");
@@ -3509,6 +3512,12 @@ const isSameSalesListDay = (item, dateKey) => {
     else summary.info += 1;
     return summary;
   }, { total: 0, errors: 0, warnings: 0, info: 0 });
+  const systemSchemaSummary = safeSchemaStatus.reduce((summary, item) => {
+    summary.total += 1;
+    if (item.ready) summary.ready += 1;
+    else summary.missing += 1;
+    return summary;
+  }, { total: 0, ready: 0, missing: 0 });
 
   function runSystemControlCheck() {
     const findings = runReadOnlyReconciliation({
@@ -6187,7 +6196,17 @@ const isSameSalesListDay = (item, dateKey) => {
                   <div><span>Son kontrol</span><b>{systemCheckLastRun || "-"}</b></div>
                   <div><span>Mod</span><b>Read-only</b></div>
                   <div><span>Veri düzeltme</span><b>Yok</b></div>
+                  <div><span>Altyapı tabloları</span><b>{systemSchemaSummary.ready}/{systemSchemaSummary.total || 0} hazır</b></div>
                 </div>
+                <Table
+                  headers={["Altyapı Tablosu", "Durum", "Kayıt", "Not"]}
+                  rows={safeSchemaStatus.map((item) => [
+                    item.table || "-",
+                    item.ready ? "Hazır" : "Eksik",
+                    item.ready ? String(item.rowCount || 0) : "-",
+                    item.ready ? "Okunuyor" : "Migration bekliyor",
+                  ])}
+                />
                 <button className="primary backup-btn" type="button" onClick={runSystemControlCheck}>
                   <ShieldCheck size={18} /> Kontrol Et
                 </button>
