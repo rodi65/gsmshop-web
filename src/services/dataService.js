@@ -247,6 +247,113 @@ export async function createAuditLog({
   }
 }
 
+function criticalOperationKey(operationType, targetTable, targetId) {
+  return [operationType, targetTable, targetId]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(":");
+}
+
+function idempotencyUnavailable(error) {
+  return isMissingRpcError(error) || isMissingRelationError(error);
+}
+
+export async function tryBeginIdempotency({
+  operationType,
+  targetTable = "",
+  targetId = "",
+  payload = {},
+  operationKey = "",
+  workspaceId: workspaceIdArg = "",
+} = {}) {
+  const workspaceId = workspaceIdArg || await getCurrentWorkspaceId();
+  const key = operationKey || criticalOperationKey(operationType, targetTable, targetId);
+
+  if (!key) {
+    return { allowed: true, operationKey: "", workspaceId, missing: true };
+  }
+
+  const requestPayload = (() => {
+    try {
+      return JSON.parse(JSON.stringify(payload || {}));
+    } catch {
+      return {};
+    }
+  })();
+
+  try {
+    const { data, error } = await supabase.rpc("try_begin_idempotency_key", {
+      p_workspace_id: workspaceId,
+      p_operation_key: key,
+      p_operation_type: operationType || "unknown",
+      p_target_table: targetTable || null,
+      p_target_id: targetId ? String(targetId) : null,
+      p_request_payload: requestPayload,
+    });
+
+    if (error) {
+      if (idempotencyUnavailable(error)) {
+        console.warn("Idempotency RPC kurulmamış; işlem mevcut kontrollerle devam etti.", error);
+        return { allowed: true, operationKey: key, workspaceId, missing: true };
+      }
+      throw error;
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+    return {
+      allowed: row?.allowed !== false,
+      operationKey: key,
+      workspaceId,
+      status: row?.existing_status || "",
+      result: row?.existing_result || null,
+      keyId: row?.key_id || "",
+      missing: false,
+    };
+  } catch (error) {
+    if (idempotencyUnavailable(error)) {
+      console.warn("Idempotency kontrolü yapılamadı; işlem mevcut kontrollerle devam etti.", error);
+      return { allowed: true, operationKey: key, workspaceId, missing: true };
+    }
+    throw error;
+  }
+}
+
+export async function completeIdempotency({
+  operationKey,
+  status = "completed",
+  result = {},
+  workspaceId: workspaceIdArg = "",
+} = {}) {
+  if (!operationKey) return null;
+
+  const workspaceId = workspaceIdArg || await getCurrentWorkspaceId();
+  const resultPayload = (() => {
+    try {
+      return JSON.parse(JSON.stringify(result || {}));
+    } catch {
+      return {};
+    }
+  })();
+
+  const { data, error } = await supabase.rpc("complete_idempotency_key", {
+    p_workspace_id: workspaceId,
+    p_operation_key: operationKey,
+    p_status: status,
+    p_result_payload: resultPayload,
+  });
+
+  if (error) {
+    if (idempotencyUnavailable(error)) {
+      console.warn("Idempotency tamamlanamadı; SQL migration henüz çalışmamış olabilir.", error);
+      return null;
+    }
+    console.warn("Idempotency durumu güncellenemedi.", error);
+    return null;
+  }
+
+  return data;
+}
+
 function sellerContactName(value) {
   const clean = String(value || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("tr-TR");
   if (!clean) return "";
@@ -994,33 +1101,67 @@ export async function softDelete(tableName, id) {
 
   if (recordBeforeError) console.warn("Silme audit eski kayıt okunamadı.", recordBeforeError);
 
-  const { data, error } = await supabase
-    .from(tableName)
-    .update({
-      status: "deleted",
-      updated_by: user?.id,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("workspace_id", workspaceId)
-    .select()
-    .single();
-
-  if (error) throw error;
-
-  await createAuditLog({
-    tableName,
-    recordId: id,
-    action: "SOFT_DELETE",
-    eventType: `${tableName}_soft_delete`,
-    reason: "Kayıt silindi olarak işaretlendi",
-    oldData: recordBeforeDelete || null,
-    newData: data || null,
-    metadata: { tableName },
+  const idempotency = await tryBeginIdempotency({
+    operationType: "soft_delete",
+    targetTable: tableName,
+    targetId: id,
+    operationKey: criticalOperationKey("soft_delete", tableName, id),
+    payload: { tableName, id },
     workspaceId,
   });
 
-  return data;
+  if (!idempotency.allowed) {
+    throw new Error("Bu silme işlemi daha önce işlenmiş. İkinci kez çalıştırılamaz.");
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from(tableName)
+      .update({
+        status: "deleted",
+        updated_by: user?.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("workspace_id", workspaceId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await createAuditLog({
+      tableName,
+      recordId: id,
+      action: "SOFT_DELETE",
+      eventType: `${tableName}_soft_delete`,
+      reason: "Kayıt silindi olarak işaretlendi",
+      oldData: recordBeforeDelete || null,
+      newData: data || null,
+      metadata: { tableName, idempotencyKey: idempotency.operationKey },
+      requestKey: idempotency.operationKey,
+      workspaceId,
+    });
+
+    if (!idempotency.missing) {
+      await completeIdempotency({
+        operationKey: idempotency.operationKey,
+        result: { tableName, id, status: data?.status || "deleted" },
+        workspaceId,
+      });
+    }
+
+    return data;
+  } catch (error) {
+    if (!idempotency.missing) {
+      await completeIdempotency({
+        operationKey: idempotency.operationKey,
+        status: "failed",
+        result: { tableName, id, message: error?.message || String(error) },
+        workspaceId,
+      });
+    }
+    throw error;
+  }
 }
 
 export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi") {
@@ -1059,6 +1200,20 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
 
     const beforeQty = Number(stockBefore.quantity || 0);
 
+    const idempotency = await tryBeginIdempotency({
+      operationType: "cancel",
+      targetTable: "sales",
+      targetId: id,
+      operationKey: criticalOperationKey("cancel", "sales", id),
+      payload: { saleId: id, reason, stockItemId },
+      workspaceId,
+    });
+
+    if (!idempotency.allowed) {
+      throw new Error("Bu iptal işlemi daha önce işlenmiş. İkinci kez çalıştırılamaz.");
+    }
+
+    try {
     const result = await callFinancialRpc("cancel_sale_with_effects", {
       p_sale_id: id,
       p_workspace_id: workspaceId,
@@ -1190,11 +1345,37 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
         stockAfter,
         rpcResult: result || null,
         receivableNames,
+        idempotencyKey: idempotency.operationKey,
       },
+      requestKey: idempotency.operationKey,
       workspaceId,
     });
 
+    if (!idempotency.missing) {
+      await completeIdempotency({
+        operationKey: idempotency.operationKey,
+        result: {
+          tableName: "sales",
+          id,
+          status: saleAfterAudit?.status || saleAfterCancel?.status || "cancelled",
+          rpcResult: result || null,
+        },
+        workspaceId,
+      });
+    }
+
     return result;
+    } catch (error) {
+      if (!idempotency.missing) {
+        await completeIdempotency({
+          operationKey: idempotency.operationKey,
+          status: "failed",
+          result: { tableName: "sales", id, message: error?.message || String(error) },
+          workspaceId,
+        });
+      }
+      throw error;
+    }
   }
 
   const { data: recordBeforeCancel, error: recordBeforeError } = await supabase
@@ -1206,33 +1387,67 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
 
   if (recordBeforeError) console.warn("İptal audit eski kayıt okunamadı.", recordBeforeError);
 
-  const { data, error } = await supabase
-    .from(tableName)
-    .update({
-      status: "cancelled",
-      updated_by: user?.id,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("workspace_id", workspaceId)
-    .select()
-    .single();
-
-  if (error) throw error;
-
-  await createAuditLog({
-    tableName,
-    recordId: id,
-    action: "CANCEL",
-    eventType: `${tableName}_cancel`,
-    reason,
-    oldData: recordBeforeCancel || null,
-    newData: data || null,
-    metadata: { tableName },
+  const idempotency = await tryBeginIdempotency({
+    operationType: "cancel",
+    targetTable: tableName,
+    targetId: id,
+    operationKey: criticalOperationKey("cancel", tableName, id),
+    payload: { tableName, id, reason },
     workspaceId,
   });
 
-  return data;
+  if (!idempotency.allowed) {
+    throw new Error("Bu iptal işlemi daha önce işlenmiş. İkinci kez çalıştırılamaz.");
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from(tableName)
+      .update({
+        status: "cancelled",
+        updated_by: user?.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("workspace_id", workspaceId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await createAuditLog({
+      tableName,
+      recordId: id,
+      action: "CANCEL",
+      eventType: `${tableName}_cancel`,
+      reason,
+      oldData: recordBeforeCancel || null,
+      newData: data || null,
+      metadata: { tableName, idempotencyKey: idempotency.operationKey },
+      requestKey: idempotency.operationKey,
+      workspaceId,
+    });
+
+    if (!idempotency.missing) {
+      await completeIdempotency({
+        operationKey: idempotency.operationKey,
+        result: { tableName, id, status: data?.status || "cancelled" },
+        workspaceId,
+      });
+    }
+
+    return data;
+  } catch (error) {
+    if (!idempotency.missing) {
+      await completeIdempotency({
+        operationKey: idempotency.operationKey,
+        status: "failed",
+        result: { tableName, id, message: error?.message || String(error) },
+        workspaceId,
+      });
+    }
+    throw error;
+  }
 }
 
 export async function createDailyBackup() {
