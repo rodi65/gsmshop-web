@@ -33,11 +33,12 @@ import {
   createReceivablePayment,
   repairStockSideEffects,
   softDelete,
-  cancelRecord,
-  cancelStockPurchase,
-  updateSaleRecord,
-  updateStockItem,
-} from "./services/dataService";
+	  cancelRecord,
+	  cancelStockPurchase,
+	  refundSaleWithEffects,
+	  updateSaleRecord,
+	  updateStockItem,
+	} from "./services/dataService";
 
 import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText, Settings, Calculator, Printer, Globe, MessageCircle, Camera, Trash2 } from "lucide-react";
 
@@ -852,7 +853,7 @@ const fromDbContact = (item) => ({
 
 const isActiveRecord = (item) => {
   const status = String(item?.status || "active").toLocaleLowerCase("tr-TR");
-  return !["deleted", "cancelled", "canceled", "iptal", "silindi"].includes(status) &&
+  return !["deleted", "cancelled", "canceled", "iptal", "iade", "refunded", "refund", "silindi"].includes(status) &&
     !item?.is_cancelled &&
     !item?.is_deleted &&
     !item?.deleted_at &&
@@ -1476,12 +1477,19 @@ Bu kayıt ikinci kez iptal edilemez.`);
     return true;
   };
 
-const isSaleCancelAction = (modal) => {
-    const action = String(modal?.action || "").toLocaleLowerCase("tr-TR");
-    const rowType = String(modal?.row?.type || "").toLocaleLowerCase("tr-TR");
+	  const isSaleCancelAction = (modal) => {
+	    const action = String(modal?.action || "").toLocaleLowerCase("tr-TR");
+	    const rowType = String(modal?.row?.type || "").toLocaleLowerCase("tr-TR");
 
-    return action === "satış iptal" && rowType.includes("satış");
-  };
+	    return action === "satış iptal" && rowType.includes("satış");
+	  };
+
+	  const isSaleRefundAction = (modal) => {
+	    const action = String(modal?.action || "").toLocaleLowerCase("tr-TR");
+	    const rowType = String(modal?.row?.type || "").toLocaleLowerCase("tr-TR");
+
+	    return action === "satış iade" && rowType.includes("satış");
+	  };
 
   const isPurchaseCancelAction = (modal) => {
     const action = String(modal?.action || "").toLocaleLowerCase("tr-TR");
@@ -1952,7 +1960,7 @@ const isSaleCancelAction = (modal) => {
     return restored;
   };
 
-  const handleSaleCancel = async ({ reason, password }) => {
+	  const handleSaleCancel = async ({ reason, password }) => {
     const row = kasaBrainModal?.row || {};
     const targetSale = findSaleForKasaBrainRow(row);
 
@@ -2256,10 +2264,103 @@ const isSaleCancelAction = (modal) => {
     setKasaBrainReason("");
     setKasaBrainPassword("");
     setKasaBrainModal(null);
-    return true;
-  };
+	    return true;
+	  };
 
-  const handlePurchaseCancel = async ({ reason, password }) => {
+	  const handleSaleRefund = async ({ reason, password }) => {
+	    const row = kasaBrainModal?.row || {};
+	    const targetSale = findSaleForKasaBrainRow(row);
+
+	    if (!targetSale?.id) {
+	      window.alert(
+	        "Kasa Beyni: Bu iade satırı gerçek satış kaydıyla eşleşmedi.\n\n" +
+	        "İşlem durduruldu. Kasa, banka, stok ve cari değiştirilmedi.\n" +
+	        "Raporu yenileyip tekrar deneyin."
+	      );
+	      await refreshFromDatabase();
+	      return true;
+	    }
+
+	    const saleStatus = String(targetSale?.status || "").toLocaleLowerCase("tr-TR");
+	    if (["deleted", "cancelled", "canceled", "iptal", "iade", "refunded", "refund"].includes(saleStatus)) {
+	      window.alert("Kasa Beyni: Bu satış daha önce iptal/iade edilmiş. İkinci kez iade edilemez.");
+	      return true;
+	    }
+
+	    const alreadyRefunded = [...(cashMovements || []), ...(bankMovements || [])].some((movement) => {
+	      const movementType = String(movement.movement_type || movement.movementType || movement.type || "").toLocaleLowerCase("tr-TR");
+	      const relatedId = String(movement.relatedId || movement.related_id || movement.referenceId || movement.reference_id || "");
+	      const relatedSaleId = String(movement.related_sale_id || movement.relatedSaleId || "");
+	      return movementType.includes("satış iade") && (relatedId === String(targetSale.id) || relatedSaleId === String(targetSale.id));
+	    });
+
+	    if (alreadyRefunded) {
+	      window.alert("Kasa Beyni: Bu satış için iade hareketi daha önce oluşturulmuş. İkinci kez iade edilemez.");
+	      return true;
+	    }
+
+	    const actionKey = `sale-refund:${targetSale.id}`;
+	    if (!beginPendingAction(actionKey)) return true;
+
+	    try {
+	      setKasaBrainProcessing(true);
+	      setSyncMessage("Kasa Beyni: Satış iadesi işleniyor...");
+	      const result = await withKasaBrainTimeout(
+	        refundSaleWithEffects(targetSale.id, reason || "Kasa Beyni satış iadesi"),
+	        "Satış iadesi zaman aşımına uğradı. Lütfen sayfayı yenileyip Günlük Kasa Raporu’nu kontrol edin."
+	      );
+	      await refreshFromDatabase();
+
+	      const logRecord = {
+	        id: `kasa-brain-sale-refund-${Date.now()}`,
+	        createdAt: new Date().toISOString(),
+	        action: kasaBrainModal.action || "Satış İade",
+	        recordNo: row.no || null,
+	        saleId: targetSale.id,
+	        type: row.type || "Satış",
+	        description: row.description || targetSale.productName || targetSale.product_name || "",
+	        party: row.party || targetSale.customer || targetSale.customer_name || "",
+	        cash: Number(row.cash || targetSale.cash || targetSale.cash_amount || 0),
+	        bank: Number(row.bank || targetSale.card || targetSale.card_amount || 0),
+	        debt: Number(row.debt || targetSale.remaining || targetSale.remaining_amount || 0),
+	        total: Number(row.total || targetSale.total || targetSale.total_amount || 0),
+	        reason,
+	        status: "REAL_SALE_REFUND_SUPABASE_RPC",
+	        rpcResult: result || null,
+	        passwordUsed: Boolean(password),
+	      };
+
+	      try {
+	        const currentLogs = JSON.parse(localStorage.getItem("ceplogKasaBrainAuditLogs") || "[]");
+	        localStorage.setItem("ceplogKasaBrainAuditLogs", JSON.stringify([logRecord, ...currentLogs]));
+	      } catch (logError) {
+	        console.error("Kasa Beyni satış iade audit log yazılamadı:", logError);
+	      }
+
+	      window.alert(
+	        `Kasa Beyni: Satış iadesi işlendi.\n` +
+	        `Kayıt No: ${row.no || "-"}\n` +
+	        `Nakit/Kart iade hareketleri oluşturuldu, stok ve cari etkisi güvenli akışla güncellendi.`
+	      );
+	      setSyncMessage(`Kasa Beyni: Satış iadesi işlendi. Kayıt No: ${row.no || "-"}.`);
+	      closeKasaBrainModal();
+	      return true;
+	    } catch (error) {
+	      console.error("Kasa Beyni Supabase satış iade hatası:", error);
+	      window.alert(
+	        `Kasa Beyni: Satış iadesi Supabase güvenli motorunda başarısız oldu.\n\n` +
+	        `${error.message || error}\n\n` +
+	        `İşlem durduruldu. Kasa, banka, stok ve cari local/geçici olarak değiştirilmedi.`
+	      );
+	      await refreshFromDatabase();
+	      return true;
+	    } finally {
+	      setKasaBrainProcessing(false);
+	      endPendingAction(actionKey);
+	    }
+	  };
+
+	  const handlePurchaseCancel = async ({ reason, password }) => {
     const row = kasaBrainModal?.row || {};
     const targetStock = findStockForKasaBrainRow(row);
     const stockId = String(
@@ -2397,8 +2498,8 @@ const isSameSalesListDay = (item, dateKey) => {
       return;
     }
 
-    if (action === "Düzelt") {
-      const passwords = getSecurityPasswords();
+	    if (action === "Düzelt") {
+	      const passwords = getSecurityPasswords();
       if (password !== passwords.editPassword) {
         alert("Şifre hatalı. İşlem yapılmadı.");
         return;
@@ -2511,20 +2612,38 @@ const isSameSalesListDay = (item, dateKey) => {
       } finally {
         setKasaBrainProcessing(false);
       }
-      return;
-    }
+	      return;
+	    }
 
-    if (isManualCashEntryCancelAction(kasaBrainModal)) {
-      const done = handleManualCashEntryCancel({ reason, password });
+	    if (
+	      isManualCashEntryCancelAction(kasaBrainModal) ||
+	      isSaleCancelAction(kasaBrainModal) ||
+	      isSaleRefundAction(kasaBrainModal) ||
+	      isPurchaseCancelAction(kasaBrainModal)
+	    ) {
+	      const passwords = getSecurityPasswords();
+	      if (password !== passwords.cancelPassword) {
+	        alert("Şifre hatalı. İşlem yapılmadı.");
+	        return;
+	      }
+	    }
+
+	    if (isManualCashEntryCancelAction(kasaBrainModal)) {
+	      const done = handleManualCashEntryCancel({ reason, password });
       if (done) return;
     }
 
-    if (isSaleCancelAction(kasaBrainModal)) {
-      const done = await handleSaleCancel({ reason, password });
-      if (done) return;
-    }
+	    if (isSaleCancelAction(kasaBrainModal)) {
+	      const done = await handleSaleCancel({ reason, password });
+	      if (done) return;
+	    }
 
-    if (isPurchaseCancelAction(kasaBrainModal)) {
+	    if (isSaleRefundAction(kasaBrainModal)) {
+	      const done = await handleSaleRefund({ reason, password });
+	      if (done) return;
+	    }
+
+	    if (isPurchaseCancelAction(kasaBrainModal)) {
       const done = await handlePurchaseCancel({ reason, password });
       if (done) return;
     }
@@ -3198,15 +3317,26 @@ const isSameSalesListDay = (item, dateKey) => {
   const accessorySalesTotal = saleTotalByType((sale) => sale.type === "Aksesuar Satışı");
   const technicalServiceTotal = saleTotalByType((sale) => sale.type === "Teknik Servis") + technicalServiceMovementTotal;
   const otherSalesTotal = saleTotalByType((sale) => !["Telefon Satışı", "Aksesuar Satışı", "Teknik Servis"].includes(sale.type));
-  const saleIncomeSummary = (predicate) => {
-    const rows = activeSales.filter(predicate).map(normalizeSalePaymentDistributionForReport);
-    const cash = rows.reduce((sum, sale) => sum + sale.cash, 0);
-    const card = rows.reduce((sum, sale) => sum + sale.card, 0);
-    const debt = rows.reduce((sum, sale) => sum + sale.debt, 0);
-    const refund = 0;
-    const total = rows.reduce((sum, sale) => sum + sale.total, 0);
-    return { cash, card, debt, refund, total: Math.max(total - refund, 0) };
-  };
+	  const saleIncomeSummary = (predicate) => {
+	    const rows = activeSales.filter(predicate).map(normalizeSalePaymentDistributionForReport);
+	    const cash = rows.reduce((sum, sale) => sum + sale.cash, 0);
+	    const card = rows.reduce((sum, sale) => sum + sale.card, 0);
+	    const debt = rows.reduce((sum, sale) => sum + sale.debt, 0);
+	    const matchingSaleIds = new Set((sales || [])
+	      .filter(predicate)
+	      .map((sale) => String(sale.id || sale.saleId || ""))
+	      .filter(Boolean));
+	    const refund = activeCashMovements
+	      .filter((item) => cashMovementType(item) === "Satış İadesi" && matchingSaleIds.has(String(item.relatedId || item.related_id || item.referenceId || item.reference_id || "")))
+	      .reduce((sum, item) => sum + movementAmount(item), 0) + activeBankMovements
+	      .filter((item) => bankMovementType(item) === "Satış İadesi" && (
+	        matchingSaleIds.has(String(item.relatedSaleId || item.related_sale_id || "")) ||
+	        matchingSaleIds.has(String(item.relatedId || item.related_id || item.referenceId || item.reference_id || ""))
+	      ))
+	      .reduce((sum, item) => sum + movementAmount(item), 0);
+	    const total = rows.reduce((sum, sale) => sum + sale.total, 0);
+	    return { cash, card, debt, refund, total: Math.max(total - refund, 0) };
+	  };
   const phoneIncomeSummary = saleIncomeSummary((sale) => sale.type === "Telefon Satışı");
   const accessoryIncomeSummary = saleIncomeSummary((sale) => sale.type === "Aksesuar Satışı");
   const otherIncomeSummary = saleIncomeSummary((sale) => !["Telefon Satışı", "Aksesuar Satışı", "Teknik Servis"].includes(sale.type));
@@ -3241,9 +3371,10 @@ const isSameSalesListDay = (item, dateKey) => {
     (bankMovementType(item) === "Düzeltme" && bankMovementDirection(item) === "in") ||
     (isPurchaseCancellationMovement(item, bankMovementType(item)) && bankMovementDirection(item) === "in") ||
     (isTechnicalServiceIncomeMovement(bankMovementType(item)) && bankMovementDirection(item) === "in");
-  const isBankOutgoingMovement = (item) =>
-    item.type === "Bankadan Çekilen" ||
-    (bankMovementType(item) === "Düzeltme" && bankMovementDirection(item) === "out") ||
+	  const isBankOutgoingMovement = (item) =>
+	    item.type === "Bankadan Çekilen" ||
+	    bankMovementType(item) === "Satış İadesi" ||
+	    (bankMovementType(item) === "Düzeltme" && bankMovementDirection(item) === "out") ||
     (isPurchaseCancellationMovement(item, bankMovementType(item)) && bankMovementDirection(item) === "out") ||
     (isTechnicalServiceRefundMovement(bankMovementType(item)) && bankMovementDirection(item) === "out");
 
@@ -3346,10 +3477,12 @@ const isSameSalesListDay = (item, dateKey) => {
       if (isPurchasePaymentCancelMovement(item)) return { label: "Alış İptali", tone: "cancel" };
       return { label: "Düzeltme / İptal", tone: "cancel" };
     }
-    if (classification === "refund") {
-      if (isTechnicalServiceRefundMovement(type)) return { label: "Teknik Servis İade", tone: "service-refund" };
-      return { label: "İade / İptal", tone: "cancel" };
-    }
+	    if (classification === "refund") {
+	      if (type === "Satış İadesi") return { label: "Satış İade", tone: "service-refund" };
+	      if (type === "Satış İptali") return { label: "Satış İptal", tone: "cancel" };
+	      if (isTechnicalServiceRefundMovement(type)) return { label: "Teknik Servis İade", tone: "service-refund" };
+	      return { label: "İade / İptal", tone: "cancel" };
+	    }
     if (classification === "transfer") return { label: type || "Transfer", tone: direction === "out" ? "cash-out" : "cash-in" };
     if (classification === "purchase_payment") return { label: "Alım Ödemesi", tone: "purchase" };
     if (["Gelen Alacak", "Alacak Ödemesi", "Alacak Tahsilatı", "Cari Tahsilat"].includes(type)) return { label: "Alacak Tahsilatı", tone: "debt" };
@@ -3488,11 +3621,13 @@ const isSameSalesListDay = (item, dateKey) => {
       });
     });
 
-    safeSales.filter((sale) => isSameReportDay(sale, selectedDate)).forEach((sale) => {
-      const inactive = !isActiveRecord(sale);
-      const paymentDistribution = normalizeSalePaymentDistributionForReport(sale);
-      const total = paymentDistribution.total;
-      const cash = paymentDistribution.cash;
+	    safeSales.filter((sale) => isSameReportDay(sale, selectedDate)).forEach((sale) => {
+	      const saleStatus = String(sale.status || "").toLocaleLowerCase("tr-TR");
+	      const refundedSale = ["iade", "refunded", "refund"].includes(saleStatus);
+	      const inactive = !isActiveRecord(sale) && !refundedSale;
+	      const paymentDistribution = normalizeSalePaymentDistributionForReport(sale);
+	      const total = paymentDistribution.total;
+	      const cash = paymentDistribution.cash;
       const card = paymentDistribution.card;
       const remaining = paymentDistribution.debt;
       const saleId = sale.id || sale.saleId || "";
@@ -3505,13 +3640,13 @@ const isSameSalesListDay = (item, dateKey) => {
         relatedId: saleId,
         related_id: saleId,
         stock_item_id: stockItemId,
-        productId: stockItemId,
-        date: reportDateValue(sale),
-        tone: inactive ? "cancel" : "sale",
-        type: inactive ? "İptal" : (sale.type || sale.sale_type || "Satış"),
-        description: sale.productName || sale.product_name || sale.type || sale.sale_type || "-",
-        party: sale.customer || sale.customer_name || sale.cariPerson || sale.cari_person || "",
-        buy: inactive ? 0 : parseMoneyInput(sale.productBuyPrice || sale.buy_cost || 0),
+	        productId: stockItemId,
+	        date: reportDateValue(sale),
+	        tone: inactive ? "cancel" : (refundedSale ? "service-refund" : "sale"),
+	        type: inactive ? "İptal" : (refundedSale ? `${sale.type || sale.sale_type || "Satış"} (İade Edildi)` : (sale.type || sale.sale_type || "Satış")),
+	        description: sale.productName || sale.product_name || sale.type || sale.sale_type || "-",
+	        party: sale.customer || sale.customer_name || sale.cariPerson || sale.cari_person || "",
+	        buy: inactive ? 0 : parseMoneyInput(sale.productBuyPrice || sale.buy_cost || 0),
         sale: inactive ? 0 : total,
         cash: inactive ? 0 : cash,
         bank: inactive ? 0 : card,
@@ -3549,9 +3684,9 @@ const isSameSalesListDay = (item, dateKey) => {
       });
     });
 
-    safeBankMovements.filter((item) => isSameReportDay(item, selectedDate)).forEach((item) => {
-      const type = bankMovementType(item);
-      const relatedSaleDuplicate = String(item.relatedTable || item.related_table || "") === "sales" && saleIds.has(String(item.relatedId || item.related_id || ""));
+	    safeBankMovements.filter((item) => isSameReportDay(item, selectedDate)).forEach((item) => {
+	      const type = bankMovementType(item);
+	      const relatedSaleDuplicate = type === "Bankaya Giden" && String(item.relatedTable || item.related_table || "") === "sales" && saleIds.has(String(item.relatedId || item.related_id || ""));
       const relatedStockDuplicate = sameDayStockIds.has(relatedStockId(item)) && isPurchasePaymentMovement(item, type, bankMovementDirection(item));
       if (relatedSaleDuplicate) return;
       if (relatedStockDuplicate) return;
@@ -6721,6 +6856,8 @@ const isSameSalesListDay = (item, dateKey) => {
 	                ? "Bu ekran sadece kayıt detayını gösterir. Veri değişmez."
 	                : isSaleCancelAction(kasaBrainModal)
 	                  ? "Satış iptal modu: Onay sonrası gerçek satış kaydı Supabase güvenli iptal motoruyla iptal edilir. Stok, kasa, banka ve cari etkileri birlikte işlenir."
+	                  : isSaleRefundAction(kasaBrainModal)
+	                    ? "Satış iade modu: Onay sonrası nakit/kart iade hareketleri oluşturulur; stok ve cari etkisi güvenli akışla güncellenir."
 	                  : isPurchaseCancelAction(kasaBrainModal)
 	                    ? "Alım iptal modu: Onay sonrası stok kaydı pasifleştirilir; kasa, banka ve cari etkileri Supabase güvenli iptal motoruyla birlikte işlenir."
 	                    : kasaBrainModal.action === "Düzelt"
@@ -6778,9 +6915,11 @@ const isSameSalesListDay = (item, dateKey) => {
 	                    {kasaBrainProcessing
 	                      ? "İşleniyor..."
 	                      : kasaBrainModal.action === "Düzelt"
-	                        ? "Düzeltmeyi Uygula"
-	                        : isSaleCancelAction(kasaBrainModal)
+		                        ? "Düzeltmeyi Uygula"
+		                        : isSaleCancelAction(kasaBrainModal)
 	                      ? "Satış İptalini Onayla"
+	                      : isSaleRefundAction(kasaBrainModal)
+	                        ? "Satış İadesini Onayla"
 	                      : isPurchaseCancelAction(kasaBrainModal)
 	                        ? "Alım İptalini Onayla"
 	                        : "Ön Audit Log Oluştur"}

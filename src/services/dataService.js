@@ -1162,6 +1162,90 @@ export async function updateStockItem(id, payload) {
   return result;
 }
 
+export async function refundSaleWithEffects(id, reason = "Satış iadesi") {
+  const workspaceId = await getCurrentWorkspaceId();
+  const { data: saleBeforeRefund, error: saleReadError } = await supabase
+    .from("sales")
+    .select("*")
+    .eq("id", id)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (saleReadError) throw saleReadError;
+  if (!saleBeforeRefund) throw new Error("İade edilecek satış kaydı bulunamadı.");
+
+  const saleStatus = String(saleBeforeRefund.status || "").toLowerCase();
+  if (["deleted", "cancelled", "canceled", "iptal", "iade", "refunded", "refund"].includes(saleStatus)) {
+    throw new Error("Bu satış daha önce iptal/iade edilmiş. İkinci kez iade edilemez.");
+  }
+
+  const idempotency = await tryBeginIdempotency({
+    operationType: "refund_sale",
+    targetTable: "sales",
+    targetId: id,
+    operationKey: criticalOperationKey("refund_sale", "sales", id),
+    payload: { saleId: id, reason },
+    workspaceId,
+  });
+
+  if (!idempotency.allowed) {
+    throw new Error("Bu satış iade işlemi daha önce işlenmiş. İkinci kez çalıştırılamaz.");
+  }
+
+  try {
+    const result = await callFinancialRpc("refund_sale_with_effects", {
+      p_sale_id: id,
+      p_workspace_id: workspaceId,
+      p_reason: reason,
+    }, "Satış iade transaction fonksiyonu kurulmamış. Supabase central_financial_rpc_phase1_20260528.sql dosyasını SQL Editor’da tekrar çalıştırın.");
+
+    const { data: saleAfterRefund, error: saleAfterError } = await supabase
+      .from("sales")
+      .select("*")
+      .eq("id", id)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (saleAfterError) console.warn("Satış iade audit yeni kayıt okunamadı.", saleAfterError);
+
+    await createAuditLog({
+      tableName: "sales",
+      recordId: id,
+      action: "REFUND",
+      eventType: "sale_refund_with_effects",
+      reason,
+      oldData: saleBeforeRefund || null,
+      newData: saleAfterRefund || result || null,
+      metadata: {
+        idempotencyKey: idempotency.operationKey,
+        rpcResult: result || null,
+      },
+      requestKey: idempotency.operationKey,
+      workspaceId,
+    });
+
+    if (!idempotency.missing) {
+      await completeIdempotency({
+        operationKey: idempotency.operationKey,
+        result: { saleId: id, status: saleAfterRefund?.status || result?.status || "iade" },
+        workspaceId,
+      });
+    }
+
+    return result;
+  } catch (error) {
+    if (!idempotency.missing) {
+      await completeIdempotency({
+        operationKey: idempotency.operationKey,
+        status: "failed",
+        result: { saleId: id, message: error?.message || String(error) },
+        workspaceId,
+      });
+    }
+    throw error;
+  }
+}
+
 export async function softDelete(tableName, id) {
   if (tableName === "sales") {
     return cancelRecord(tableName, id, "Satış silme/iptal");

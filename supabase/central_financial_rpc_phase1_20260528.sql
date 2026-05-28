@@ -513,6 +513,156 @@ begin
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
+      and p.proname = 'refund_sale_with_effects'
+  loop
+    execute format('drop function if exists public.%I(%s)', fn.proname, pg_get_function_identity_arguments(fn.oid));
+  end loop;
+end $$;
+
+create or replace function public.refund_sale_with_effects(
+  p_sale_id uuid,
+  p_workspace_id text,
+  p_reason text default null
+)
+returns public.sales
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sale public.sales%rowtype;
+  v_refunded public.sales%rowtype;
+  v_cash numeric := 0;
+  v_card numeric := 0;
+  v_remaining numeric := 0;
+  v_bank_name text;
+  v_customer_key text;
+begin
+  select *
+    into v_sale
+  from public.sales
+  where id = p_sale_id
+    and workspace_id = p_workspace_id
+    and lower(coalesce(status, 'active')) not in ('deleted', 'cancelled', 'canceled', 'iptal', 'iade', 'refunded', 'refund')
+  for update;
+
+  if not found then
+    raise exception 'Satış kaydı bulunamadı, daha önce iptal/iade edildi veya workspace erişimi yok';
+  end if;
+
+  if exists (
+    select 1
+    from public.cash_movements
+    where workspace_id = p_workspace_id
+      and movement_type = 'Satış İadesi'
+      and coalesce(status, 'active') <> 'deleted'
+      and (
+        related_id = p_sale_id::text
+        or reference_id = p_sale_id::text
+        or (related_table = 'sales' and related_id = p_sale_id::text)
+      )
+  ) or exists (
+    select 1
+    from public.bank_movements
+    where workspace_id = p_workspace_id
+      and movement_type = 'Satış İadesi'
+      and coalesce(status, 'active') <> 'deleted'
+      and (
+        related_sale_id = p_sale_id
+        or related_id = p_sale_id::text
+        or reference_id = p_sale_id::text
+        or (related_table = 'sales' and related_id = p_sale_id::text)
+      )
+  ) then
+    raise exception 'Bu satış için iade hareketi daha önce oluşturulmuş';
+  end if;
+
+  v_cash := greatest(coalesce(v_sale.cash_amount, 0), 0);
+  v_card := greatest(coalesce(v_sale.card_amount, 0), 0);
+  v_remaining := greatest(coalesce(v_sale.remaining_amount, 0), 0);
+  v_bank_name := nullif(trim(coalesce(v_sale.bank_name, '')), '');
+  v_customer_key := nullif(trim(coalesce(v_sale.cari_person, v_sale.customer_name, '')), '');
+
+  if v_cash + v_card + v_remaining <= 0 then
+    raise exception 'Bu satışta iade edilecek ödeme veya cari tutar bulunamadı';
+  end if;
+
+  update public.sales
+     set status = 'iade',
+         updated_by = auth.uid(),
+         updated_at = now()
+   where id = p_sale_id
+     and workspace_id = p_workspace_id
+   returning * into v_refunded;
+
+  if v_cash > 0 then
+    insert into public.cash_movements (
+      id, workspace_id, movement_type, direction, amount, note,
+      related_table, related_id, reference_id, status, created_by, updated_by
+    )
+    values (
+      gen_random_uuid(), p_workspace_id, 'Satış İadesi', 'out', v_cash,
+      'Satış iadesi: ' || coalesce(v_sale.product_name, 'Satış') || coalesce(' | ' || nullif(p_reason, ''), ''),
+      'sales', p_sale_id::text, p_sale_id::text, 'active', auth.uid(), auth.uid()
+    );
+  end if;
+
+  if v_card > 0 then
+    insert into public.bank_movements (
+      id, workspace_id, movement_type, direction, bank_name, amount, note,
+      related_sale_id, related_table, related_id, reference_id, status, created_by, updated_by
+    )
+    values (
+      gen_random_uuid(), p_workspace_id, 'Satış İadesi', 'out',
+      coalesce(v_bank_name, 'Banka'),
+      v_card,
+      'Satış iadesi: ' || coalesce(v_sale.product_name, 'Satış') || coalesce(' | ' || nullif(p_reason, ''), ''),
+      p_sale_id, 'sales', p_sale_id::text, p_sale_id::text, 'active', auth.uid(), auth.uid()
+    );
+  end if;
+
+  if v_sale.stock_item_id is not null then
+    update public.stock_items
+       set quantity = coalesce(quantity, 0) + 1,
+           status = 'active',
+           updated_by = auth.uid(),
+           updated_at = now()
+     where id = v_sale.stock_item_id
+       and workspace_id = p_workspace_id;
+  end if;
+
+  if v_customer_key is not null then
+    perform public.rebuild_customer_receivable(p_workspace_id, v_customer_key);
+  end if;
+
+  if to_regclass('public.audit_logs') is not null then
+    begin
+      insert into public.audit_logs (
+        id, workspace_id, table_name, record_id, action, note, created_by
+      )
+      values (
+        gen_random_uuid(), p_workspace_id, 'sales', p_sale_id,
+        'refund', coalesce(p_reason, 'Satış iade edildi'), auth.uid()
+      );
+    exception
+      when others then
+        null;
+    end;
+  end if;
+
+  return v_refunded;
+end;
+$$;
+
+do $$
+declare
+  fn record;
+begin
+  for fn in
+    select p.oid, p.proname
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
       and p.proname = 'update_sale_with_effects'
   loop
     execute format('drop function if exists public.%I(%s)', fn.proname, pg_get_function_identity_arguments(fn.oid));
@@ -1378,6 +1528,9 @@ comment on function public.create_sale_with_effects(text, text, text, uuid, text
 
 comment on function public.cancel_sale_with_effects(uuid, text, text) is
   'Satış iptali, bağlı kasa/banka hareketleri, stok iadesi ve cari alacağı tek transaction içinde günceller.';
+
+comment on function public.refund_sale_with_effects(uuid, text, text) is
+  'Satış iadesi için nakit/banka iade hareketleri, stok iadesi ve cari alacağı tek transaction içinde günceller.';
 
 comment on function public.update_sale_with_effects(uuid, text, numeric, numeric, numeric, numeric, text, text, text, text, numeric, numeric, text) is
   'Satış düzeltmesi, nakit/banka hareketleri ve cari alacağı tek transaction içinde günceller.';
