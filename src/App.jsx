@@ -6217,6 +6217,9 @@ const isSameSalesListDay = (item, dateKey) => {
                   <Stat title="Uyarı" value={systemCheckSummary.warnings} negative={systemCheckSummary.warnings > 0} />
                   <Stat title="Bilgi" value={systemCheckSummary.info} />
                 </div>
+                <button className="primary backup-btn system-control-run-btn" type="button" onClick={runSystemControlCheck}>
+                  <ShieldCheck size={18} /> Kontrol Et
+                </button>
                 <div className="management-info-list">
                   <div><span>Son kontrol</span><b>{systemCheckLastRun || "-"}</b></div>
                   <div><span>Mod</span><b>Read-only</b></div>
@@ -6224,34 +6227,39 @@ const isSameSalesListDay = (item, dateKey) => {
                   <div><span>Altyapı tabloları</span><b>{systemSchemaSummary.ready}/{systemSchemaSummary.total || 0} hazır</b></div>
                   <div><span>Eksik tablo</span><b>{missingSchemaTables.length || 0}</b></div>
                 </div>
-                <Table
-                  headers={["Kontrol", "Durum", "Açıklama"]}
-                  rows={systemHealthRows}
-                />
-                <Table
-                  headers={["Altyapı Tablosu", "Durum", "Kayıt", "Not"]}
-                  rows={safeSchemaStatus.map((item) => [
-                    item.table || "-",
-                    item.ready ? "Hazır" : "Eksik",
-                    item.ready ? String(item.rowCount || 0) : "-",
-                    item.ready ? "Okunuyor" : "Migration bekliyor",
-                  ])}
-                />
-                <button className="primary backup-btn" type="button" onClick={runSystemControlCheck}>
-                  <ShieldCheck size={18} /> Kontrol Et
-                </button>
-                <Table
-                  headers={["Seviye", "Modül", "Kayıt", "Mesaj", "Beklenen", "Mevcut", "Öneri"]}
-                  rows={systemCheckFindings.slice(0, 50).map((finding) => [
-                    finding.severity || "-",
-                    finding.module || "-",
-                    [finding.entityType, finding.entityId].filter(Boolean).join(" / ") || "-",
-                    finding.message || "-",
-                    finding.expectedValue === undefined ? "-" : String(finding.expectedValue),
-                    finding.actualValue === undefined ? "-" : String(finding.actualValue),
-                    finding.suggestedFix || "-",
-                  ])}
-                />
+                <div className="system-control-health-list">
+                  {systemHealthRows.map((row) => (
+                    <div className="system-control-health-row" key={row[0]}>
+                      <span>{row[0]}</span>
+                      <b>{row[1]}</b>
+                      <small>{row[2]}</small>
+                    </div>
+                  ))}
+                </div>
+                <div className="system-schema-list">
+                  {safeSchemaStatus.map((item) => (
+                    <div className={item.ready ? "system-schema-row ready" : "system-schema-row missing"} key={item.table}>
+                      <span>{item.table || "-"}</span>
+                      <b>{item.ready ? "Hazır" : "Eksik"}</b>
+                      <small>{item.ready ? `${item.rowCount || 0} kayıt` : "Migration bekliyor"}</small>
+                    </div>
+                  ))}
+                </div>
+                <details className="system-control-details">
+                  <summary>Bulgu Detayları</summary>
+                  <Table
+                    headers={["Seviye", "Modül", "Kayıt", "Mesaj", "Beklenen", "Mevcut", "Öneri"]}
+                    rows={systemCheckFindings.slice(0, 50).map((finding) => [
+                      finding.severity || "-",
+                      finding.module || "-",
+                      [finding.entityType, finding.entityId].filter(Boolean).join(" / ") || "-",
+                      finding.message || "-",
+                      finding.expectedValue === undefined ? "-" : String(finding.expectedValue),
+                      finding.actualValue === undefined ? "-" : String(finding.actualValue),
+                      finding.suggestedFix || "-",
+                    ])}
+                  />
+                </details>
                 {systemCheckFindings.length > 50 && (
                   <p>İlk 50 bulgu gösteriliyor. Detaylı liste için sonraki adımda dışa aktarma eklenebilir.</p>
                 )}

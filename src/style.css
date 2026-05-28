@@ -2787,6 +2787,118 @@ select:focus {
   font-size: 10px !important;
 }
 
+.premium-dashboard .system-control-card {
+  overflow: auto !important;
+}
+
+.premium-dashboard .system-control-card .compact-backup-preview-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 5px !important;
+}
+
+.premium-dashboard .system-control-card .stat {
+  min-height: 40px !important;
+  padding: 5px !important;
+  border-radius: 9px !important;
+}
+
+.premium-dashboard .system-control-card .stat span {
+  font-size: 8px !important;
+  line-height: 1.05 !important;
+}
+
+.premium-dashboard .system-control-card .stat b {
+  font-size: 14px !important;
+  line-height: 1 !important;
+}
+
+.premium-dashboard .system-control-run-btn {
+  width: 100% !important;
+  min-height: 32px !important;
+  height: 32px !important;
+  margin: 6px 0 !important;
+  border-radius: 9px !important;
+  font-size: 11px !important;
+  background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+}
+
+.premium-dashboard .system-control-health-list,
+.premium-dashboard .system-schema-list {
+  display: grid !important;
+  gap: 5px !important;
+  margin-top: 6px !important;
+}
+
+.premium-dashboard .system-control-health-row,
+.premium-dashboard .system-schema-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 3px 8px !important;
+  align-items: center !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+  border-radius: 9px !important;
+  padding: 6px 8px !important;
+}
+
+.premium-dashboard .system-control-health-row span,
+.premium-dashboard .system-schema-row span {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: #334155 !important;
+  font-size: 10px !important;
+  font-weight: 1000 !important;
+}
+
+.premium-dashboard .system-control-health-row b,
+.premium-dashboard .system-schema-row b {
+  color: #071226 !important;
+  font-size: 10px !important;
+  font-weight: 1000 !important;
+  white-space: nowrap !important;
+}
+
+.premium-dashboard .system-control-health-row small,
+.premium-dashboard .system-schema-row small {
+  grid-column: 1 / -1 !important;
+  color: #64748b !important;
+  font-size: 9px !important;
+  line-height: 1.15 !important;
+  font-weight: 800 !important;
+}
+
+.premium-dashboard .system-schema-row.ready b {
+  color: #047857 !important;
+}
+
+.premium-dashboard .system-schema-row.missing b {
+  color: #b45309 !important;
+}
+
+.premium-dashboard .system-control-details {
+  margin-top: 7px !important;
+}
+
+.premium-dashboard .system-control-details summary {
+  min-height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  border-radius: 8px !important;
+  padding: 0 9px !important;
+  background: #eef2ff !important;
+  color: #3730a3 !important;
+  font-size: 10px !important;
+  font-weight: 1000 !important;
+  cursor: pointer !important;
+}
+
+.premium-dashboard .system-control-details .table-wrap {
+  max-height: 160px !important;
+  overflow: auto !important;
+}
+
 .premium-dashboard .compact-backup-card .backup-actions {
   grid-template-columns: 1fr !important;
   gap: 5px !important;
