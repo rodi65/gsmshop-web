@@ -793,6 +793,16 @@ const fromDbBankMovement = (item) => ({
   status: item.status || "active",
 });
 
+const fromDbBankBalance = (item) => ({
+  bank: item.bank_name || item.bank || "",
+  totalToBank: Number(item.total_in ?? item.totalToBank ?? 0),
+  withdrawnFromBank: Number(item.total_out ?? item.withdrawnFromBank ?? 0),
+  remaining: Math.max(Number(item.balance ?? item.remaining ?? 0), 0),
+  movementCount: Number(item.movement_count ?? item.movementCount ?? 0),
+  lastMovementAt: item.last_movement_at || item.lastMovementAt || "",
+  source: "supabase",
+});
+
 const fromDbCashMovement = (item) => ({
   id: item.id,
   type: item.movement_type || item.type || "",
@@ -2044,9 +2054,19 @@ const isSameSalesListDay = (item, dateKey) => {
   const [bankTransferDrafts, setBankTransferDrafts] = useState({});
   const [bankCashSkeletonForm, setBankCashSkeletonForm] = useState({ name: "", balance: "" });
   const [bankMovements, setBankMovements] = useState([]);
+  const [bankBalances, setBankBalances] = useState([]);
   const [saleForm, setSaleForm] = useState({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
   const bankList = useMemo(() => getBankList(banks), [banks]);
-  const bankOptions = useMemo(() => bankList.map((bank) => bank.name), [bankList]);
+  const bankOptions = useMemo(() => {
+    const names = [];
+    [...bankList.map((bank) => bank.name), ...bankBalances.map((row) => row.bank)].forEach((name) => {
+      const cleanName = String(name || "").trim();
+      if (!cleanName) return;
+      if (names.some((item) => normalizeBankName(item) === normalizeBankName(cleanName))) return;
+      names.push(cleanName);
+    });
+    return names;
+  }, [bankList, bankBalances]);
   const [expenses, setExpenses] = useState([]);
   const [expenseForm, setExpenseForm] = useState({ category: "Yemek", amount: "", note: "" });
   const [stockForm, setStockForm] = useState(emptyStockForm);
@@ -2057,6 +2077,7 @@ const isSameSalesListDay = (item, dateKey) => {
   const safeSales = Array.isArray(sales) ? sales : [];
   const safeExpenses = Array.isArray(expenses) ? expenses : [];
   const safeBankMovements = Array.isArray(bankMovements) ? bankMovements : [];
+  const safeBankBalances = Array.isArray(bankBalances) ? bankBalances : [];
   const safeCashMovements = Array.isArray(cashMovements) ? cashMovements : [];
   const safeContacts = Array.isArray(contacts) ? contacts : [];
   const activeStock = safeStock.filter(isActiveRecord);
@@ -2066,11 +2087,6 @@ const isSameSalesListDay = (item, dateKey) => {
   const activeCashMovements = safeCashMovements.filter(isActiveMovement);
   const activeContacts = safeContacts.filter(isActiveRecord);
   const inStockItems = activeStock.filter((product) => Number(product.quantity || product.qty || 0) > 0);
-  const bankCashSkeletonTotal = bankList.reduce((sum, bank) => sum + parseMoneyInput(bank.balance), 0);
-  const bankCashSkeletonBalanceFor = (name) => {
-    const bank = getBankById(bankList, name);
-    return parseMoneyInput(bank?.balance);
-  };
   const visibleAccessoryShortcuts = useMemo(() => {
     const seen = new Set();
     return [...defaultAccessoryShortcuts, ...accessoryShortcuts]
@@ -2434,6 +2450,7 @@ const isSameSalesListDay = (item, dateKey) => {
     setSales((data.sales || []).map(fromDbSale));
     setExpenses((data.expenses || []).map(fromDbExpense));
     setBankMovements((data.bankMovements || []).map(fromDbBankMovement));
+    setBankBalances((data.bankBalances || []).map(fromDbBankBalance));
     setCashMovements((data.cashMovements || []).map(fromDbCashMovement));
     setContacts((data.contacts || []).map(fromDbContact));
     setActiveWorkspaceId(data.workspaceId || data.profile?.workspace_id || "");
@@ -2705,18 +2722,12 @@ const isSameSalesListDay = (item, dateKey) => {
     (isPurchaseCancellationMovement(item, bankMovementType(item)) && bankMovementDirection(item) === "out") ||
     (isTechnicalServiceRefundMovement(bankMovementType(item)) && bankMovementDirection(item) === "out");
 
-  const bankReport = {
-    totalToBank: activeBankMovements.filter(isBankIncomingMovement).reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
-    withdrawnFromBank: activeBankMovements.filter(isBankOutgoingMovement).reduce((sum, item) => sum + parseMoneyInput(item.amount), 0),
-  };
-  bankReport.remainingInBank = Math.max(bankReport.totalToBank - bankReport.withdrawnFromBank, 0);
-
-  const bankAccountRows = bankOptions.map((bank) => {
+  const frontendBankBalanceRows = bankOptions.map((bank) => {
     const totalToBank = activeBankMovements
-      .filter((item) => isBankIncomingMovement(item) && item.bank === bank)
+      .filter((item) => isBankIncomingMovement(item) && normalizeBankName(item.bank) === normalizeBankName(bank))
       .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
     const withdrawnFromBank = activeBankMovements
-      .filter((item) => isBankOutgoingMovement(item) && item.bank === bank)
+      .filter((item) => isBankOutgoingMovement(item) && normalizeBankName(item.bank) === normalizeBankName(bank))
       .reduce((sum, item) => sum + parseMoneyInput(item.amount), 0);
     return {
       bank,
@@ -2724,6 +2735,55 @@ const isSameSalesListDay = (item, dateKey) => {
       withdrawnFromBank,
       remaining: Math.max(totalToBank - withdrawnFromBank, 0),
       commission: (Math.max(totalToBank - withdrawnFromBank, 0) / 100) * 3.5,
+    };
+  });
+  const rpcBankBalanceRows = safeBankBalances
+    .filter((row) => String(row.bank || "").trim())
+    .map((row) => ({
+      bank: row.bank,
+      totalToBank: Number(row.totalToBank || 0),
+      withdrawnFromBank: Number(row.withdrawnFromBank || 0),
+      remaining: Math.max(Number(row.remaining || 0), 0),
+      commission: (Math.max(Number(row.remaining || 0), 0) / 100) * 3.5,
+      source: row.source || "supabase",
+    }));
+  const bankBalanceSourceRows = rpcBankBalanceRows.length ? rpcBankBalanceRows : frontendBankBalanceRows;
+  const bankBalanceRowsByName = new Map(
+    bankBalanceSourceRows.map((row) => [normalizeBankName(row.bank), row])
+  );
+  const bankAccountRows = bankOptions.map((bank) => {
+    const row = bankBalanceRowsByName.get(normalizeBankName(bank)) || {
+      bank,
+      totalToBank: 0,
+      withdrawnFromBank: 0,
+      remaining: 0,
+      commission: 0,
+    };
+    const remaining = Math.max(Number(row.remaining || 0), 0);
+    return {
+      ...row,
+      bank,
+      remaining,
+      commission: (remaining / 100) * 3.5,
+    };
+  });
+
+  const bankReport = {
+    totalToBank: bankAccountRows.reduce((sum, row) => sum + Number(row.totalToBank || 0), 0),
+    withdrawnFromBank: bankAccountRows.reduce((sum, row) => sum + Number(row.withdrawnFromBank || 0), 0),
+  };
+  bankReport.remainingInBank = bankAccountRows.reduce((sum, row) => sum + Number(row.remaining || 0), 0);
+
+  const bankCashSkeletonTotal = bankReport.remainingInBank;
+  const bankCashSkeletonBalanceFor = (name) => {
+    const row = bankAccountRows.find((item) => normalizeBankName(item.bank) === normalizeBankName(name));
+    return Math.max(Number(row?.remaining || 0), 0);
+  };
+  const bankCashSkeletonRows = bankOptions.map((name) => {
+    const bank = getBankById(bankList, name) || { id: createBankId(name), name, balance: 0, isDefault: false };
+    return {
+      ...bank,
+      balance: bankCashSkeletonBalanceFor(name),
     };
   });
 
@@ -3578,7 +3638,7 @@ const isSameSalesListDay = (item, dateKey) => {
 
   async function handleBankCashSkeletonTransfer(bank) {
     const draft = bankTransferDrafts[bank.id] || {};
-    const currentBalance = parseMoneyInput(bank.balance);
+    const currentBalance = bankCashSkeletonBalanceFor(bank.name);
     const withdrawAmount = parseMoneyInput(draft.withdraw);
     if (!withdrawAmount) return alert("Çekilecek tutar yaz");
     if (withdrawAmount > currentBalance) return alert("Çekilecek tutar bankada olan tutardan fazla olamaz.");
@@ -3590,13 +3650,6 @@ const isSameSalesListDay = (item, dateKey) => {
         note: draft.note || `Bankadan Nakit Gelen - ${bank.name}`,
       });
 
-      const nextBanks = getBankList(banks).map((item) =>
-        String(item.id) === String(bank.id)
-          ? { ...item, balance: Math.max(currentBalance - withdrawAmount, 0) }
-          : item
-      );
-      setBanks(nextBanks);
-      saveStoredBanks(nextBanks);
       setBankTransferDrafts((drafts) => {
         const nextDrafts = { ...drafts };
         delete nextDrafts[bank.id];
@@ -3609,7 +3662,7 @@ const isSameSalesListDay = (item, dateKey) => {
     }
   }
 
-  function addBankCashSkeletonBank() {
+  async function addBankCashSkeletonBank() {
     const name = bankCashSkeletonForm.name.trim();
     const result = addBank(banks, name, bankCashSkeletonForm.balance);
     if (!result.ok) return alert(result.message);
@@ -3617,6 +3670,24 @@ const isSameSalesListDay = (item, dateKey) => {
     setBanks(result.banks);
     saveStoredBanks(result.banks);
     setBankCashSkeletonForm({ name: "", balance: "" });
+    const openingBalance = parseMoneyInput(bankCashSkeletonForm.balance);
+
+    if (openingBalance > 0) {
+      try {
+        await createBankMovement({
+          movement_type: "Düzeltme",
+          direction: "in",
+          bank_name: name,
+          amount: openingBalance,
+          note: "Banka başlangıç bakiyesi",
+        });
+        await refreshFromDatabase();
+      } catch (error) {
+        alert(error.message || "Banka eklendi fakat başlangıç bakiyesi Supabase hareketlerine yazılamadı.");
+        return;
+      }
+    }
+
     alert("Banka listeye eklendi.");
   }
 
@@ -5781,7 +5852,7 @@ const isSameSalesListDay = (item, dateKey) => {
                 {cashEntryTab === "Bankadan Gelen Nakit" && (
                   <div className="cash-bank-skeleton">
                     <h3>Bankadan Gelen Nakit</h3>
-                    <p>Bu sekme merkezi banka listesiyle çalışır. Çekilecek tutarı yazıp Kasaya Aktar ile banka çıkışı ve kasa girişi birlikte kaydedilir.</p>
+                    <p>Banka bakiyesi Supabase banka hareketlerinden hesaplanır. Çekilecek tutarı yazıp Kasaya Aktar ile banka çıkışı ve kasa girişi birlikte kaydedilir.</p>
 
                     <div className="stats three">
                       <Stat title="Bankada Toplam Olan" value={money(bankCashSkeletonTotal)} />
@@ -5792,9 +5863,9 @@ const isSameSalesListDay = (item, dateKey) => {
                       <Stat title="Ek Banka 2" value={money(bankCashSkeletonBalanceFor("Ek Banka 2"))} />
                     </div>
 
-                    <Table headers={["Banka Adı", "Bankada Olan", "Çekilecek Tutar", "Çekimden Sonra Kalan", "Not", "Kasaya Aktar"]} rows={bankList.map((bank) => {
+                    <Table headers={["Banka Adı", "Bankada Olan", "Çekilecek Tutar", "Çekimden Sonra Kalan", "Not", "Kasaya Aktar"]} rows={bankCashSkeletonRows.map((bank) => {
                       const draft = bankTransferDrafts[bank.id] || {};
-                      const bankBalance = parseMoneyInput(bank.balance);
+                      const bankBalance = bankCashSkeletonBalanceFor(bank.name);
                       const withdrawAmount = parseMoneyInput(draft.withdraw);
                       const isOverLimit = withdrawAmount > bankBalance;
                       return [
@@ -5809,7 +5880,7 @@ const isSameSalesListDay = (item, dateKey) => {
 
                     <div className="cash-bank-add-panel">
                       <h3>Banka Ekle</h3>
-                      <p>Varsayılan bankalar: Ziraatbank, İşbank, Halkbank. Eklenen bankalar tüm banka seçimlerinde görünür.</p>
+                      <p>Varsayılan bankalar: Ziraatbank, İşbank, Halkbank. Başlangıç bakiyesi girilirse banka hareketlerine Düzeltme olarak yazılır.</p>
                       <div className="form-grid">
                         <input placeholder="Yeni Banka Adı" value={bankCashSkeletonForm.name} onChange={(event) => setBankCashSkeletonForm({ ...bankCashSkeletonForm, name: event.target.value })} />
                         <input type="text" inputMode="numeric" placeholder="Başlangıç Bakiyesi" value={bankCashSkeletonForm.balance} onFocus={() => setBankCashSkeletonForm({ ...bankCashSkeletonForm, balance: stripMoneyForEdit(bankCashSkeletonForm.balance) })} onChange={(event) => setBankCashSkeletonForm({ ...bankCashSkeletonForm, balance: cleanMoneyTyping(event.target.value) })} onBlur={() => setBankCashSkeletonForm({ ...bankCashSkeletonForm, balance: formatMoneyInput(bankCashSkeletonForm.balance) })} />

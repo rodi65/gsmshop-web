@@ -222,6 +222,21 @@ function stockSellerName(item) {
   return "";
 }
 
+export async function loadBankBalances(workspaceIdArg) {
+  const workspaceId = workspaceIdArg || await getCurrentWorkspaceId();
+  const { data, error } = await supabase.rpc("get_bank_balances", { p_workspace_id: workspaceId });
+
+  if (error) {
+    if (isMissingRpcError(error) || isMissingRelationError(error)) {
+      console.warn("Banka bakiye RPC kurulmamış; geçici olarak frontend hareket toplamları kullanılacak.", error);
+      return [];
+    }
+    throw error;
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
 export async function loadDashboardData() {
   const profile = await getCurrentProfile();
   const workspaceId = profile?.workspace_id || await getCurrentWorkspaceId();
@@ -242,6 +257,13 @@ export async function loadDashboardData() {
   if (cash.error && !isMissingRelationError(cash.error)) throw cash.error;
   if (contacts.error && !isMissingRelationError(contacts.error)) throw contacts.error;
 
+  let bankBalances = [];
+  try {
+    bankBalances = await loadBankBalances(workspaceId);
+  } catch (error) {
+    console.warn("Banka bakiyeleri Supabase RPC üzerinden alınamadı; hareketlerden yerel türetme kullanılacak.", error);
+  }
+
   return {
     profile,
     workspaceId,
@@ -249,6 +271,7 @@ export async function loadDashboardData() {
     sales: sales.data || [],
     expenses: expenses.data || [],
     bankMovements: bank.data || [],
+    bankBalances,
     cashClosings: closings.data || [],
     cashMovements: cash.error ? [] : cash.data || [],
     contacts: contacts.error ? [] : contacts.data || [],
