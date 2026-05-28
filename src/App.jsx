@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Login from "./components/Login";
 import CashClosingPanel from "./components/CashClosingPanel";
 
@@ -1310,6 +1310,23 @@ export default function App() {
   const [kasaBrainModal, setKasaBrainModal] = useState(null);
   const [kasaBrainReason, setKasaBrainReason] = useState("");
   const [kasaBrainPassword, setKasaBrainPassword] = useState("");
+  const pendingActionKeysRef = useRef(new Set());
+
+  function beginPendingAction(key, message = "Bu işlem zaten devam ediyor. Lütfen bekleyin.") {
+    const cleanKey = String(key || "").trim();
+    if (!cleanKey) return true;
+    if (pendingActionKeysRef.current.has(cleanKey)) {
+      alert(message);
+      return false;
+    }
+    pendingActionKeysRef.current.add(cleanKey);
+    return true;
+  }
+
+  function endPendingAction(key) {
+    const cleanKey = String(key || "").trim();
+    if (cleanKey) pendingActionKeysRef.current.delete(cleanKey);
+  }
 
   const isManualCashEntryCancelAction = (modal) => {
     const action = String(modal?.action || "").toLocaleLowerCase("tr-TR");
@@ -3556,6 +3573,8 @@ const isSameSalesListDay = (item, dateKey) => {
       cashExceeded: `Kasadaki nakitten fazla ödeme yapılamaz.\nMevcut kasa: ${formatMoney(cashWithBankIncoming)}\nGirilen ödeme: ${formatMoney(amount)}`,
     }))) return;
 
+    const actionKey = "expense:create";
+    if (!beginPendingAction(actionKey)) return;
     try {
       const savedExpense = await createExpense({
         category: expenseForm.category,
@@ -3567,6 +3586,8 @@ const isSameSalesListDay = (item, dateKey) => {
     } catch (error) {
       alert(error.message || "Gider Supabase'e yazılamadı.");
       return;
+    } finally {
+      endPendingAction(actionKey);
     }
 
     setExpenseForm({ category: "Yemek", amount: "", note: "" });
@@ -3590,6 +3611,8 @@ const isSameSalesListDay = (item, dateKey) => {
     if (!amount) return alert("Nakit giriş tutarını yaz");
     if (!source) return alert("Nakit nereden geldi? Alanını yaz");
 
+    const actionKey = "cash-entry:create";
+    if (!beginPendingAction(actionKey)) return;
     try {
       await createCashMovement({
         movement_type: "Manuel Nakit Girişi",
@@ -3602,6 +3625,8 @@ const isSameSalesListDay = (item, dateKey) => {
     } catch (error) {
       alert(error.message || "Nakit girişi Supabase'e yazılamadı.");
       return;
+    } finally {
+      endPendingAction(actionKey);
     }
 
     setCashEntryForm({ amount: "", source: "", note: "" });
@@ -3612,6 +3637,8 @@ const isSameSalesListDay = (item, dateKey) => {
     const note = cashCarryForm.note.trim();
     if (!amount) return alert("Dünden kalan nakit tutarını yaz");
 
+    const actionKey = "cash-carry-over:create";
+    if (!beginPendingAction(actionKey)) return;
     try {
       await createCashMovement({
         movement_type: "Dünden Devir Nakit",
@@ -3624,6 +3651,8 @@ const isSameSalesListDay = (item, dateKey) => {
     } catch (error) {
       alert(error.message || "Dünden devir Supabase'e yazılamadı.");
       return;
+    } finally {
+      endPendingAction(actionKey);
     }
 
     setCashCarryForm({ amount: "", note: "" });
@@ -3643,6 +3672,8 @@ const isSameSalesListDay = (item, dateKey) => {
     if (!withdrawAmount) return alert("Çekilecek tutar yaz");
     if (withdrawAmount > currentBalance) return alert("Çekilecek tutar bankada olan tutardan fazla olamaz.");
 
+    const actionKey = `bank-withdrawal:${bank.id || bank.name}`;
+    if (!beginPendingAction(actionKey)) return;
     try {
       await createBankWithdrawal({
         bank_name: bank.name,
@@ -3659,6 +3690,8 @@ const isSameSalesListDay = (item, dateKey) => {
       setSyncMessage(`${bank.name} hesabından kasaya ${money(withdrawAmount)} aktarıldı.`);
     } catch (error) {
       alert(error.message || "Bankadan kasaya aktarım kaydedilemedi.");
+    } finally {
+      endPendingAction(actionKey);
     }
   }
 
@@ -3666,6 +3699,9 @@ const isSameSalesListDay = (item, dateKey) => {
     const name = bankCashSkeletonForm.name.trim();
     const result = addBank(banks, name, bankCashSkeletonForm.balance);
     if (!result.ok) return alert(result.message);
+
+    const actionKey = `bank:add:${name.toLocaleLowerCase("tr-TR")}`;
+    if (!beginPendingAction(actionKey)) return;
 
     setBanks(result.banks);
     saveStoredBanks(result.banks);
@@ -3684,11 +3720,13 @@ const isSameSalesListDay = (item, dateKey) => {
         await refreshFromDatabase();
       } catch (error) {
         alert(error.message || "Banka eklendi fakat başlangıç bakiyesi Supabase hareketlerine yazılamadı.");
+        endPendingAction(actionKey);
         return;
       }
     }
 
     alert("Banka listeye eklendi.");
+    endPendingAction(actionKey);
   }
 
   function cashMovementCancellationFor(item) {
@@ -3776,6 +3814,8 @@ const isSameSalesListDay = (item, dateKey) => {
       },
     }))) return false;
 
+    const actionKey = `cari-payment:${account.kind || "supplier"}:${account.name}`;
+    if (!beginPendingAction(actionKey)) return false;
     try {
       await createContactPayment({
         kind: account.kind || "supplier",
@@ -3791,6 +3831,8 @@ const isSameSalesListDay = (item, dateKey) => {
     } catch (error) {
       alert(error.message || "Cari ödeme Supabase'e yazılamadı.");
       return false;
+    } finally {
+      endPendingAction(actionKey);
     }
   }
 
@@ -3811,6 +3853,8 @@ const isSameSalesListDay = (item, dateKey) => {
       },
     }))) return false;
 
+    const actionKey = `receivable-payment:${sale.id}`;
+    if (!beginPendingAction(actionKey)) return false;
     try {
       await createReceivablePayment({
         saleId: sale.id,
@@ -3824,6 +3868,8 @@ const isSameSalesListDay = (item, dateKey) => {
     } catch (error) {
       alert(error.message || "Alacak tahsilatı Supabase'e yazılamadı.");
       return false;
+    } finally {
+      endPendingAction(actionKey);
     }
   }
 
@@ -3897,6 +3943,8 @@ const isSameSalesListDay = (item, dateKey) => {
       sellerCariRemaining: isSecondHandPhone ? remaining : 0,
     };
 
+    const actionKey = `stock:create:${module}`;
+    if (!beginPendingAction(actionKey)) return;
     try {
       await createStockItem({
         module: item.module,
@@ -3926,6 +3974,8 @@ const isSameSalesListDay = (item, dateKey) => {
     } catch (error) {
       alert(error.message || "Stok kaydı Supabase'e yazılamadı.");
       return;
+    } finally {
+      endPendingAction(actionKey);
     }
 
     setStockForm({ ...emptyStockForm, module });
@@ -3969,6 +4019,8 @@ const isSameSalesListDay = (item, dateKey) => {
       date: new Date().toISOString(),
     });
 
+    const actionKey = "sale:create";
+    if (!beginPendingAction(actionKey)) return;
     try {
       await createSale({
         sale_group: saleGroupName(sale.type),
@@ -3993,6 +4045,8 @@ const isSameSalesListDay = (item, dateKey) => {
     } catch (error) {
       alert(error.message || "Satış Supabase'e yazılamadı.");
       return;
+    } finally {
+      endPendingAction(actionKey);
     }
 
     setSaleForm({ type: "Telefon Satışı", customer: "", cariPerson: "", search: "", productId: "", total: "", cash: "", card: "", bank: "" });
@@ -4207,6 +4261,8 @@ const isSameSalesListDay = (item, dateKey) => {
 
     const serviceId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
     const movementNote = `${customerName} - ${device} - ${issue}`.slice(0, 180);
+    const actionKey = "technical-service:create";
+    if (!beginPendingAction(actionKey)) return;
 
     const record = {
       id: serviceId,
@@ -4282,6 +4338,8 @@ const isSameSalesListDay = (item, dateKey) => {
       }
       alert(error.message || "Teknik servis finansal hareketi kaydedilemedi. Supabase migration gerekebilir.");
       return;
+    } finally {
+      endPendingAction(actionKey);
     }
 
     setTechnicalServices([record, ...technicalServices]);
@@ -4348,7 +4406,9 @@ const isSameSalesListDay = (item, dateKey) => {
     const movementType = isRefund ? "Teknik Servis İade" : "Teknik Servis Tahsilat";
     const direction = isRefund ? "out" : "in";
     const note = (form.note || `${isRefund ? "Teknik servis iade" : "Teknik servis tahsilat"} - ${service.customerName || "Müşteri"} - ${service.device || "Cihaz"}`).slice(0, 180);
+    const actionKey = `technical-service-finance:${mode}:${service.id}`;
 
+    if (!beginPendingAction(actionKey)) return;
     try {
       if (method === "Kart/Banka") {
         await createBankMovement({
@@ -4386,6 +4446,8 @@ const isSameSalesListDay = (item, dateKey) => {
       setSyncMessage(isRefund ? "Teknik servis iadesi kaydedildi." : "Teknik servis ödemesi kaydedildi.");
     } catch (error) {
       alert(error.message || "Teknik servis ödeme/iade hareketi kaydedilemedi. Supabase migration gerekebilir.");
+    } finally {
+      endPendingAction(actionKey);
     }
   }
 
