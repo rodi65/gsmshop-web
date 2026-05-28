@@ -204,6 +204,49 @@ async function callFinancialRpc(name, payload, missingMessage = "") {
   return data;
 }
 
+export async function createAuditLog({
+  tableName,
+  recordId,
+  action = "UPDATE",
+  eventType = "",
+  reason = "",
+  oldData = null,
+  newData = null,
+  metadata = {},
+  requestKey = "",
+  workspaceId: workspaceIdArg = "",
+} = {}) {
+  try {
+    const workspaceId = workspaceIdArg || await getCurrentWorkspaceId();
+    const { data, error } = await supabase.rpc("create_audit_log", {
+      p_workspace_id: workspaceId,
+      p_table_name: tableName || "unknown",
+      p_record_id: recordId ? String(recordId) : null,
+      p_action: action,
+      p_event_type: eventType || null,
+      p_reason: reason || null,
+      p_old_data: oldData,
+      p_new_data: newData,
+      p_metadata: metadata || {},
+      p_request_key: requestKey || null,
+    });
+
+    if (error) {
+      if (isMissingRpcError(error) || isMissingRelationError(error)) {
+        console.warn("Audit log RPC kurulmamış; işlem devam etti.", error);
+        return null;
+      }
+      console.warn("Audit log Supabase'e yazılamadı; işlem devam etti.", error);
+      return null;
+    }
+
+    return data || null;
+  } catch (error) {
+    console.warn("Audit log hazırlanamadı; işlem devam etti.", error);
+    return null;
+  }
+}
+
 function sellerContactName(value) {
   const clean = String(value || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("tr-TR");
   if (!clean) return "";
@@ -832,6 +875,14 @@ export async function createBankWithdrawal(payload) {
 export async function updateSaleRecord(id, payload) {
   const user = await getCurrentUser();
   const workspaceId = await getCurrentWorkspaceId();
+  const { data: saleBeforeUpdate, error: saleBeforeError } = await supabase
+    .from("sales")
+    .select("*")
+    .eq("id", id)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (saleBeforeError) console.warn("Satış audit eski kayıt okunamadı.", saleBeforeError);
 
   const updatePayload = {
     total_amount: toDbNumber(payload.total_amount),
@@ -857,15 +908,37 @@ export async function updateSaleRecord(id, payload) {
     .single();
 
   if (error) throw error;
+
+  await createAuditLog({
+    tableName: "sales",
+    recordId: id,
+    action: "UPDATE",
+    eventType: "sale_update",
+    reason: "Satış düzeltmesi",
+    oldData: saleBeforeUpdate || null,
+    newData: data || null,
+    metadata: { fields: Object.keys(updatePayload) },
+    workspaceId,
+  });
+
   return data;
 }
 
 export async function updateStockItem(id, payload) {
   const workspaceId = await getCurrentWorkspaceId();
+  const { data: stockBeforeUpdate, error: stockBeforeError } = await supabase
+    .from("stock_items")
+    .select("*")
+    .eq("id", id)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (stockBeforeError) console.warn("Stok audit eski kayıt okunamadı.", stockBeforeError);
+
   const buyTotal = toDbNumber(payload.buy_price) * Number(payload.quantity || 0);
   const paid = toDbNumber(payload.supplier_paid);
   if (paid > buyTotal) throw new Error("Ödeme tutarı alış tutarını aşamaz.");
-  return callFinancialRpc("update_stock_with_effects", {
+  const result = await callFinancialRpc("update_stock_with_effects", {
     p_stock_id: id,
     p_workspace_id: workspaceId,
     p_buy_price: toDbNumber(payload.buy_price),
@@ -877,6 +950,32 @@ export async function updateStockItem(id, payload) {
     p_seller_person: payload.seller_person || "",
     p_seller_phone: payload.seller_phone || "",
   });
+
+  const { data: stockAfterUpdate, error: stockAfterError } = await supabase
+    .from("stock_items")
+    .select("*")
+    .eq("id", id)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (stockAfterError) console.warn("Stok audit yeni kayıt okunamadı.", stockAfterError);
+
+  await createAuditLog({
+    tableName: "stock_items",
+    recordId: id,
+    action: "UPDATE",
+    eventType: "stock_update",
+    reason: "Stok düzeltmesi",
+    oldData: stockBeforeUpdate || null,
+    newData: stockAfterUpdate || null,
+    metadata: {
+      fields: Object.keys(payload || {}),
+      rpcResult: result || null,
+    },
+    workspaceId,
+  });
+
+  return result;
 }
 
 export async function softDelete(tableName, id) {
@@ -886,6 +985,14 @@ export async function softDelete(tableName, id) {
 
   const user = await getCurrentUser();
   const workspaceId = await getCurrentWorkspaceId();
+  const { data: recordBeforeDelete, error: recordBeforeError } = await supabase
+    .from(tableName)
+    .select("*")
+    .eq("id", id)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (recordBeforeError) console.warn("Silme audit eski kayıt okunamadı.", recordBeforeError);
 
   const { data, error } = await supabase
     .from(tableName)
@@ -900,6 +1007,19 @@ export async function softDelete(tableName, id) {
     .single();
 
   if (error) throw error;
+
+  await createAuditLog({
+    tableName,
+    recordId: id,
+    action: "SOFT_DELETE",
+    eventType: `${tableName}_soft_delete`,
+    reason: "Kayıt silindi olarak işaretlendi",
+    oldData: recordBeforeDelete || null,
+    newData: data || null,
+    metadata: { tableName },
+    workspaceId,
+  });
+
   return data;
 }
 
@@ -910,7 +1030,7 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
   if (tableName === "sales") {
     const { data: saleBeforeCancel, error: saleReadError } = await supabase
       .from("sales")
-      .select("id, stock_item_id, product_name, customer_name, cari_person, status")
+      .select("*")
       .eq("id", id)
       .eq("workspace_id", workspaceId)
       .maybeSingle();
@@ -1047,8 +1167,44 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
       });
     }
 
+    const { data: saleAfterAudit, error: saleAfterAuditError } = await supabase
+      .from("sales")
+      .select("*")
+      .eq("id", id)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (saleAfterAuditError) console.warn("Satış iptal audit yeni kayıt okunamadı.", saleAfterAuditError);
+
+    await createAuditLog({
+      tableName: "sales",
+      recordId: id,
+      action: "CANCEL",
+      eventType: "sale_cancel_with_effects",
+      reason,
+      oldData: saleBeforeCancel || null,
+      newData: saleAfterAudit || saleAfterCancel || null,
+      metadata: {
+        stockItemId,
+        stockBefore,
+        stockAfter,
+        rpcResult: result || null,
+        receivableNames,
+      },
+      workspaceId,
+    });
+
     return result;
   }
+
+  const { data: recordBeforeCancel, error: recordBeforeError } = await supabase
+    .from(tableName)
+    .select("*")
+    .eq("id", id)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (recordBeforeError) console.warn("İptal audit eski kayıt okunamadı.", recordBeforeError);
 
   const { data, error } = await supabase
     .from(tableName)
@@ -1063,6 +1219,19 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
     .single();
 
   if (error) throw error;
+
+  await createAuditLog({
+    tableName,
+    recordId: id,
+    action: "CANCEL",
+    eventType: `${tableName}_cancel`,
+    reason,
+    oldData: recordBeforeCancel || null,
+    newData: data || null,
+    metadata: { tableName },
+    workspaceId,
+  });
+
   return data;
 }
 
