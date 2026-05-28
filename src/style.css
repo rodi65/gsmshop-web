@@ -9271,3 +9271,107 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     min-height: 60px !important;
   }
 }
+
+/* Yonetim kisayol ekleme ve okunurluk duzeltmeleri */
+.premium-dashboard .management-round-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+}
+
+.premium-dashboard .management-screenshot-card .shortcut-add-round-btn,
+.premium-dashboard .shortcut-add-round-btn {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 48%, #991b1b 100%) !important;
+  box-shadow: 0 18px 34px rgba(220, 38, 38, .26) !important;
+}
+
+.premium-dashboard .compact-security-card {
+  min-height: 0 !important;
+}
+
+.premium-dashboard .compact-security-list,
+.premium-dashboard .security-password-list.compact-security-list {
+  max-height: clamp(118px, 20vh, 220px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-right: 5px !important;
+  scrollbar-width: thin !important;
+}
+
+.premium-dashboard .kasa-home-summary-column {
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-right: 4px !important;
+  scrollbar-width: thin !important;
+}
+
+.premium-dashboard .kasa-home-dashboard .compact-summary-card {
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: thin !important;
+}
+
+.premium-dashboard .kasa-home-dashboard .compact-summary-lines {
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-right: 3px !important;
+  scrollbar-width: thin !important;
+}
+
+.premium-dashboard .kasa-home-dashboard .compact-summary-line {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+  line-height: 1.18 !important;
+}
+
+.premium-dashboard .kasa-home-dashboard .compact-summary-line span {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.premium-dashboard .kasa-home-dashboard .compact-summary-line b {
+  min-width: 44px !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+
+.premium-dashboard .kasa-home-dashboard .compact-summary-total {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 8px !important;
+}
+
+.premium-dashboard .kasa-home-dashboard .compact-summary-total span {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.premium-dashboard .kasa-home-dashboard .compact-summary-total b {
+  white-space: nowrap !important;
+}
+
+.premium-dashboard .kasa-home-dashboard .large-accessory-panel .accessory-user-shortcuts.compact-shortcuts {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: thin !important;
+}
+
+.premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-chip > button:first-child {
+  overflow: hidden !important;
+}
+
+.premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-chip > button:first-child span {
+  overflow-wrap: anywhere !important;
+}

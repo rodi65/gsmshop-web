@@ -329,6 +329,8 @@ const defaultAccessoryShortcuts = Object.entries(quickAccessoryGroups).flatMap((
     sub,
     label: accessoryShortcutLabel(group, sub),
     price: "",
+    saleGroup: "Aksesuar",
+    saleType: "Aksesuar Satışı",
     isDefault: true,
   }))
 );
@@ -2080,6 +2082,11 @@ const isSameSalesListDay = (item, dateKey) => {
       })
       .slice(0, accessoryShortcutLimit);
   }, [accessoryShortcuts]);
+
+  const shortcutGroupOptions = useMemo(() => {
+    const stockGroups = activeStock.map((product) => displayStockGroup(stockSearchGroup(product)));
+    return Array.from(new Set(["Aksesuar", "Program", "Telefon", "Saat", "Tablet", "PC", "Elektronik", "Bluetooth", "X", ...stockGroups]));
+  }, [activeStock]);
 
   const supplierOptions = useMemo(() => {
     return Array.from(new Set([...suppliers, ...activeStock.map((product) => product.supplier).filter((supplier) => supplier && !isSellerLabel(supplier))])).sort();
@@ -4675,6 +4682,55 @@ const isSameSalesListDay = (item, dateKey) => {
     setAccessoryShortcutForm({ group, sub, price: "" });
   }
 
+  function saleShortcutTarget(group) {
+    const cleanGroup = String(group || "").trim().toLocaleLowerCase("tr-TR");
+    if (cleanGroup === "aksesuar") return { saleGroup: "Aksesuar", saleType: "Aksesuar Satışı", group: "Aksesuar" };
+    if (cleanGroup === "program") return { saleGroup: "Program", saleType: "Program Satışı", group: "Program" };
+    if (cleanGroup === "telefon") return { saleGroup: "Telefon", saleType: "Telefon Satışı", group: "Telefon" };
+    if (cleanGroup === "saat") return { saleGroup: "Saat", saleType: "Saat Satışı", group: "Saat" };
+    if (cleanGroup === "tablet") return { saleGroup: "Tablet", saleType: "Tablet Satışı", group: "Tablet" };
+    if (cleanGroup === "pc") return { saleGroup: "Elektronik", saleType: "PC Satışı", group: "PC" };
+    if (cleanGroup === "elektronik") return { saleGroup: "Elektronik", saleType: "Elektronik Satışı", group: "Elektronik" };
+    if (cleanGroup === "bluetooth") return { saleGroup: "Bluetooth", saleType: "Bluetooth Satışı", group: "Bluetooth" };
+    return { saleGroup: "X", saleType: "Diğerleri Satışı", group: "X" };
+  }
+
+  function addUniversalShortcutFromManagement() {
+    if (accessoryShortcuts.length >= accessoryShortcutLimit) return alert("En fazla 30 kısayol eklenebilir.");
+
+    const groupInput = window.prompt(`Kısayol grubu yaz:\n${shortcutGroupOptions.join(", ")}`, "Aksesuar");
+    if (groupInput === null) return;
+
+    const target = saleShortcutTarget(groupInput);
+    const labelInput = window.prompt("Kısayol adını yaz", target.group === "Program" ? "Program" : "");
+    const label = String(labelInput || "").trim().replace(/\s+/g, " ");
+    if (!label) return alert("Kısayol adı boş bırakılamaz.");
+
+    const priceInput = window.prompt("Varsayılan fiyat yaz. Boş bırakabilirsin.", "");
+    if (priceInput === null) return;
+    const price = priceInput ? formatMoneyInput(priceInput) : "";
+    const exists = [...defaultAccessoryShortcuts, ...accessoryShortcuts].some((item) =>
+      String(item.label || "").toLocaleLowerCase("tr-TR") === label.toLocaleLowerCase("tr-TR") &&
+      String(item.saleType || "Aksesuar Satışı") === target.saleType
+    );
+    if (exists) return alert("Bu kısayol zaten var.");
+
+    setAccessoryShortcuts([
+      ...accessoryShortcuts,
+      {
+        id: Date.now(),
+        group: target.group,
+        sub: label,
+        label,
+        price,
+        saleGroup: target.saleGroup,
+        saleType: target.saleType,
+      },
+    ].slice(0, accessoryShortcutLimit));
+
+    setSyncMessage("Kısayol eklendi.");
+  }
+
   function deleteAccessoryShortcut(id) {
     setAccessoryShortcuts(accessoryShortcuts.filter((item) => item.id !== id));
   }
@@ -5243,10 +5299,16 @@ const isSameSalesListDay = (item, dateKey) => {
 
               <div className="card management-card management-screenshot-card compact-tool-card">
                 <h2>Ana Ekran SS</h2>
-                <button className="screenshot-round-btn" type="button" onClick={captureHomeScreenshot}>
-                  <span>Ana ekran fotoğrafı</span>
-                  <Camera size={24} />
-                </button>
+                <div className="management-round-actions">
+                  <button className="screenshot-round-btn" type="button" onClick={captureHomeScreenshot}>
+                    <span>Ana ekran fotoğrafı</span>
+                    <Camera size={24} />
+                  </button>
+                  <button className="screenshot-round-btn shortcut-add-round-btn" type="button" onClick={addUniversalShortcutFromManagement}>
+                    <span>Kısayol Ekle</span>
+                    <Plus size={24} />
+                  </button>
+                </div>
               </div>
 
               <div className="card management-card shortcut-delete-card compact-tool-card">
@@ -5467,17 +5529,20 @@ const isSameSalesListDay = (item, dateKey) => {
 
                     <div className="accessory-user-shortcuts compact-shortcuts">
                       {visibleAccessoryShortcuts.map((shortcut) => (
-                        <div key={shortcut.id} className={saleForm.type === "Aksesuar Satışı" && saleForm.search === shortcut.label ? "shortcut-chip active" : "shortcut-chip"}>
+                        <div key={shortcut.id} className={saleForm.type === (shortcut.saleType || "Aksesuar Satışı") && saleForm.search === shortcut.label ? "shortcut-chip active" : "shortcut-chip"}>
                           <button
                             type="button"
                             onClick={() => {
+                              const target = shortcut.saleType
+                                ? { saleGroup: shortcut.saleGroup || "Aksesuar", saleType: shortcut.saleType }
+                                : { saleGroup: "Aksesuar", saleType: "Aksesuar Satışı" };
                               setQuickAccessoryGroup(shortcut.group);
                               setQuickAccessorySubType(shortcut.sub || shortcut.group);
                               setAccessoryShortcutForm({ group: shortcut.group, sub: shortcut.sub || shortcut.group, price: shortcut.price || "" });
-                              setSaleGroup("Aksesuar");
+                              setSaleGroup(target.saleGroup);
                               setSaleForm({
                                 ...saleForm,
-                                type: "Aksesuar Satışı",
+                                type: target.saleType,
                                 productId: "",
                                 search: shortcut.label,
                                 total: shortcut.price || "",
