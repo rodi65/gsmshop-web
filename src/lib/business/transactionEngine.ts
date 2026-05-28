@@ -26,6 +26,7 @@ type RpcName =
   | "ceplog_return_sale_transaction"
   | "ceplog_exchange_sale_transaction"
   | "ceplog_record_stock_purchase_transaction"
+  | "ceplog_cancel_stock_purchase_transaction"
   | "ceplog_record_manual_stock_adjustment";
 
 function toPayload(input: Record<string, unknown>): Record<string, unknown> {
@@ -120,6 +121,14 @@ export async function recordStockPurchaseTransaction(input: Record<string, unkno
   if (!String(input.workspaceId || "").trim()) return { success: false, errorCode: "MISSING_WORKSPACE", message: "workspace_id zorunludur." };
   if (!String(input.idempotencyKey || "").trim()) return { success: false, errorCode: "MISSING_IDEMPOTENCY_KEY", message: "idempotencyKey zorunludur." };
   return await callTransactionRpc("ceplog_record_stock_purchase_transaction", input);
+}
+
+export async function cancelStockPurchaseTransaction(input: Record<string, unknown>): Promise<BusinessTransactionResult> {
+  if (!String(input.workspaceId || "").trim()) return { success: false, errorCode: "MISSING_WORKSPACE", message: "workspace_id zorunludur." };
+  if (!String(input.idempotencyKey || "").trim()) return { success: false, errorCode: "MISSING_IDEMPOTENCY_KEY", message: "idempotencyKey zorunludur." };
+  if (!String(input.stockId || input.stock_id || "").trim()) return { success: false, errorCode: "MISSING_STOCK", message: "stock_id zorunludur." };
+  if (!String(input.reason || "").trim()) return { success: false, errorCode: "MISSING_REASON", message: "İşlem sebebi zorunludur." };
+  return await callTransactionRpc("ceplog_cancel_stock_purchase_transaction", input);
 }
 
 export async function recordManualStockAdjustment(input: Record<string, unknown>): Promise<BusinessTransactionResult> {

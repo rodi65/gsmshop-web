@@ -32,7 +32,6 @@ import {
   createBankWithdrawal,
   createContactPayment,
   createReceivablePayment,
-  repairStockSideEffects,
   softDelete,
 	  cancelRecord,
 	  cancelStockPurchase,
@@ -3101,19 +3100,7 @@ const isSameSalesListDay = (item, dateKey) => {
 
   async function refreshFromDatabase() {
     setSyncMessage("Veriler Supabase'ten yükleniyor...");
-    let data = await loadDashboardData();
-    let repairMessage = "";
-
-    try {
-      const repaired = await repairStockSideEffects(data.stock || [], data.cashMovements || [], data.contacts || []);
-      if (repaired) {
-        data = await loadDashboardData();
-        repairMessage = "Eksik kasa/cari hareketleri stok kayıtlarından tamamlandı.";
-      }
-    } catch (error) {
-      console.error(error);
-      repairMessage = `Veriler yüklendi; eksik kasa/cari onarımı yapılamadı: ${error.message || "Supabase migration gerekebilir."}`;
-    }
+    const data = await loadDashboardData();
 
     setStock((data.stock || []).map(fromDbStock));
     setSales((data.sales || []).map(fromDbSale));
@@ -3135,7 +3122,7 @@ const isSameSalesListDay = (item, dateKey) => {
     setSchemaStatus(data.schemaStatus || []);
     setActiveWorkspaceId(data.workspaceId || data.profile?.workspace_id || "");
     setDbReady(true);
-    setSyncMessage(repairMessage || "Veriler Supabase ile senkronize.");
+    setSyncMessage("Veriler Supabase ile senkronize.");
   }
 
   async function handleCleanTestReset() {
@@ -7562,7 +7549,6 @@ const isSameSalesListDay = (item, dateKey) => {
         )}
 
         {editingSale && <SaleEditModal sale={editingSale} setSale={setEditingSale} save={updateSale} bankOptions={bankOptions} onBankSelect={handleBankSelect} />}
-        {editingStock && <StockEditModal item={editingStock} setItem={setEditingStock} save={updateStock} />}
         {supplierModalOpen && (
           <div className="modal-bg">
             <div className="modal">
@@ -8094,11 +8080,11 @@ function ReceivableMovementPage({ sale, stock, saveReceivablePayment, setSelecte
   );
 }
 
-function StockTable({ stock, setEditingStock, deviceView = false }) {
+function StockTable({ stock, deviceView = false }) {
   if (deviceView) {
     return (
       <Table
-        headers={["No", "Durum", "Marka", "Model", "Hafıza", "Alış", "Satış", "Stok", "Tedarikçi/Satıcı", "Düzelt"]}
+        headers={["No", "Durum", "Marka", "Model", "Hafıza", "Alış", "Satış", "Stok", "Tedarikçi/Satıcı"]}
         rows={stock.map((product, index) => [
           index + 1,
           product.condition || product.category || "-",
@@ -8109,7 +8095,6 @@ function StockTable({ stock, setEditingStock, deviceView = false }) {
           money(product.sell),
           product.qty,
           product.supplier || product.sellerCariName || product.sellerPerson || "-",
-          <button className="edit-btn" onClick={() => setEditingStock({ ...product })}><Pencil size={14} /> Düzenle</button>,
         ])}
       />
     );
@@ -8117,7 +8102,7 @@ function StockTable({ stock, setEditingStock, deviceView = false }) {
 
   return (
     <Table
-      headers={["Tür", "Ürün", "Barkod/IMEI", "Stok", "Alış", "Satış", "Tedarikçi/Satıcı", "Cari Kalan", "Düzelt"]}
+      headers={["Tür", "Ürün", "Barkod/IMEI", "Stok", "Alış", "Satış", "Tedarikçi/Satıcı", "Cari Kalan"]}
       rows={stock.map((product) => [
         toVisibleOtherGroup(product.deviceType),
         productTitle(product),
@@ -8127,7 +8112,6 @@ function StockTable({ stock, setEditingStock, deviceView = false }) {
         money(product.sell),
         product.supplier || product.sellerCariName || product.sellerPerson || "-",
         money(product.sellerCariRemaining || 0),
-        <button className="edit-btn" onClick={() => setEditingStock({ ...product })}><Pencil size={14} /> Düzenle</button>,
       ])}
     />
   );

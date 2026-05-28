@@ -3,7 +3,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "backup:fast": "bash scripts/fast-backup.sh"
+    "backup:fast": "bash scripts/fast-backup.sh",
+    "test:business": "node scripts/ceplog-business-smoke.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",

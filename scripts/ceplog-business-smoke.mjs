@@ -1,0 +1,79 @@
+import fs from "node:fs";
+import path from "node:path";
+
+const root = process.cwd();
+
+const requiredFiles = [
+  "AGENTS.md",
+  "CEPLOG_BUSINESS_RULES.md",
+  "src/lib/business/transactionTypes.ts",
+  "src/lib/business/businessRules.ts",
+  "src/lib/business/transactionEngine.ts",
+  "src/lib/business/ledger.ts",
+  "src/lib/business/reconciliation.ts",
+  "src/lib/business/audit.ts",
+  "src/lib/business/money.ts",
+  "src/lib/business/errors.ts",
+  "src/lib/business/idempotency.ts",
+  "supabase/ceplog_business_ledger_foundation_20260529.sql",
+  "supabase/ceplog_business_transaction_rpcs_20260529.sql",
+];
+
+const requiredRpcNames = [
+  "ceplog_apply_sale_transaction",
+  "ceplog_record_collection_transaction",
+  "ceplog_record_expense_transaction",
+  "ceplog_cancel_sale_transaction",
+  "ceplog_return_sale_transaction",
+  "ceplog_cancel_stock_purchase_transaction",
+  "ceplog_record_stock_purchase_transaction",
+  "ceplog_record_manual_stock_adjustment",
+];
+
+function read(relativePath) {
+  return fs.readFileSync(path.join(root, relativePath), "utf8");
+}
+
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+for (const file of requiredFiles) {
+  assert(fs.existsSync(path.join(root, file)), `Eksik dosya: ${file}`);
+}
+
+const rpcSql = read("supabase/ceplog_business_transaction_rpcs_20260529.sql");
+const foundationSql = read("supabase/ceplog_business_ledger_foundation_20260529.sql");
+const dataService = read("src/services/dataService.js");
+const app = read("src/App.jsx");
+const transactionEngine = read("src/lib/business/transactionEngine.ts");
+const reconciliation = read("src/lib/business/reconciliation.ts");
+
+for (const rpcName of requiredRpcNames) {
+  assert(rpcSql.includes(rpcName), `RPC SQL içinde eksik: ${rpcName}`);
+  assert(dataService.includes(rpcName) || transactionEngine.includes(rpcName), `Kod bağlantısında eksik: ${rpcName}`);
+}
+
+const forbiddenSql = [
+  /\bdrop\s+table\b/i,
+  /\btruncate\b/i,
+  /\bdelete\s+from\b/i,
+];
+
+for (const pattern of forbiddenSql) {
+  assert(!pattern.test(rpcSql), `RPC SQL tehlikeli ifade içeriyor: ${pattern}`);
+  assert(!pattern.test(foundationSql), `Foundation SQL tehlikeli ifade içeriyor: ${pattern}`);
+}
+
+assert(reconciliation.includes("runReadOnlyReconciliation"), "Read-only reconciliation export eksik.");
+assert(dataService.includes("callBusinessTransactionRpc"), "dataService merkezi RPC çağrı helper'ı eksik.");
+assert(dataService.includes("ceplog_apply_sale_transaction"), "Satış transaction RPC bağlantısı eksik.");
+assert(dataService.includes("ceplog_record_stock_purchase_transaction"), "Alış transaction RPC bağlantısı eksik.");
+assert(dataService.includes("ceplog_record_expense_transaction"), "Gider transaction RPC bağlantısı eksik.");
+assert(dataService.includes("ceplog_record_collection_transaction"), "Tahsilat transaction RPC bağlantısı eksik.");
+assert(!app.includes("<StockEditModal"), "Stok ekranında düzenleme modalı görünür durumda kalmamalı.");
+assert(!app.includes("repairStockSideEffects(data.stock"), "Veri yükleme sırasında otomatik finansal onarım çalışmamalı.");
+
+console.log("CEPLOG business smoke test passed.");

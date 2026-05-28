@@ -194,6 +194,7 @@ function isMissingRpcError(error) {
   const message = String(error?.message || "").toLowerCase();
   return (
     error?.code === "PGRST202" ||
+    error?.code === "42883" ||
     message.includes("could not find the function") ||
     message.includes("function") && message.includes("schema cache")
   );
@@ -253,6 +254,40 @@ async function callFinancialRpc(name, payload, missingMessage = "") {
     throw error;
   }
   return data;
+}
+
+function makeIdempotencyKey(prefix, parts = []) {
+  const randomPart = typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return [prefix, ...parts, randomPart]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(":");
+}
+
+async function callBusinessTransactionRpc(name, payload) {
+  const { data, error } = await supabase.rpc(name, { payload });
+  if (error) {
+    if (isMissingRpcError(error)) {
+      console.warn(`${name} RPC kurulmamış; mevcut işlem akışı kullanılacak.`, error);
+      return { applied: false, error };
+    }
+    throw error;
+  }
+  return { applied: true, data };
+}
+
+async function fetchWorkspaceRecord(tableName, id, workspaceId) {
+  if (!id) return null;
+  const { data, error } = await supabase
+    .from(tableName)
+    .select("*")
+    .eq("id", id)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
 }
 
 export async function createAuditLog({
@@ -799,6 +834,26 @@ export async function createReceivablePayment({ saleId, customerName = "", amoun
   if (!saleId) throw new Error("Alacak kaydı seçilemedi.");
   if (!paymentAmount) throw new Error("Tahsilat tutarını yaz.");
 
+  const collectionTransaction = await callBusinessTransactionRpc("ceplog_record_collection_transaction", {
+    workspace_id: workspaceId,
+    actor_id: null,
+    idempotency_key: makeIdempotencyKey("collection", [saleId]),
+    sale_id: saleId,
+    customer_id: null,
+    customer_name: customerName || "",
+    amount: paymentAmount,
+    payment_method: "CASH",
+    note: `Alacak ödemesi - ${customerName || "Müşteri"}`,
+  });
+
+  if (collectionTransaction.applied) {
+    return {
+      sale: { id: saleId, remaining_amount: Math.max(toDbNumber(currentRemaining) - paymentAmount, 0) },
+      movement: { id: collectionTransaction.data?.reference_id || collectionTransaction.data?.movement_id || "" },
+      transaction: collectionTransaction.data,
+    };
+  }
+
   const movementId = await callFinancialRpc("record_receivable_payment", {
     p_sale_id: saleId,
     p_workspace_id: workspaceId,
@@ -888,6 +943,37 @@ export async function createStockItem(payload) {
   const stockPayload = { ...payload };
   if (remaining > 0 && isSellerPurchase && !sellerRemaining) {
     stockPayload.seller_cari_remaining = remaining;
+  }
+
+  const stockTransaction = await callBusinessTransactionRpc("ceplog_record_stock_purchase_transaction", {
+    workspace_id: workspaceId,
+    actor_id: user?.id || null,
+    idempotency_key: makeIdempotencyKey("stock-purchase", [stockPayload.barcode || stockPayload.imei || stockPayload.product_name]),
+    module: stockPayload.module || "",
+    device_type: stockPayload.device_type || "",
+    category: stockPayload.category || "",
+    sub_type: stockPayload.sub_type || "",
+    brand: stockPayload.brand || "",
+    model: stockPayload.model || "",
+    memory: stockPayload.memory || "",
+    product_name: stockPayload.product_name || "Ürün",
+    barcode: stockPayload.barcode || "",
+    imei: stockPayload.imei || "",
+    buy_price: toDbNumber(stockPayload.buy_price),
+    sell_price: toDbNumber(stockPayload.sell_price),
+    quantity: Number(stockPayload.quantity || 1),
+    supplier_name: stockPayload.supplier_name || "",
+    supplier_paid: toDbNumber(stockPayload.supplier_paid),
+    seller_person: stockPayload.seller_person || "",
+    seller_phone: stockPayload.seller_phone || "",
+    acquisition_type: stockPayload.acquisition_type || "",
+    seller_cari_remaining: Number(stockPayload.seller_cari_remaining || 0),
+    note: stockPayload.note || "",
+  });
+
+  if (stockTransaction.applied) {
+    const stockId = stockTransaction.data?.reference_id || stockTransaction.data?.referenceId || stockTransaction.data?.stock_id || stockTransaction.data?.stockId;
+    return await fetchWorkspaceRecord("stock_items", stockId, workspaceId) || stockTransaction.data;
   }
 
   try {
@@ -980,6 +1066,48 @@ export async function createSale(payload) {
     created_by: user?.id,
     updated_by: user?.id,
   };
+
+  if (salePayload.cash_amount + salePayload.card_amount > salePayload.total_amount) {
+    throw new Error("Nakit + kart toplamı satış fiyatını aşamaz.");
+  }
+
+  const saleTransaction = await callBusinessTransactionRpc("ceplog_apply_sale_transaction", {
+    workspace_id: workspaceId,
+    actor_id: user?.id || null,
+    idempotency_key: makeIdempotencyKey("sale", [salePayload.stock_item_id || salePayload.product_name]),
+    customer_id: null,
+    customer_name: salePayload.customer_name || "",
+    customer_phone: salePayload.customer_phone || "",
+    cari_person: salePayload.cari_person || salePayload.customer_name || "",
+    sale_group: salePayload.sale_group || "",
+    sale_type: salePayload.sale_type || "",
+    bank_name: salePayload.bank_name || "",
+    items: [{
+      product_type: salePayload.sale_group || salePayload.sale_type || "sale",
+      product_id: salePayload.stock_item_id || "",
+      imei: salePayload.imei || "",
+      quantity: 1,
+      unit_cost_at_sale: salePayload.buy_cost,
+      unit_price_at_sale: salePayload.total_amount,
+      discount_amount: 0,
+      line_total: salePayload.total_amount,
+      line_profit: salePayload.profit_amount,
+      product_name: salePayload.product_name || "Satış",
+    }],
+    payments: {
+      cash_amount: salePayload.cash_amount,
+      card_amount: salePayload.card_amount,
+      bank_amount: 0,
+      cari_amount: salePayload.remaining_amount,
+    },
+    note: salePayload.note || "",
+    metadata: { legacyPayload: salePayload },
+  });
+
+  if (saleTransaction.applied) {
+    const saleId = saleTransaction.data?.reference_id || saleTransaction.data?.referenceId || saleTransaction.data?.sale_id || saleTransaction.data?.saleId;
+    return await fetchWorkspaceRecord("sales", saleId, workspaceId) || saleTransaction.data;
+  }
 
   try {
     const rpcSale = await callFinancialRpc("create_sale_with_effects", {
@@ -1092,6 +1220,23 @@ export async function createExpense(payload) {
 
   if (payload.category === "Borç" && !String(payload.note || "").trim()) {
     throw new Error("Borç giderinde Not zorunludur.");
+  }
+
+  const expenseTransaction = await callBusinessTransactionRpc("ceplog_record_expense_transaction", {
+    workspace_id: workspaceId,
+    actor_id: user?.id || null,
+    idempotency_key: makeIdempotencyKey("expense", [payload.category, payload.amount]),
+    category: payload.category || "Gider",
+    sub_category: payload.sub_category || "",
+    amount: toDbNumber(payload.amount),
+    payment_method: payload.payment_method || payload.paymentMethod || "CASH",
+    supplier_id: payload.supplier_id || null,
+    note: payload.note || payload.category || "Gider",
+  });
+
+  if (expenseTransaction.applied) {
+    const expenseId = expenseTransaction.data?.reference_id || expenseTransaction.data?.referenceId || expenseTransaction.data?.expense_id || expenseTransaction.data?.expenseId;
+    return await fetchWorkspaceRecord("expenses", expenseId, workspaceId) || expenseTransaction.data;
   }
 
   const { data, error } = await supabase
@@ -1294,11 +1439,24 @@ export async function refundSaleWithEffects(id, reason = "Satış iadesi") {
   }
 
   try {
-    const result = await callFinancialRpc("refund_sale_with_effects", {
-      p_sale_id: id,
-      p_workspace_id: workspaceId,
-      p_reason: reason,
-    }, "Satış iade transaction fonksiyonu kurulmamış. Supabase central_financial_rpc_phase1_20260528.sql dosyasını SQL Editor’da tekrar çalıştırın.");
+    const refundTransaction = await callBusinessTransactionRpc("ceplog_return_sale_transaction", {
+      workspace_id: workspaceId,
+      actor_id: null,
+      idempotency_key: idempotency.operationKey,
+      sale_id: id,
+      items: [],
+      refund_method: "MIXED",
+      refund_amount: Math.max(toDbNumber(saleBeforeRefund.cash_amount) + toDbNumber(saleBeforeRefund.card_amount), 0),
+      reason,
+    });
+
+    const result = refundTransaction.applied
+      ? refundTransaction.data
+      : await callFinancialRpc("refund_sale_with_effects", {
+        p_sale_id: id,
+        p_workspace_id: workspaceId,
+        p_reason: reason,
+      }, "Satış iade transaction fonksiyonu kurulmamış. Supabase central_financial_rpc_phase1_20260528.sql dosyasını SQL Editor’da tekrar çalıştırın.");
 
     const { data: saleAfterRefund, error: saleAfterError } = await supabase
       .from("sales")
@@ -1456,11 +1614,21 @@ export async function cancelStockPurchase(id, reason = "Alım iptal edildi") {
   }
 
 	  try {
-	    const result = await callFinancialRpc("cancel_stock_purchase_with_effects", {
-	      p_stock_id: id,
-	      p_workspace_id: workspaceId,
-	      p_reason: reason,
-	    }, "Alım iptal transaction fonksiyonu kurulmamış. Supabase central_financial_rpc_phase1_20260528.sql dosyasını SQL Editor’da tekrar çalıştırın.");
+	    const cancelTransaction = await callBusinessTransactionRpc("ceplog_cancel_stock_purchase_transaction", {
+	      workspace_id: workspaceId,
+	      actor_id: null,
+	      idempotency_key: idempotency.operationKey,
+	      stock_id: id,
+	      reason,
+	    });
+
+	    const result = cancelTransaction.applied
+	      ? cancelTransaction.data
+	      : await callFinancialRpc("cancel_stock_purchase_with_effects", {
+	        p_stock_id: id,
+	        p_workspace_id: workspaceId,
+	        p_reason: reason,
+	      }, "Alım iptal transaction fonksiyonu kurulmamış. Supabase central_financial_rpc_phase1_20260528.sql dosyasını SQL Editor’da tekrar çalıştırın.");
 
     const { data: stockAfterCancel, error: stockAfterError } = await supabase
       .from("stock_items")
@@ -1559,11 +1727,21 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
     }
 
     try {
-    const result = await callFinancialRpc("cancel_sale_with_effects", {
-      p_sale_id: id,
-      p_workspace_id: workspaceId,
-      p_reason: reason,
-    }, "Finansal iptal fonksiyonu kurulmamış. Supabase financial_integrity SQL çalıştırılmalı.");
+    const cancelTransaction = await callBusinessTransactionRpc("ceplog_cancel_sale_transaction", {
+      workspace_id: workspaceId,
+      actor_id: user?.id || null,
+      idempotency_key: idempotency.operationKey,
+      sale_id: id,
+      reason,
+    });
+
+    const result = cancelTransaction.applied
+      ? cancelTransaction.data
+      : await callFinancialRpc("cancel_sale_with_effects", {
+        p_sale_id: id,
+        p_workspace_id: workspaceId,
+        p_reason: reason,
+      }, "Finansal iptal fonksiyonu kurulmamış. Supabase financial_integrity SQL çalıştırılmalı.");
 
     const { data: saleAfterCancel, error: saleAfterReadError } = await supabase
       .from("sales")
