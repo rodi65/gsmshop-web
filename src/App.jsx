@@ -38,7 +38,7 @@ import {
   updateStockItem,
 } from "./services/dataService";
 
-import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText, Settings, Calculator, Printer } from "lucide-react";
+import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText, Settings, Calculator, Printer, Globe, MessageCircle, Camera, Trash2 } from "lucide-react";
 
 const parseMoneyInput = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, ""));
 const formatMoneyInput = (value) => {
@@ -321,6 +321,17 @@ const quickAccessoryGroups = {
   "Şarj": ["A Şarj", "B Şarj", "Replika"],
   "Kulaklık": ["Kulaklık"],
 };
+const accessoryShortcutLabel = (group, sub) => (group === sub ? group : `${group} - ${sub}`);
+const defaultAccessoryShortcuts = Object.entries(quickAccessoryGroups).flatMap(([group, subs]) =>
+  subs.map((sub) => ({
+    id: `default-${group}-${sub}`,
+    group,
+    sub,
+    label: accessoryShortcutLabel(group, sub),
+    price: "",
+    isDefault: true,
+  }))
+);
 const accessoryShortcutLimit = 30;
 const technicalServiceStatuses = ["Beklemede", "İşlemde", "Hazır", "Teslim Edildi", "İptal"];
 const technicalServiceFilterOptions = ["TÜMÜ", ...technicalServiceStatuses];
@@ -2058,6 +2069,17 @@ const isSameSalesListDay = (item, dateKey) => {
     const bank = getBankById(bankList, name);
     return parseMoneyInput(bank?.balance);
   };
+  const visibleAccessoryShortcuts = useMemo(() => {
+    const seen = new Set();
+    return [...defaultAccessoryShortcuts, ...accessoryShortcuts]
+      .filter((shortcut) => {
+        const key = String(shortcut.label || accessoryShortcutLabel(shortcut.group, shortcut.sub)).toLocaleLowerCase("tr-TR");
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, accessoryShortcutLimit);
+  }, [accessoryShortcuts]);
 
   const supplierOptions = useMemo(() => {
     return Array.from(new Set([...suppliers, ...activeStock.map((product) => product.supplier).filter((supplier) => supplier && !isSellerLabel(supplier))])).sort();
@@ -4691,6 +4713,45 @@ const isSameSalesListDay = (item, dateKey) => {
     window.print();
   }
 
+  async function captureHomeScreenshot() {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      alert("Bu tarayıcı ekran fotoğrafı alma özelliğini desteklemiyor.");
+      return;
+    }
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { displaySurface: "browser" },
+        audio: false,
+      });
+
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.muted = true;
+      await video.play();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth || window.innerWidth;
+      canvas.height = video.videoHeight || window.innerHeight;
+      const context = canvas.getContext("2d");
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const link = document.createElement("a");
+      link.download = `ceplog-ana-ekran-${localDateKey(new Date())}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+      setSyncMessage("Ana ekran fotoğrafı indirildi.");
+    } catch (error) {
+      if (error?.name !== "NotAllowedError") {
+        alert(error?.message || "Ana ekran fotoğrafı alınamadı.");
+      }
+    } finally {
+      stream?.getTracks?.().forEach((track) => track.stop());
+    }
+  }
+
   useEffect(() => {
     const timer = setInterval(() => setClockNow(new Date()), 1000);
     return () => clearInterval(timer);
@@ -4772,10 +4833,6 @@ const isSameSalesListDay = (item, dateKey) => {
               <small>Akıllı GSM yönetimi</small>
             </div>
           </div>
-          <button type="button" className="print-action hero-print-action" onClick={printPage} aria-label="Ana ekranı yazdır">
-            <Printer size={15} />
-            YAZ
-          </button>
           <div className="status-pill">WEB TEST</div>
         </header>
 
@@ -4783,6 +4840,16 @@ const isSameSalesListDay = (item, dateKey) => {
           <div className="premium-sidebar-brand">
             <div className="premium-sidebar-logo"><span>CEP</span><b>LOG</b></div>
             <p>Profesyonel GSM yönetim paneli</p>
+            <div className="sidebar-contact-links">
+              <a href="https://www.ceplog.com" target="_blank" rel="noreferrer">
+                <Globe size={14} />
+                <span>www.ceplog.com</span>
+              </a>
+              <a href="https://wa.me/905303088372" target="_blank" rel="noreferrer" className="sidebar-whatsapp-link">
+                <MessageCircle size={14} />
+                <span>WhatsApp</span>
+              </a>
+            </div>
           </div>
 
           <button
@@ -5180,6 +5247,37 @@ const isSameSalesListDay = (item, dateKey) => {
                 </div>
               )}
 
+              <div className="card management-card management-screenshot-card">
+                <h2>Ana Ekran SS</h2>
+                <p>Ana ekran fotoğrafını cihazına PNG olarak indirir.</p>
+                <button className="screenshot-round-btn" type="button" onClick={captureHomeScreenshot}>
+                  <span>Ana ekran fotoğrafı</span>
+                  <Camera size={24} />
+                </button>
+              </div>
+
+              <div className="card management-card shortcut-delete-card">
+                <h2>Kısayol Sil</h2>
+                <p>Oluşturulmuş aksesuar kısayollarını buradan yönet.</p>
+                <div className="shortcut-delete-list">
+                  {accessoryShortcuts.map((shortcut) => (
+                    <div className="shortcut-delete-row" key={shortcut.id}>
+                      <div>
+                        <b>{shortcut.label}</b>
+                        <span>{shortcut.price || "Fiyat yok"}</span>
+                      </div>
+                      <button className="shortcut-delete-management-btn" type="button" onClick={() => deleteAccessoryShortcut(shortcut.id)}>
+                        <Trash2 size={15} />
+                        Kısayol Sil
+                      </button>
+                    </div>
+                  ))}
+                  {!accessoryShortcuts.length && (
+                    <div className="shortcut-delete-empty">Silinecek kullanıcı kısayolu yok.</div>
+                  )}
+                </div>
+              </div>
+
               <div className="card management-card">
                 <h2>Yedekleme Merkezi</h2>
                 <p>Stok, satış, kasa, banka, cari, gider ve aksesuar kısayolları tek JSON dosyası olarak yedeklenir.</p>
@@ -5389,11 +5487,11 @@ const isSameSalesListDay = (item, dateKey) => {
                     <h2 className="large-accessory-title">AKSESUAR HIZLI SATIŞ</h2>
 
                     <div className="shortcut-limit-info">
-                      EKLENEN KISAYOL: <b>{accessoryShortcuts.length} / {accessoryShortcutLimit}</b>
+                      KISAYOL SEÇ: <b>{visibleAccessoryShortcuts.length}</b>
                     </div>
 
                     <div className="accessory-user-shortcuts compact-shortcuts">
-                      {accessoryShortcuts.map((shortcut) => (
+                      {visibleAccessoryShortcuts.map((shortcut) => (
                         <div key={shortcut.id} className={saleForm.type === "Aksesuar Satışı" && saleForm.search === shortcut.label ? "shortcut-chip active" : "shortcut-chip"}>
                           <button
                             type="button"
@@ -5416,98 +5514,12 @@ const isSameSalesListDay = (item, dateKey) => {
                             <span>{shortcut.label}</span>
                             {shortcut.price && <small>{shortcut.price}</small>}
                           </button>
-                          <button className="shortcut-delete" type="button" onClick={() => deleteAccessoryShortcut(shortcut.id)}>SİL</button>
                         </div>
                       ))}
 
-                      {!accessoryShortcuts.length && (
-                        <div className="empty-shortcut-note">Henüz kısayol eklenmedi. Grup ve alt seçenek seçip Kısayol Ekle dediğinde burada kalır.</div>
+                      {!visibleAccessoryShortcuts.length && (
+                        <div className="empty-shortcut-note">Aksesuar kısayolları burada görünür.</div>
                       )}
-                    </div>
-
-                    <div className="accessory-shortcut-price-row">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="Varsayılan fiyat"
-                        value={accessoryShortcutForm.price}
-                        onFocus={() => setAccessoryShortcutForm({ ...accessoryShortcutForm, price: stripMoneyForEdit(accessoryShortcutForm.price) })}
-                        onChange={(e) => {
-                          const price = cleanMoneyTyping(e.target.value);
-                          setAccessoryShortcutForm({ ...accessoryShortcutForm, price });
-                          if (saleForm.type === "Aksesuar Satışı" && saleForm.search === `${accessoryShortcutForm.group} - ${accessoryShortcutForm.sub}`) {
-                            setSaleForm({ ...saleForm, total: price, cash: price });
-                          }
-                        }}
-                        onBlur={() => {
-                          const price = formatMoneyInput(accessoryShortcutForm.price);
-                          setAccessoryShortcutForm({ ...accessoryShortcutForm, price });
-                          if (saleForm.type === "Aksesuar Satışı" && saleForm.search === `${accessoryShortcutForm.group} - ${accessoryShortcutForm.sub}`) {
-                            setSaleForm({ ...saleForm, total: price, cash: price });
-                          }
-                        }}
-                      />
-
-                      <button className="primary" type="button" onClick={addAccessoryShortcut}>
-                        <Plus size={16} /> KISAYOL EKLE
-                      </button>
-                    </div>
-
-                    <h3>GRUP SEÇ</h3>
-                    <div className="accessory-select-tabs">
-                      {Object.keys(quickAccessoryGroups).map((group) => (
-                        <button
-                          key={group}
-                          type="button"
-                          className={accessoryShortcutForm.group === group ? "choice active" : "choice"}
-                          onClick={() => {
-                            const firstSub = quickAccessoryGroups[group]?.[0] || group;
-                            setAccessoryShortcutForm({ ...accessoryShortcutForm, group, sub: firstSub });
-                            setQuickAccessoryGroup(group);
-                            setQuickAccessorySubType(firstSub);
-                            setSaleGroup("Aksesuar");
-                            setSaleForm({
-                              ...saleForm,
-                              type: "Aksesuar Satışı",
-                              productId: "",
-                              search: `${group} - ${firstSub}`,
-                              total: accessoryShortcutForm.price || "",
-                              cash: accessoryShortcutForm.price || "",
-                              card: "",
-                            });
-                          }}
-                        >
-                          {group}
-                        </button>
-                      ))}
-                    </div>
-
-                    <h3>ALT SEÇENEK SEÇ</h3>
-                    <div className="accessory-select-tabs accessory-sub-tabs">
-                      {(quickAccessoryGroups[accessoryShortcutForm.group] || []).map((sub) => (
-                        <button
-                          key={sub}
-                          type="button"
-                          className={accessoryShortcutForm.sub === sub ? "choice active" : "choice"}
-                          onClick={() => {
-                            setAccessoryShortcutForm({ ...accessoryShortcutForm, sub });
-                            setQuickAccessoryGroup(accessoryShortcutForm.group);
-                            setQuickAccessorySubType(sub);
-                            setSaleGroup("Aksesuar");
-                            setSaleForm({
-                              ...saleForm,
-                              type: "Aksesuar Satışı",
-                              productId: "",
-                              search: `${accessoryShortcutForm.group} - ${sub}`,
-                              total: accessoryShortcutForm.price || "",
-                              cash: accessoryShortcutForm.price || "",
-                              card: "",
-                            });
-                          }}
-                        >
-                          {sub}
-                        </button>
-                      ))}
                     </div>
 
                   </div>

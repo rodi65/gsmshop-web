@@ -8379,3 +8379,197 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell {
 html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   overflow-y: visible !important;
 }
+
+/* Ana ekran kısayol alanı ve yönetim araçları */
+.premium-dashboard .sidebar-contact-links {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 7px !important;
+  margin-top: 10px !important;
+}
+
+.premium-dashboard .sidebar-contact-links a {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 7px !important;
+  min-height: 28px !important;
+  padding: 6px 9px !important;
+  border: 1px solid rgba(219, 234, 254, .18) !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, .08) !important;
+  color: #dbeafe !important;
+  text-decoration: none !important;
+  font-size: clamp(9px, .72vw, 11px) !important;
+  font-weight: 950 !important;
+  line-height: 1 !important;
+}
+
+.premium-dashboard .sidebar-contact-links a:hover {
+  background: rgba(255, 255, 255, .14) !important;
+}
+
+.premium-dashboard .sidebar-contact-links .sidebar-whatsapp-link {
+  color: #dcfce7 !important;
+}
+
+@media (min-width: 921px) {
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .large-accessory-title {
+    flex: 0 0 auto !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-limit-info {
+    flex: 0 0 auto !important;
+    margin-bottom: 8px !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .accessory-user-shortcuts.compact-shortcuts {
+    flex: 1 1 auto !important;
+    min-height: clamp(230px, 38vh, 430px) !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+    align-content: start !important;
+    gap: 10px !important;
+    padding: clamp(12px, 1vw, 16px) !important;
+    scrollbar-width: thin !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-chip {
+    display: block !important;
+    min-width: 0 !important;
+    min-height: 62px !important;
+    height: auto !important;
+    padding: 0 !important;
+    grid-template-columns: 1fr !important;
+    background: transparent !important;
+    border: 0 !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-chip > button:first-child {
+    width: 100% !important;
+    min-height: 62px !important;
+    height: 100% !important;
+    padding: 9px 10px !important;
+    border: 1px solid #f59e0b !important;
+    border-radius: 12px !important;
+    background: linear-gradient(180deg, #fff8d7 0%, #fff1b8 100%) !important;
+    color: #0f172a !important;
+    box-shadow: 0 10px 22px rgba(245, 158, 11, .12) !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-chip.active > button:first-child {
+    border-color: #4f46e5 !important;
+    background: linear-gradient(135deg, #eaf1ff, #ede9fe) !important;
+    color: #1e1b4b !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-chip > button:first-child span {
+    display: block !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    font-size: clamp(10px, .78vw, 12px) !important;
+    line-height: 1.15 !important;
+    font-weight: 1000 !important;
+    text-align: center !important;
+  }
+
+  .premium-dashboard .kasa-home-dashboard .large-accessory-panel .shortcut-chip small {
+    margin-top: 5px !important;
+    font-size: clamp(9px, .68vw, 11px) !important;
+  }
+}
+
+.premium-dashboard .management-screenshot-card,
+.premium-dashboard .shortcut-delete-card {
+  min-height: 0 !important;
+}
+
+.premium-dashboard .screenshot-round-btn {
+  width: min(160px, 100%) !important;
+  aspect-ratio: 1 / 1 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  background: linear-gradient(135deg, #0b1226 0%, #2563eb 52%, #7c3aed 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 20px 40px rgba(37, 99, 235, .24) !important;
+  font-weight: 1000 !important;
+  line-height: 1.1 !important;
+}
+
+.premium-dashboard .screenshot-round-btn span {
+  max-width: 112px !important;
+  text-align: center !important;
+  white-space: normal !important;
+}
+
+.premium-dashboard .shortcut-delete-list {
+  display: grid !important;
+  gap: 8px !important;
+  max-height: 260px !important;
+  overflow-y: auto !important;
+  padding-right: 4px !important;
+}
+
+.premium-dashboard .shortcut-delete-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 8px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  background: #f8fafc !important;
+}
+
+.premium-dashboard .shortcut-delete-row div {
+  display: grid !important;
+  gap: 2px !important;
+  min-width: 0 !important;
+}
+
+.premium-dashboard .shortcut-delete-row b,
+.premium-dashboard .shortcut-delete-row span {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.premium-dashboard .shortcut-delete-row span,
+.premium-dashboard .shortcut-delete-empty {
+  color: #64748b !important;
+  font-size: 12px !important;
+  font-weight: 850 !important;
+}
+
+.premium-dashboard .shortcut-delete-management-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  border: 0 !important;
+  border-radius: 9px !important;
+  background: linear-gradient(135deg, #ef4444, #be123c) !important;
+  color: #ffffff !important;
+  font-size: 11px !important;
+  font-weight: 1000 !important;
+  white-space: nowrap !important;
+}
