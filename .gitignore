@@ -2,3 +2,14 @@ node_modules/
 dist/
 .DS_Store
 *.local
+.env
+.env.*
+!.env.example
+
+# Local cleanup backups and old package exports
+*.before*
+*.backup*
+*.bak
+index.before*
+gsmshop_*/
+gsmshop_*.zip

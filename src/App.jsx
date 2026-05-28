@@ -28,6 +28,7 @@ import {
   createExpense,
   createCashMovement,
   createBankMovement,
+  createBankWithdrawal,
   createContactPayment,
   createReceivablePayment,
   repairStockSideEffects,
@@ -1330,7 +1331,7 @@ export default function App() {
     }
 
     if (rowType.includes("satış")) {
-      window.alert("Kasa Beyni: Satıştan gelen nakit bu fazda iptal edilemez. Satış iptali Phase 5B'de yapılacak.");
+      window.alert("Kasa Beyni: Satıştan gelen nakit bu işlemden ayrı iptal edilemez. Satış iptali için aynı rapordaki Satış İptal akışını kullanın.");
       return false;
     }
 
@@ -3546,23 +3547,37 @@ const isSameSalesListDay = (item, dateKey) => {
     }));
   }
 
-  function handleBankCashSkeletonTransfer(bank) {
+  async function handleBankCashSkeletonTransfer(bank) {
     const draft = bankTransferDrafts[bank.id] || {};
     const currentBalance = parseMoneyInput(bank.balance);
     const withdrawAmount = parseMoneyInput(draft.withdraw);
     if (!withdrawAmount) return alert("Çekilecek tutar yaz");
     if (withdrawAmount > currentBalance) return alert("Çekilecek tutar bankada olan tutardan fazla olamaz.");
 
-    console.log("BANK_TRANSFER_TEST_ACTION", {
-      bankId: bank.id,
-      bankName: bank.name,
-      currentBalance,
-      withdrawAmount,
-      remainingBalance: Math.max(currentBalance - withdrawAmount, 0),
-      note: draft.note || "",
-      timestamp: new Date().toISOString(),
-    });
-    alert("Bankadan kasaya gerçek aktarım Phase 3’te aktif edilecek. Bu aşamada gerçek işlem yapılmadı.");
+    try {
+      await createBankWithdrawal({
+        bank_name: bank.name,
+        amount: withdrawAmount,
+        note: draft.note || `Bankadan Nakit Gelen - ${bank.name}`,
+      });
+
+      const nextBanks = getBankList(banks).map((item) =>
+        String(item.id) === String(bank.id)
+          ? { ...item, balance: Math.max(currentBalance - withdrawAmount, 0) }
+          : item
+      );
+      setBanks(nextBanks);
+      saveStoredBanks(nextBanks);
+      setBankTransferDrafts((drafts) => {
+        const nextDrafts = { ...drafts };
+        delete nextDrafts[bank.id];
+        return nextDrafts;
+      });
+      await refreshFromDatabase();
+      setSyncMessage(`${bank.name} hesabından kasaya ${money(withdrawAmount)} aktarıldı.`);
+    } catch (error) {
+      alert(error.message || "Bankadan kasaya aktarım kaydedilemedi.");
+    }
   }
 
   function addBankCashSkeletonBank() {
@@ -3570,16 +3585,10 @@ const isSameSalesListDay = (item, dateKey) => {
     const result = addBank(banks, name, bankCashSkeletonForm.balance);
     if (!result.ok) return alert(result.message);
 
-    console.log("BANKA_EKLE_TEST_ACTION", {
-      bankId: result.bank.id,
-      bankName: result.bank.name,
-      openingBalance: result.bank.balance,
-      timestamp: new Date().toISOString(),
-    });
     setBanks(result.banks);
     saveStoredBanks(result.banks);
     setBankCashSkeletonForm({ name: "", balance: "" });
-    alert("Banka listeye eklendi. Gerçek banka bakiyesi motoru Phase 3’te aktif edilecek.");
+    alert("Banka listeye eklendi.");
   }
 
   function cashMovementCancellationFor(item) {
@@ -5720,7 +5729,7 @@ const isSameSalesListDay = (item, dateKey) => {
                 {cashEntryTab === "Bankadan Gelen Nakit" && (
                   <div className="cash-bank-skeleton">
                     <h3>Bankadan Gelen Nakit</h3>
-                    <p>Bu sekme merkezi banka listesiyle çalışır. Bankadan kasaya gerçek aktarım Phase 3’te aktif edilecek.</p>
+                    <p>Bu sekme merkezi banka listesiyle çalışır. Çekilecek tutarı yazıp Kasaya Aktar ile banka çıkışı ve kasa girişi birlikte kaydedilir.</p>
 
                     <div className="stats three">
                       <Stat title="Bankada Toplam Olan" value={money(bankCashSkeletonTotal)} />
@@ -6069,7 +6078,7 @@ const isSameSalesListDay = (item, dateKey) => {
       {kasaTab === "bankadanNakit" && (
               <section className="card">
                 <h2>Bankadan Nakit Gelen</h2>
-                <p>Bu bölüm artık Nakit Girişi sekmesi içindeki merkezi banka listesine yönlendirildi. Gerçek banka-kasa aktarımı Phase 3’e kadar pasiftir.</p>
+                <p>Bu bölüm artık Nakit Girişi sekmesi içindeki merkezi banka listesine yönlendirildi. Bankadan kasaya aktarım oradan kaydedilir.</p>
                 <button className="primary" type="button" onClick={() => {
                   setKasaTab("nakitGirisi");
                   setCashEntryTab("Bankadan Gelen Nakit");

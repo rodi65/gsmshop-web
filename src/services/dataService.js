@@ -781,6 +781,8 @@ export async function createBankWithdrawal(payload) {
     .from("bank_movements")
     .insert([{
       movement_type: "Bankadan Çekilen",
+      direction: "out",
+      status: "active",
       bank_name: payload.bank_name,
       amount: toDbNumber(payload.amount),
       note: payload.note || `Bankadan Nakit Gelen - ${payload.bank_name}`,
