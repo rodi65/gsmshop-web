@@ -7,6 +7,584 @@ body {
   color: #020617;
 }
 
+/* CEPLOG Kasa mockup + sepet sistemi */
+.premium-dashboard .kasa-mockup-dashboard {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: 8px !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.premium-dashboard .kasa-main-tabs {
+  margin: 0 !important;
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(112px, 1fr)) minmax(210px, .9fr) !important;
+  gap: 8px !important;
+  align-items: stretch !important;
+}
+
+.premium-dashboard .kasa-layout {
+  display: grid !important;
+  grid-template-columns: 285px minmax(0, 1fr) 285px !important;
+  gap: 8px !important;
+  min-height: 0 !important;
+  height: 100% !important;
+}
+
+.premium-dashboard .kasa-sale-card,
+.premium-dashboard .kasa-mid,
+.premium-dashboard .kasa-cart {
+  min-width: 0 !important;
+  min-height: 0 !important;
+}
+
+.premium-dashboard .kasa-sale-card,
+.premium-dashboard .kasa-quick,
+.premium-dashboard .kasa-day,
+.premium-dashboard .kasa-cart {
+  border: 1px solid rgba(15, 23, 42, .08) !important;
+  border-radius: 22px !important;
+  background: rgba(255, 255, 255, .94) !important;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, .08) !important;
+}
+
+.premium-dashboard .kasa-sale-card {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  padding: 12px !important;
+  overflow: auto !important;
+  scrollbar-width: thin !important;
+}
+
+.premium-dashboard .kasa-panel-head,
+.premium-dashboard .quick-head,
+.premium-dashboard .cart-panel-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+}
+
+.premium-dashboard .kasa-panel-head h2,
+.premium-dashboard .quick-head h2,
+.premium-dashboard .kasa-day h2,
+.premium-dashboard .cart-panel-header h2 {
+  margin: 0 !important;
+  color: #071226 !important;
+  font-size: 18px !important;
+  font-weight: 950 !important;
+  letter-spacing: 0 !important;
+}
+
+.premium-dashboard .kasa-panel-head h2,
+.premium-dashboard .cart-panel-header h2 {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.premium-dashboard .kasa-category-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+}
+
+.premium-dashboard .kasa-category-grid .big-sale-btn {
+  min-height: 38px !important;
+  border-radius: 13px !important;
+  border: 1px solid #dbe5f3 !important;
+  background: #f7faff !important;
+  color: #111827 !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  padding: 8px !important;
+  box-shadow: none !important;
+}
+
+.premium-dashboard .kasa-category-grid .big-sale-btn.active {
+  color: #fff !important;
+  border-color: transparent !important;
+  background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, .24) !important;
+}
+
+.premium-dashboard .kasa-sale-card input,
+.premium-dashboard .kasa-sale-card select,
+.premium-dashboard .cart-payment-box input,
+.premium-dashboard .cart-payment-box select,
+.premium-dashboard .cart-note,
+.premium-dashboard .cart-money-input,
+.premium-dashboard .cart-qty-control input,
+.premium-dashboard .cart-search-field input {
+  width: 100% !important;
+  min-height: 40px !important;
+  border-radius: 14px !important;
+  border: 1px solid #dbe5f3 !important;
+  background: #f8fbff !important;
+  color: #0f172a !important;
+  font-weight: 850 !important;
+  font-size: 13px !important;
+  padding: 9px 11px !important;
+  outline: none !important;
+}
+
+.premium-dashboard .kasa-sale-card .two,
+.premium-dashboard .cart-payment-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 8px !important;
+}
+
+.premium-dashboard .kasa-sale-card .remaining-box {
+  min-height: 40px !important;
+  border-radius: 14px !important;
+  border: 1px solid #dbe5f3 !important;
+  background: #eef4ff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 8px 10px !important;
+  color: #334155 !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+}
+
+.premium-dashboard .kasa-sale-card .primary,
+.premium-dashboard .cart-checkout-btn,
+.premium-dashboard .quick-title-btn {
+  min-height: 42px !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+  color: white !important;
+  border: 0 !important;
+  font-weight: 950 !important;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, .22) !important;
+}
+
+.premium-dashboard .kasa-mid {
+  display: grid !important;
+  grid-template-rows: minmax(0, 1.35fr) minmax(148px, .65fr) !important;
+  gap: 8px !important;
+}
+
+.premium-dashboard .kasa-quick,
+.premium-dashboard .kasa-day {
+  padding: 12px !important;
+  overflow: hidden !important;
+}
+
+.premium-dashboard .quick-head span,
+.premium-dashboard .cart-panel-header p {
+  margin: 0 !important;
+  color: #64748b !important;
+  font-size: 12px !important;
+  font-weight: 850 !important;
+}
+
+.premium-dashboard .cart-product-search {
+  display: grid !important;
+  gap: 8px !important;
+  margin-top: 8px !important;
+}
+
+.premium-dashboard .cart-search-field {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  border-radius: 16px !important;
+  background: #f8fbff !important;
+  border: 1px solid #dbe5f3 !important;
+  padding: 0 10px !important;
+}
+
+.premium-dashboard .cart-search-field input {
+  border: 0 !important;
+  background: transparent !important;
+  padding-left: 0 !important;
+}
+
+.premium-dashboard .cart-product-results,
+.premium-dashboard .quick-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  overflow: auto !important;
+  scrollbar-width: thin !important;
+}
+
+.premium-dashboard .cart-product-results {
+  max-height: 172px !important;
+}
+
+.premium-dashboard .quick-grid {
+  margin-top: 8px !important;
+  max-height: 218px !important;
+}
+
+.premium-dashboard .cart-product-result,
+.premium-dashboard .qitem {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto auto !important;
+  align-items: center !important;
+  gap: 7px !important;
+  min-height: 54px !important;
+  border-radius: 16px !important;
+  border: 1px solid #dbe5f3 !important;
+  background: linear-gradient(180deg, #ffffff, #f7fbff) !important;
+  color: #0f172a !important;
+  padding: 9px !important;
+  text-align: left !important;
+  font-weight: 900 !important;
+}
+
+.premium-dashboard .cart-product-result strong,
+.premium-dashboard .qitem span {
+  display: block !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  font-size: 12px !important;
+}
+
+.premium-dashboard .cart-product-result small,
+.premium-dashboard .qitem b {
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 850 !important;
+}
+
+.premium-dashboard .cart-product-empty {
+  grid-column: 1 / -1 !important;
+  min-height: 76px !important;
+  border-radius: 16px !important;
+  display: grid !important;
+  place-items: center !important;
+  color: #64748b !important;
+  background: #f8fbff !important;
+  border: 1px dashed #cbd5e1 !important;
+  font-weight: 850 !important;
+  text-align: center !important;
+  padding: 12px !important;
+}
+
+.premium-dashboard .kasa-day {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: 8px !important;
+}
+
+.premium-dashboard .kasa-day-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.premium-dashboard .kasa-day-grid div,
+.premium-dashboard .cart-summary-box div,
+.premium-dashboard .cart-payment-gap {
+  border-radius: 14px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #f8fbff !important;
+  padding: 8px 10px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.premium-dashboard .kasa-day-grid span,
+.premium-dashboard .cart-summary-box span,
+.premium-dashboard .cart-payment-gap span {
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 850 !important;
+}
+
+.premium-dashboard .kasa-day-grid b,
+.premium-dashboard .cart-summary-box b,
+.premium-dashboard .cart-payment-gap b {
+  color: #0f172a !important;
+  font-size: 13px !important;
+  font-weight: 950 !important;
+}
+
+.premium-dashboard .cart-panel {
+  padding: 12px !important;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto auto !important;
+  gap: 8px !important;
+  overflow: hidden !important;
+}
+
+.premium-dashboard .cart-count-badge {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 12px !important;
+  display: grid !important;
+  place-items: center !important;
+  color: #fff !important;
+  background: #071226 !important;
+  font-weight: 950 !important;
+}
+
+.premium-dashboard .cart-items-list {
+  min-height: 0 !important;
+  overflow: auto !important;
+  display: grid !important;
+  gap: 8px !important;
+  align-content: start !important;
+  scrollbar-width: thin !important;
+}
+
+.premium-dashboard .cart-empty-state {
+  min-height: 170px !important;
+  display: grid !important;
+  place-items: center !important;
+  text-align: center !important;
+  gap: 6px !important;
+  color: #64748b !important;
+  border: 1px dashed #cbd5e1 !important;
+  border-radius: 18px !important;
+  background: #f8fbff !important;
+  padding: 18px !important;
+}
+
+.premium-dashboard .cart-item-row {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 16px !important;
+  padding: 9px !important;
+  display: grid !important;
+  gap: 8px !important;
+  background: #fff !important;
+}
+
+.premium-dashboard .cart-item-main,
+.premium-dashboard .cart-item-totals,
+.premium-dashboard .cart-footer-actions,
+.premium-dashboard .cart-payment-actions {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.premium-dashboard .cart-item-main strong {
+  display: block !important;
+  max-width: 182px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: #0f172a !important;
+  font-size: 12px !important;
+  font-weight: 950 !important;
+}
+
+.premium-dashboard .cart-item-main small,
+.premium-dashboard .cart-item-note {
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+}
+
+.premium-dashboard .cart-item-controls {
+  display: grid !important;
+  grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 6px !important;
+  align-items: center !important;
+}
+
+.premium-dashboard .cart-qty-control {
+  display: grid !important;
+  grid-template-columns: 28px minmax(0, 1fr) 28px !important;
+  gap: 4px !important;
+  align-items: center !important;
+}
+
+.premium-dashboard .cart-icon-btn {
+  min-width: 28px !important;
+  height: 28px !important;
+  border-radius: 10px !important;
+  border: 1px solid #dbe5f3 !important;
+  background: #f8fbff !important;
+  color: #0f172a !important;
+  display: grid !important;
+  place-items: center !important;
+}
+
+.premium-dashboard .cart-icon-btn.danger {
+  color: #dc2626 !important;
+  background: #fff5f5 !important;
+}
+
+.premium-dashboard .cart-item-totals {
+  color: #334155 !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+}
+
+.premium-dashboard .profit b,
+.premium-dashboard .profit {
+  color: #16a34a !important;
+}
+
+.premium-dashboard .loss b,
+.premium-dashboard .loss {
+  color: #dc2626 !important;
+}
+
+.premium-dashboard .cart-summary-box {
+  display: grid !important;
+  gap: 6px !important;
+}
+
+.premium-dashboard .cart-payment-box {
+  display: grid !important;
+  gap: 7px !important;
+}
+
+.premium-dashboard .cart-payment-actions button {
+  flex: 1 !important;
+  min-height: 30px !important;
+  border-radius: 12px !important;
+  border: 1px solid #dbe5f3 !important;
+  background: #fff !important;
+  color: #0f172a !important;
+  font-size: 10px !important;
+  font-weight: 950 !important;
+}
+
+.premium-dashboard .cart-payment-gap.ok {
+  background: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+}
+
+.premium-dashboard .cart-note {
+  min-height: 58px !important;
+  resize: vertical !important;
+}
+
+.premium-dashboard .cart-footer-actions .choice,
+.premium-dashboard .cart-footer-actions .primary {
+  flex: 1 !important;
+}
+
+.premium-dashboard .management-finance-panel {
+  display: grid !important;
+  gap: 12px !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.premium-dashboard .management-module-tabs {
+  display: grid !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+}
+
+.premium-dashboard .management-module-tabs button {
+  min-height: 34px !important;
+  border-radius: 12px !important;
+  border: 1px solid #dbe5f3 !important;
+  background: #f8fbff !important;
+  color: #334155 !important;
+  font-size: 11px !important;
+  font-weight: 950 !important;
+}
+
+.premium-dashboard .management-module-tabs button.active {
+  color: #fff !important;
+  border-color: transparent !important;
+  background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+}
+
+.premium-dashboard .management-finance-kpis {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.premium-dashboard .management-finance-kpis div {
+  min-height: 70px !important;
+  border-radius: 16px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: linear-gradient(180deg, #ffffff, #f7fbff) !important;
+  padding: 10px !important;
+  display: grid !important;
+  align-content: center !important;
+  gap: 5px !important;
+}
+
+.premium-dashboard .management-finance-kpis span,
+.premium-dashboard .management-risk-list span {
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 850 !important;
+}
+
+.premium-dashboard .management-finance-kpis b {
+  color: #071226 !important;
+  font-size: 18px !important;
+  font-weight: 950 !important;
+  white-space: nowrap !important;
+}
+
+.premium-dashboard .management-risk-panel {
+  border-radius: 18px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #f8fbff !important;
+  padding: 12px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 12px !important;
+  align-items: center !important;
+}
+
+.premium-dashboard .management-risk-panel h2 {
+  margin: 0 0 4px !important;
+  font-size: 18px !important;
+  color: #071226 !important;
+}
+
+.premium-dashboard .management-risk-panel p {
+  margin: 0 !important;
+  color: #64748b !important;
+  font-weight: 800 !important;
+}
+
+.premium-dashboard .management-risk-list {
+  display: grid !important;
+  gap: 6px !important;
+  text-align: right !important;
+}
+
+@media (max-width: 1280px) {
+  .premium-dashboard .kasa-layout {
+    grid-template-columns: 270px minmax(0, 1fr) 270px !important;
+  }
+}
+
+@media (max-width: 1080px) {
+  .premium-dashboard .kasa-layout,
+  .premium-dashboard .kasa-main-tabs {
+    grid-template-columns: 1fr !important;
+  }
+
+  .premium-dashboard .kasa-mid {
+    grid-template-rows: auto auto !important;
+  }
+
+  .premium-dashboard .cart-product-results,
+  .premium-dashboard .quick-grid,
+  .premium-dashboard .kasa-day-grid,
+  .premium-dashboard .management-module-tabs,
+  .premium-dashboard .management-finance-kpis,
+  .premium-dashboard .management-risk-panel {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 button, input, select { font: inherit; }
 button { cursor: pointer; border: 0; }
 

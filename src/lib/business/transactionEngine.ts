@@ -20,6 +20,7 @@ import type {
 
 type RpcName =
   | "ceplog_apply_sale_transaction"
+  | "ceplog_apply_cart_sale_transaction"
   | "ceplog_record_collection_transaction"
   | "ceplog_record_expense_transaction"
   | "ceplog_cancel_sale_transaction"
@@ -66,7 +67,8 @@ async function callTransactionRpc(name: RpcName, input: Record<string, unknown>)
 export async function createSaleTransaction(input: SaleTransactionInput): Promise<BusinessTransactionResult> {
   try {
     validateSaleTransaction(input);
-    return await callTransactionRpc("ceplog_apply_sale_transaction", input as unknown as Record<string, unknown>);
+    const isCartSale = input.items.length > 1 || input.metadata?.source === "cart";
+    return await callTransactionRpc(isCartSale ? "ceplog_apply_cart_sale_transaction" : "ceplog_apply_sale_transaction", input as unknown as Record<string, unknown>);
   } catch (error) {
     return errorResult(error);
   }
