@@ -3518,6 +3518,49 @@ const isSameSalesListDay = (item, dateKey) => {
     else summary.missing += 1;
     return summary;
   }, { total: 0, ready: 0, missing: 0 });
+  const systemHasBusinessData = Boolean(
+    activeSales.length ||
+    activeStock.length ||
+    activeExpenses.length ||
+    activeBankMovements.length ||
+    activeCashMovements.length ||
+    activeContacts.length ||
+    technicalServicesForFinance.length
+  );
+  const zeroFinanceChecks = [
+    ["Toplam Kasa", financeSummary.expectedCash],
+    ["Bugün Nakit Gelirleri", financeSummary.todayCashIncome],
+    ["Alım Ödemeleri", financeSummary.purchasePaymentsNet],
+    ["Giderler", financeSummary.cashExpenseTotal],
+    ["Gelen Alacak", financeSummary.receivablePaymentsTotal],
+  ];
+  const zeroFinanceFailures = systemHasBusinessData
+    ? []
+    : zeroFinanceChecks.filter(([, value]) => Math.abs(Number(value || 0)) > 0.009);
+  const missingSchemaTables = safeSchemaStatus.filter((item) => !item.ready).map((item) => item.table).filter(Boolean);
+  const systemHealthRows = [
+    [
+      "Sıfır Veri Testi",
+      systemHasBusinessData ? "Veri var" : zeroFinanceFailures.length ? "Hata" : "Temiz",
+      systemHasBusinessData
+        ? "Aktif kayıtlar olduğu için sıfır testi uygulanmadı."
+        : zeroFinanceFailures.length
+          ? `${zeroFinanceFailures.length} finans özeti 0 değil.`
+          : "Aktif ticari kayıt yok ve finans özetleri 0 görünüyor.",
+    ],
+    [
+      "Ledger Altyapısı",
+      systemSchemaSummary.missing ? "Migration bekliyor" : "Hazır",
+      systemSchemaSummary.total
+        ? `${systemSchemaSummary.ready}/${systemSchemaSummary.total} altyapı tablosu hazır.`
+        : "Henüz altyapı tablo durumu okunmadı.",
+    ],
+    [
+      "Read-only Kontrol",
+      "Aktif",
+      "Sistem Kontrol sadece okuma yapar; veri düzeltmez.",
+    ],
+  ];
 
   function runSystemControlCheck() {
     const findings = runReadOnlyReconciliation({
@@ -3539,26 +3582,8 @@ const isSameSalesListDay = (item, dateKey) => {
       pos_movements: safePosMovements,
     });
 
-    const hasBusinessData = Boolean(
-      activeSales.length ||
-      activeStock.length ||
-      activeExpenses.length ||
-      activeBankMovements.length ||
-      activeCashMovements.length ||
-      activeContacts.length ||
-      technicalServicesForFinance.length
-    );
-
-    if (!hasBusinessData) {
-      const nonZeroValues = [
-        ["Toplam Kasa", financeSummary.expectedCash],
-        ["Bugün Nakit Gelirleri", financeSummary.todayCashIncome],
-        ["Alım Ödemeleri", financeSummary.purchasePaymentsNet],
-        ["Giderler", financeSummary.cashExpenseTotal],
-        ["Gelen Alacak", financeSummary.receivablePaymentsTotal],
-      ].filter(([, value]) => Math.abs(Number(value || 0)) > 0.009);
-
-      nonZeroValues.forEach(([label, value]) => {
+    if (!systemHasBusinessData) {
+      zeroFinanceFailures.forEach(([label, value]) => {
         findings.push({
           severity: "ERROR",
           module: "CASH",
@@ -6197,7 +6222,12 @@ const isSameSalesListDay = (item, dateKey) => {
                   <div><span>Mod</span><b>Read-only</b></div>
                   <div><span>Veri düzeltme</span><b>Yok</b></div>
                   <div><span>Altyapı tabloları</span><b>{systemSchemaSummary.ready}/{systemSchemaSummary.total || 0} hazır</b></div>
+                  <div><span>Eksik tablo</span><b>{missingSchemaTables.length || 0}</b></div>
                 </div>
+                <Table
+                  headers={["Kontrol", "Durum", "Açıklama"]}
+                  rows={systemHealthRows}
+                />
                 <Table
                   headers={["Altyapı Tablosu", "Durum", "Kayıt", "Not"]}
                   rows={safeSchemaStatus.map((item) => [
