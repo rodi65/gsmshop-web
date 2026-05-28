@@ -139,6 +139,34 @@ function isMissingRelationError(error) {
   return error?.code === "42P01" || message.includes("could not find the table") || message.includes("does not exist");
 }
 
+function isMissingSchemaError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return isMissingRelationError(error) || error?.code === "42703" || message.includes("column") && message.includes("does not exist");
+}
+
+async function safeWorkspaceRows(tableName, workspaceId, { orderColumn = "created_at", ascending = false, limit = 500 } = {}) {
+  try {
+    let query = supabase.from(tableName).select("*").eq("workspace_id", workspaceId);
+    if (orderColumn) query = query.order(orderColumn, { ascending });
+    if (limit) query = query.limit(limit);
+    const { data, error } = await query;
+    if (error) {
+      if (isMissingSchemaError(error)) {
+        console.warn(`${tableName} tablosu/kolonu hazır değil; Sistem Kontrol bu kaynağı boş kabul edecek.`, error);
+        return [];
+      }
+      throw error;
+    }
+    return data || [];
+  } catch (error) {
+    if (isMissingSchemaError(error)) {
+      console.warn(`${tableName} okunamadı; Sistem Kontrol bu kaynağı boş kabul edecek.`, error);
+      return [];
+    }
+    throw error;
+  }
+}
+
 function isMissingRpcError(error) {
   const message = String(error?.message || "").toLowerCase();
   return (
@@ -390,7 +418,7 @@ export async function loadBankBalances(workspaceIdArg) {
 export async function loadDashboardData() {
   const profile = await getCurrentProfile();
   const workspaceId = profile?.workspace_id || await getCurrentWorkspaceId();
-  const [stock, sales, expenses, bank, closings, cash, contacts] = await Promise.all([
+  const [stock, sales, expenses, bank, closings, cash, contacts, auditLogs, businessTransactions, ledgerEntries] = await Promise.all([
     supabase.from("stock_items").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
     supabase.from("sales").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.neq.deleted").order("created_at", { ascending: false }),
     supabase.from("expenses").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
@@ -398,6 +426,9 @@ export async function loadDashboardData() {
     supabase.from("cash_closings").select("*").eq("workspace_id", workspaceId).order("closing_date", { ascending: false }),
     supabase.from("cash_movements").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
     supabase.from("contacts").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
+    safeWorkspaceRows("audit_logs", workspaceId, { orderColumn: "changed_at", ascending: false }),
+    safeWorkspaceRows("business_transactions", workspaceId),
+    safeWorkspaceRows("ledger_entries", workspaceId),
   ]);
 
   for (const response of [stock, sales, expenses, bank, closings]) {
@@ -425,6 +456,9 @@ export async function loadDashboardData() {
     cashClosings: closings.data || [],
     cashMovements: cash.error ? [] : cash.data || [],
     contacts: contacts.error ? [] : contacts.data || [],
+    auditLogs,
+    businessTransactions,
+    ledgerEntries,
   };
 }
 

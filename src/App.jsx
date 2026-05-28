@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Login from "./components/Login";
 import CashClosingPanel from "./components/CashClosingPanel";
+import { runReadOnlyReconciliation } from "./lib/business/reconciliation";
 
 // ceplog-bank-movement-constraint-global-guard
 if (typeof window !== "undefined" && !window.__ceplogBankMovementConstraintGuard) {
@@ -1286,6 +1287,9 @@ export default function App() {
   const [syncMessage, setSyncMessage] = useState("");
   const [activeWorkspaceId, setActiveWorkspaceId] = useState("");
   const [cashMovements, setCashMovements] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [businessTransactions, setBusinessTransactions] = useState([]);
+  const [ledgerEntries, setLedgerEntries] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [kasaTab, setKasaTab] = useState("yeniSatis");
   const [dailyReportDate, setDailyReportDate] = useState(() => localDateKey(new Date()));
@@ -1326,6 +1330,8 @@ export default function App() {
   const [kasaBrainPassword, setKasaBrainPassword] = useState("");
   const [kasaBrainProcessing, setKasaBrainProcessing] = useState(false);
   const [kasaBrainEditDraft, setKasaBrainEditDraft] = useState(null);
+  const [systemCheckFindings, setSystemCheckFindings] = useState([]);
+  const [systemCheckLastRun, setSystemCheckLastRun] = useState("");
   const pendingActionKeysRef = useRef(new Set());
 
   function beginPendingAction(key, message = "Bu işlem zaten devam ediyor. Lütfen bekleyin.") {
@@ -2723,6 +2729,9 @@ const isSameSalesListDay = (item, dateKey) => {
   const safeBankMovements = Array.isArray(bankMovements) ? bankMovements : [];
   const safeBankBalances = Array.isArray(bankBalances) ? bankBalances : [];
   const safeCashMovements = Array.isArray(cashMovements) ? cashMovements : [];
+  const safeAuditLogs = Array.isArray(auditLogs) ? auditLogs : [];
+  const safeBusinessTransactions = Array.isArray(businessTransactions) ? businessTransactions : [];
+  const safeLedgerEntries = Array.isArray(ledgerEntries) ? ledgerEntries : [];
   const safeContacts = Array.isArray(contacts) ? contacts : [];
   const activeStock = safeStock.filter(isActiveRecord);
   const activeSales = safeSales.filter(isActiveRecord);
@@ -3097,6 +3106,9 @@ const isSameSalesListDay = (item, dateKey) => {
     setBankBalances((data.bankBalances || []).map(fromDbBankBalance));
     setCashMovements((data.cashMovements || []).map(fromDbCashMovement));
     setContacts((data.contacts || []).map(fromDbContact));
+    setAuditLogs(data.auditLogs || []);
+    setBusinessTransactions(data.businessTransactions || []);
+    setLedgerEntries(data.ledgerEntries || []);
     setActiveWorkspaceId(data.workspaceId || data.profile?.workspace_id || "");
     setDbReady(true);
     setSyncMessage(repairMessage || "Veriler Supabase ile senkronize.");
@@ -3467,6 +3479,67 @@ const isSameSalesListDay = (item, dateKey) => {
   const receivablePayments = financeSummary.receivablePaymentsTotal;
   const cardSalesTotal = activeSales.reduce((sum, sale) => sum + normalizeSalePaymentDistributionForReport(sale).card, 0) + technicalBankMovementNet;
   const cashExpensePayments = financeSummary.cashExpenseTotal;
+
+  const systemCheckSummary = systemCheckFindings.reduce((summary, finding) => {
+    const severity = String(finding.severity || "INFO").toUpperCase();
+    summary.total += 1;
+    if (severity === "ERROR") summary.errors += 1;
+    else if (severity === "WARNING") summary.warnings += 1;
+    else summary.info += 1;
+    return summary;
+  }, { total: 0, errors: 0, warnings: 0, info: 0 });
+
+  function runSystemControlCheck() {
+    const findings = runReadOnlyReconciliation({
+      sales: activeSales,
+      stock_items: activeStock,
+      expenses: activeExpenses,
+      bank_movements: activeBankMovements,
+      cash_movements: activeCashMovements,
+      contacts: activeContacts,
+      audit_logs: safeAuditLogs,
+      business_transactions: safeBusinessTransactions,
+      ledger_entries: safeLedgerEntries,
+    });
+
+    const hasBusinessData = Boolean(
+      activeSales.length ||
+      activeStock.length ||
+      activeExpenses.length ||
+      activeBankMovements.length ||
+      activeCashMovements.length ||
+      activeContacts.length ||
+      technicalServicesForFinance.length
+    );
+
+    if (!hasBusinessData) {
+      const nonZeroValues = [
+        ["Toplam Kasa", financeSummary.expectedCash],
+        ["Bugün Nakit Gelirleri", financeSummary.todayCashIncome],
+        ["Alım Ödemeleri", financeSummary.purchasePaymentsNet],
+        ["Giderler", financeSummary.cashExpenseTotal],
+        ["Gelen Alacak", financeSummary.receivablePaymentsTotal],
+      ].filter(([, value]) => Math.abs(Number(value || 0)) > 0.009);
+
+      nonZeroValues.forEach(([label, value]) => {
+        findings.push({
+          severity: "ERROR",
+          module: "CASH",
+          entityType: "finance_summary",
+          entityId: null,
+          message: `Sıfır veri durumunda ${label} 0 TL olmalı.`,
+          expectedValue: "0 TL",
+          actualValue: money(value),
+          suggestedFix: "Finans özeti localStorage/demo/cache yerine hareket tablolarından hesaplanmalı.",
+          createdAt: new Date().toISOString(),
+        });
+      });
+    }
+
+    setSystemCheckFindings(findings);
+    setSystemCheckLastRun(new Date().toLocaleString("tr-TR"));
+    setSyncMessage(findings.length ? `Sistem Kontrol tamamlandı: ${findings.length} bulgu.` : "Sistem Kontrol tamamlandı: bulgu yok.");
+  }
 
   function dailyReportRowType(item) {
     const type = cashMovementType(item) || bankMovementType(item);
@@ -6072,6 +6145,40 @@ const isSameSalesListDay = (item, dateKey) => {
                   </button>
                 </div>
               )}
+
+              <div className="card management-card compact-tool-card system-control-card">
+                <h2>SİSTEM KONTROL</h2>
+                <p>Satış, kasa, banka, cari, workspace, audit ve ledger kayıtlarını sadece okuma modunda kontrol eder.</p>
+                <div className="backup-preview-grid compact-backup-preview-grid">
+                  <Stat title="Toplam Bulgu" value={systemCheckSummary.total} />
+                  <Stat title="Hata" value={systemCheckSummary.errors} negative={systemCheckSummary.errors > 0} />
+                  <Stat title="Uyarı" value={systemCheckSummary.warnings} negative={systemCheckSummary.warnings > 0} />
+                  <Stat title="Bilgi" value={systemCheckSummary.info} />
+                </div>
+                <div className="management-info-list">
+                  <div><span>Son kontrol</span><b>{systemCheckLastRun || "-"}</b></div>
+                  <div><span>Mod</span><b>Read-only</b></div>
+                  <div><span>Veri düzeltme</span><b>Yok</b></div>
+                </div>
+                <button className="primary backup-btn" type="button" onClick={runSystemControlCheck}>
+                  <ShieldCheck size={18} /> Kontrol Et
+                </button>
+                <Table
+                  headers={["Seviye", "Modül", "Kayıt", "Mesaj", "Beklenen", "Mevcut", "Öneri"]}
+                  rows={systemCheckFindings.slice(0, 50).map((finding) => [
+                    finding.severity || "-",
+                    finding.module || "-",
+                    [finding.entityType, finding.entityId].filter(Boolean).join(" / ") || "-",
+                    finding.message || "-",
+                    finding.expectedValue === undefined ? "-" : String(finding.expectedValue),
+                    finding.actualValue === undefined ? "-" : String(finding.actualValue),
+                    finding.suggestedFix || "-",
+                  ])}
+                />
+                {systemCheckFindings.length > 50 && (
+                  <p>İlk 50 bulgu gösteriliyor. Detaylı liste için sonraki adımda dışa aktarma eklenebilir.</p>
+                )}
+              </div>
 
               <div className="card management-card management-screenshot-card compact-tool-card">
                 <h2>Ana Ekran SS</h2>
