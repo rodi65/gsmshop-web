@@ -1235,6 +1235,89 @@ export async function softDelete(tableName, id) {
   }
 }
 
+export async function cancelStockPurchase(id, reason = "Alım iptal edildi") {
+  const workspaceId = await getCurrentWorkspaceId();
+
+  const { data: stockBeforeCancel, error: stockReadError } = await supabase
+    .from("stock_items")
+    .select("*")
+    .eq("id", id)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (stockReadError) throw stockReadError;
+  if (!stockBeforeCancel) throw new Error("İptal edilecek alım/stok kaydı bulunamadı.");
+  if (["deleted", "cancelled", "canceled", "iptal"].includes(String(stockBeforeCancel.status || "").toLowerCase())) {
+    throw new Error("Bu alım daha önce iptal edilmiş. İkinci kez iptal edilemez.");
+  }
+
+  const idempotency = await tryBeginIdempotency({
+    operationType: "cancel_purchase",
+    targetTable: "stock_items",
+    targetId: id,
+    operationKey: criticalOperationKey("cancel_purchase", "stock_items", id),
+    payload: { stockItemId: id, reason },
+    workspaceId,
+  });
+
+  if (!idempotency.allowed) {
+    throw new Error("Bu alım iptal işlemi daha önce işlenmiş. İkinci kez çalıştırılamaz.");
+  }
+
+  try {
+    const result = await callFinancialRpc("cancel_stock_purchase_with_effects", {
+      p_stock_item_id: id,
+      p_workspace_id: workspaceId,
+      p_reason: reason,
+    }, "Alım iptal transaction fonksiyonu kurulmamış. Supabase financial_transaction_rpcs_20260528.sql dosyasını SQL Editor’da tekrar çalıştırın.");
+
+    const { data: stockAfterCancel, error: stockAfterError } = await supabase
+      .from("stock_items")
+      .select("*")
+      .eq("id", id)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (stockAfterError) console.warn("Alım iptal audit yeni stok kaydı okunamadı.", stockAfterError);
+
+    await createAuditLog({
+      tableName: "stock_items",
+      recordId: id,
+      action: "CANCEL",
+      eventType: "stock_purchase_cancel_with_effects",
+      reason,
+      oldData: stockBeforeCancel || null,
+      newData: stockAfterCancel || result || null,
+      metadata: {
+        idempotencyKey: idempotency.operationKey,
+        rpcResult: result || null,
+      },
+      requestKey: idempotency.operationKey,
+      workspaceId,
+    });
+
+    if (!idempotency.missing) {
+      await completeIdempotency({
+        operationKey: idempotency.operationKey,
+        result: { stockItemId: id, status: stockAfterCancel?.status || result?.status || "deleted" },
+        workspaceId,
+      });
+    }
+
+    return result;
+  } catch (error) {
+    if (!idempotency.missing) {
+      await completeIdempotency({
+        operationKey: idempotency.operationKey,
+        status: "failed",
+        result: { stockItemId: id, message: error?.message || String(error) },
+        workspaceId,
+      });
+    }
+    throw error;
+  }
+}
+
 export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi") {
   const user = await getCurrentUser();
   const workspaceId = await getCurrentWorkspaceId();

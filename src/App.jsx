@@ -34,6 +34,7 @@ import {
   repairStockSideEffects,
   softDelete,
   cancelRecord,
+  cancelStockPurchase,
   updateSaleRecord,
   updateStockItem,
 } from "./services/dataService";
@@ -386,6 +387,8 @@ const purchaseCancellationMovementTypes = [
   "Stok Alış İptali",
   "Cihaz Alış İptali",
   "Telefon Alış İptali",
+  "Aksesuar Alış İptali",
+  "Ürün Alış İptali",
   "Stok Ödemesi İptali",
   "Alım Ödemesi İptali",
   "Tedarikçi Ödemesi İptali",
@@ -1468,6 +1471,13 @@ const isSaleCancelAction = (modal) => {
     return action === "satış iptal" && rowType.includes("satış");
   };
 
+  const isPurchaseCancelAction = (modal) => {
+    const action = String(modal?.action || "").toLocaleLowerCase("tr-TR");
+    const rowType = String(modal?.row?.type || "").toLocaleLowerCase("tr-TR");
+
+    return action === "alım iptal" && rowType.includes("alım");
+  };
+
   const normalizeKasaBrainText = (value) =>
     String(value || "")
       .toLocaleLowerCase("tr-TR")
@@ -1533,6 +1543,69 @@ const isSaleCancelAction = (modal) => {
       const debtMatch = !rowDebt || Math.abs(rowDebt - saleDebt) < 1;
 
       return idMatch || (descriptionMatch && partyMatch && totalMatch && cashMatch && bankMatch && debtMatch);
+    });
+  };
+
+  const findStockForKasaBrainRow = (row) => {
+    const rowType = normalizeKasaBrainText(row?.type);
+    const relatedTable = normalizeKasaBrainText(row?.relatedTable || row?.related_table);
+    const candidateIds = [
+      row?.stockItemId,
+      row?.stock_item_id,
+      relatedTable === "stock_items" ? (row?.relatedId || row?.related_id) : "",
+      rowType.includes("alım") ? row?.id : "",
+    ]
+      .map((value) => String(value || "").trim())
+      .filter(Boolean);
+
+    const idMatch = (stock || []).find((product) =>
+      candidateIds.some((candidateId) => String(product?.id || "") === candidateId)
+    );
+
+    if (idMatch) return idMatch;
+
+    const rowDescription = normalizeKasaBrainText(row?.description);
+    const rowParty = normalizeKasaBrainText(row?.party);
+    const rowCash = parseMoneyInput(row?.cash || 0);
+    const rowDebt = parseMoneyInput(row?.debt || 0);
+
+    return (stock || []).find((product) => {
+      const productStatus = normalizeKasaBrainText(product?.status || "active");
+      if (["deleted", "cancelled", "canceled", "iptal"].includes(productStatus)) return false;
+
+      const productText = normalizeKasaBrainText(
+        product?.product_name ||
+        product?.productName ||
+        product?.name ||
+        product?.brand ||
+        product?.model ||
+        product?.description ||
+        product?.imei ||
+        product?.barcode
+      );
+      const productParty = normalizeKasaBrainText(
+        product?.supplier_name ||
+        product?.supplierName ||
+        product?.seller_person ||
+        product?.sellerPerson ||
+        product?.party
+      );
+      const productPaid = parseMoneyInput(product?.supplier_paid || product?.supplierPaid || 0);
+      const productDebt = parseMoneyInput(product?.seller_cari_remaining || product?.sellerCariRemaining || 0);
+
+      const descriptionMatch =
+        rowDescription &&
+        productText &&
+        (rowDescription.includes(productText) || productText.includes(rowDescription));
+      const partyMatch =
+        !rowParty ||
+        !productParty ||
+        rowParty.includes(productParty) ||
+        productParty.includes(rowParty);
+      const cashMatch = !rowCash || !productPaid || Math.abs(rowCash - productPaid) < 1;
+      const debtMatch = !rowDebt || !productDebt || Math.abs(rowDebt - productDebt) < 1;
+
+      return descriptionMatch && partyMatch && cashMatch && debtMatch;
     });
   };
 
@@ -1961,6 +2034,88 @@ const isSaleCancelAction = (modal) => {
     return true;
   };
 
+  const handlePurchaseCancel = async ({ reason, password }) => {
+    const row = kasaBrainModal?.row || {};
+    const targetStock = findStockForKasaBrainRow(row);
+    const stockId = String(
+      targetStock?.id ||
+      row?.stockItemId ||
+      row?.stock_item_id ||
+      (String(row?.relatedTable || row?.related_table || "").toLocaleLowerCase("tr-TR") === "stock_items" ? (row?.relatedId || row?.related_id) : "") ||
+      (String(row?.type || "").toLocaleLowerCase("tr-TR").includes("alım") ? row?.id : "") ||
+      ""
+    ).trim();
+
+    if (!stockId) {
+      window.alert(
+        "Kasa Beyni: Bu alım satırı gerçek stok kaydıyla eşleşmedi.\n\n" +
+        "İşlem durduruldu. Kasa, banka, stok ve cari değiştirilmedi.\n" +
+        "Raporu yenileyip tekrar deneyin."
+      );
+      await refreshFromDatabase();
+      return true;
+    }
+
+    const actionKey = `purchase-cancel:${stockId}`;
+    if (!beginPendingAction(actionKey)) return true;
+
+    try {
+      const result = await cancelStockPurchase(stockId, reason || "Kasa Beyni alım iptali");
+      await refreshFromDatabase();
+
+      const logRecord = {
+        id: `kasa-brain-real-purchase-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        action: kasaBrainModal.action || "Alım İptal",
+        recordNo: row.no || null,
+        stockItemId: stockId,
+        type: row.type || "Alım",
+        description: row.description || targetStock?.product_name || "",
+        party: row.party || targetStock?.supplier_name || "",
+        cash: Number(row.cash || 0),
+        bank: Number(row.bank || 0),
+        debt: Number(row.debt || 0),
+        total: Number(row.total || 0),
+        reason,
+        status: "REAL_PURCHASE_CANCEL_SUPABASE_RPC",
+        result: "cancel_stock_purchase_with_effects RPC called; stock/cash/bank/cari effects handled by backend",
+        rpcResult: result || null,
+        passwordUsed: Boolean(password)
+      };
+
+      try {
+        const currentLogs = JSON.parse(localStorage.getItem("ceplogKasaBrainAuditLogs") || "[]");
+        localStorage.setItem("ceplogKasaBrainAuditLogs", JSON.stringify([logRecord, ...currentLogs]));
+      } catch (logError) {
+        console.error("Kasa Beyni alım iptal audit log yazılamadı:", logError);
+      }
+
+      window.alert(
+        `Kasa Beyni: Alım iptal edildi.\n` +
+        `Kayıt No: ${row.no || "-"}\n` +
+        `Stok pasifleştirildi; kasa, banka ve cari etkileri Supabase güvenli iptal motoru üzerinden işlendi.\n` +
+        `İkinci iptal engellendi.`
+      );
+
+      setSyncMessage(`Kasa Beyni: Alım iptal edildi. Supabase iptal motoru çalıştı. Kayıt No: ${row.no}.`);
+      setKasaBrainReason("");
+      setKasaBrainPassword("");
+      setKasaBrainModal(null);
+      return true;
+    } catch (error) {
+      console.error("Kasa Beyni Supabase alım iptal hatası:", error);
+      window.alert(
+        `Kasa Beyni: Alım iptali Supabase güvenli motorunda başarısız oldu.\n\n` +
+        `${error.message || error}\n\n` +
+        `İşlem durduruldu. Kasa, banka, stok ve cari elle/local değiştirilmedi.`
+      );
+      await refreshFromDatabase();
+      return true;
+    } finally {
+      endPendingAction(actionKey);
+    }
+  };
+
 const isSameSalesListDay = (item, dateKey) => {
     const rawDate = item?.date || item?.createdAt || item?.created_at || item?.saleDate || item?.sale_date;
     if (!rawDate || !dateKey) return false;
@@ -2015,6 +2170,11 @@ const isSameSalesListDay = (item, dateKey) => {
 
     if (isSaleCancelAction(kasaBrainModal)) {
       const done = await handleSaleCancel({ reason, password });
+      if (done) return;
+    }
+
+    if (isPurchaseCancelAction(kasaBrainModal)) {
+      const done = await handlePurchaseCancel({ reason, password });
       if (done) return;
     }
 
@@ -6202,6 +6362,8 @@ const isSameSalesListDay = (item, dateKey) => {
                 ? "Detay modu: Bu ekran sadece kayıt bilgisini gösterir. Şifre, sebep, audit log veya finansal işlem oluşturmaz."
                 : isSaleCancelAction(kasaBrainModal)
                   ? "Satış iptal modu: Onay sonrası gerçek satış kaydı Supabase güvenli iptal motoruyla iptal edilir. Stok, kasa, banka ve cari etkileri birlikte işlenir."
+                  : isPurchaseCancelAction(kasaBrainModal)
+                    ? "Alım iptal modu: Onay sonrası stok kaydı pasifleştirilir; kasa, banka ve cari etkileri Supabase güvenli iptal motoruyla birlikte işlenir."
                   : "Güvenli mod: Bu işlem sadece ön audit log oluşturur. Satış, kasa, stok, cari veya iade kaydı değiştirmez."}
             </div>
 
@@ -6251,7 +6413,11 @@ const isSameSalesListDay = (item, dateKey) => {
                       fontWeight: 900
                     }}
                   >
-                    {isSaleCancelAction(kasaBrainModal) ? "Satış İptalini Onayla" : "Ön Audit Log Oluştur"}
+                    {isSaleCancelAction(kasaBrainModal)
+                      ? "Satış İptalini Onayla"
+                      : isPurchaseCancelAction(kasaBrainModal)
+                        ? "Alım İptalini Onayla"
+                        : "Ön Audit Log Oluştur"}
                   </button>
                 </>
               )}

@@ -61,6 +61,11 @@ begin
         'Ürün Alım Ödemesi',
         'Tedarikçi Ödemesi',
         'Alım İptali',
+        'Stok Alış İptali',
+        'Cihaz Alış İptali',
+        'Telefon Alış İptali',
+        'Aksesuar Alış İptali',
+        'Ürün Alış İptali',
         'Stok Ödemesi İptali',
         'Alım Ödemesi İptali',
         'Tedarikçi Ödemesi İptali'

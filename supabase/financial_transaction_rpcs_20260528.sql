@@ -71,6 +71,11 @@ begin
         'Ürün Alım Ödemesi',
         'Tedarikçi Ödemesi',
         'Alım İptali',
+        'Stok Alış İptali',
+        'Cihaz Alış İptali',
+        'Telefon Alış İptali',
+        'Aksesuar Alış İptali',
+        'Ürün Alış İptali',
         'Stok Ödemesi İptali',
         'Alım Ödemesi İptali',
         'Tedarikçi Ödemesi İptali'
@@ -537,6 +542,232 @@ begin
 end;
 $$;
 
+create or replace function public.cancel_stock_purchase_with_effects(
+  p_stock_item_id uuid,
+  p_workspace_id text,
+  p_reason text default null
+)
+returns public.stock_items
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_workspace_id text := nullif(trim(coalesce(p_workspace_id, '')), '');
+  v_stock public.stock_items%rowtype;
+  v_cancelled public.stock_items%rowtype;
+  v_cash_total numeric := 0;
+  v_bank record;
+  v_cancel_type text;
+  v_supplier_name text;
+  v_seller_raw text;
+  v_seller_contact text;
+begin
+  if v_workspace_id is null then
+    raise exception 'Workspace bilgisi bulunamadı';
+  end if;
+
+  select *
+    into v_stock
+  from public.stock_items
+  where id = p_stock_item_id
+    and workspace_id = v_workspace_id
+    and coalesce(status, 'active') not in ('deleted', 'cancelled')
+  for update;
+
+  if not found then
+    raise exception 'Alım kaydı bulunamadı veya zaten iptal edilmiş';
+  end if;
+
+  if exists (
+    select 1
+    from public.sales
+    where workspace_id = v_workspace_id
+      and stock_item_id = p_stock_item_id
+      and coalesce(status, 'active') not in ('deleted', 'cancelled')
+    limit 1
+  ) then
+    raise exception 'Bu ürün aktif satışa bağlı. Önce satış iptal edilmelidir.';
+  end if;
+
+  v_cancel_type := case
+    when coalesce(v_stock.module, '') = 'Cihaz' and coalesce(v_stock.device_type, '') = 'Telefon' then 'Telefon Alış İptali'
+    when coalesce(v_stock.module, '') = 'Cihaz' then 'Cihaz Alış İptali'
+    when coalesce(v_stock.module, '') = 'Aksesuar' then 'Aksesuar Alış İptali'
+    else 'Stok Alış İptali'
+  end;
+
+  select coalesce(sum(abs(coalesce(amount, 0))), 0)
+    into v_cash_total
+  from public.cash_movements
+  where workspace_id = v_workspace_id
+    and related_table = 'stock_items'
+    and related_id = p_stock_item_id::text
+    and movement_type in (
+      'Alım Ödemesi',
+      'Cihaz Alım Ödemesi',
+      'Telefon Alım Ödemesi',
+      'Stok Alım Ödemesi',
+      'Stok Ödemesi',
+      'Aksesuar Alım Ödemesi',
+      'Ürün Alım Ödemesi',
+      'Tedarikçi Ödemesi'
+    )
+    and coalesce(status, 'active') = 'active';
+
+  if v_cash_total > 0 and not exists (
+    select 1
+    from public.cash_movements
+    where workspace_id = v_workspace_id
+      and related_table = 'stock_items'
+      and related_id = p_stock_item_id::text
+      and movement_type in ('Stok Alış İptali', 'Cihaz Alış İptali', 'Telefon Alış İptali', 'Aksesuar Alış İptali', 'Ürün Alış İptali')
+      and coalesce(status, 'active') = 'active'
+  ) then
+    insert into public.cash_movements (
+      id, workspace_id, movement_type, direction, amount, note,
+      related_table, related_id, status, created_by, updated_by
+    )
+    values (
+      gen_random_uuid(),
+      v_workspace_id,
+      v_cancel_type,
+      'in',
+      v_cash_total,
+      coalesce(v_stock.product_name, 'Stok') || ' alım iptali ters kasa hareketi' ||
+        case when nullif(trim(coalesce(p_reason, '')), '') is not null then ' - ' || p_reason else '' end,
+      'stock_items',
+      p_stock_item_id::text,
+      'active',
+      auth.uid(),
+      auth.uid()
+    );
+  end if;
+
+  for v_bank in
+    select
+      nullif(trim(coalesce(bank_name, '')), '') as bank_name,
+      coalesce(sum(abs(coalesce(amount, 0))), 0) as total_amount
+    from public.bank_movements
+    where workspace_id = v_workspace_id
+      and related_table = 'stock_items'
+      and related_id = p_stock_item_id::text
+      and movement_type in (
+        'Alım Ödemesi',
+        'Cihaz Alım Ödemesi',
+        'Telefon Alım Ödemesi',
+        'Stok Alım Ödemesi',
+        'Stok Ödemesi',
+        'Aksesuar Alım Ödemesi',
+        'Ürün Alım Ödemesi',
+        'Tedarikçi Ödemesi'
+      )
+      and coalesce(status, 'active') = 'active'
+    group by nullif(trim(coalesce(bank_name, '')), '')
+  loop
+    if v_bank.total_amount > 0 and v_bank.bank_name is not null and not exists (
+      select 1
+      from public.bank_movements
+      where workspace_id = v_workspace_id
+        and related_table = 'stock_items'
+        and related_id = p_stock_item_id::text
+        and bank_name = v_bank.bank_name
+        and movement_type in ('Stok Alış İptali', 'Cihaz Alış İptali', 'Telefon Alış İptali', 'Aksesuar Alış İptali', 'Ürün Alış İptali')
+        and coalesce(status, 'active') = 'active'
+    ) then
+      insert into public.bank_movements (
+        id, workspace_id, movement_type, direction, bank_name, amount, note,
+        related_table, related_id, status, created_by, updated_by
+      )
+      values (
+        gen_random_uuid(),
+        v_workspace_id,
+        v_cancel_type,
+        'in',
+        v_bank.bank_name,
+        v_bank.total_amount,
+        coalesce(v_stock.product_name, 'Stok') || ' alım iptali ters banka hareketi' ||
+          case when nullif(trim(coalesce(p_reason, '')), '') is not null then ' - ' || p_reason else '' end,
+        'stock_items',
+        p_stock_item_id::text,
+        'active',
+        auth.uid(),
+        auth.uid()
+      );
+    end if;
+  end loop;
+
+  update public.stock_items
+     set status = 'deleted',
+         quantity = 0,
+         updated_by = auth.uid(),
+         updated_at = now()
+   where id = p_stock_item_id
+     and workspace_id = v_workspace_id
+   returning * into v_cancelled;
+
+  v_supplier_name := nullif(trim(coalesce(v_stock.supplier_name, '')), '');
+  v_seller_raw := nullif(trim(coalesce(v_stock.seller_person, '')), '');
+
+  if v_seller_raw is null and upper(trim(coalesce(v_stock.supplier_name, ''))) like 'SATICI %' then
+    v_seller_raw := trim(coalesce(v_stock.supplier_name, ''));
+  end if;
+
+  if v_seller_raw is null and coalesce(v_stock.acquisition_type, '') = 'Müşteri' then
+    v_seller_raw := v_supplier_name;
+  end if;
+
+  if v_seller_raw is not null then
+    if upper(v_seller_raw) like 'SATICI %' then
+      v_seller_contact := upper(v_seller_raw);
+    else
+      v_seller_contact := 'SATICI ' || upper(v_seller_raw);
+    end if;
+
+    begin
+      perform public.rebuild_seller_payable(v_workspace_id, v_seller_contact);
+    exception
+      when undefined_function then
+        null;
+    end;
+  end if;
+
+  if v_supplier_name is not null and coalesce(v_stock.acquisition_type, '') <> 'Müşteri' then
+    begin
+      perform public.rebuild_supplier_payable(v_workspace_id, v_supplier_name);
+    exception
+      when undefined_function then
+        null;
+    end;
+  end if;
+
+  begin
+    perform public.create_audit_log(
+      v_workspace_id,
+      'stock_items',
+      p_stock_item_id::text,
+      'CANCEL',
+      'stock_purchase_cancel',
+      coalesce(nullif(p_reason, ''), 'Alım iptal edildi'),
+      to_jsonb(v_stock),
+      to_jsonb(v_cancelled),
+      jsonb_build_object(
+        'cash_reversed', v_cash_total,
+        'cancel_movement_type', v_cancel_type,
+        'supplier_name', v_supplier_name,
+        'seller_contact', v_seller_contact
+      ),
+      null
+    );
+  exception
+    when undefined_function then
+      null;
+  end;
+
+  return v_cancelled;
+end;
+$$;
+
 grant execute on function public.create_sale_with_effects(
   text, text, text, uuid, text, text, text, text, numeric, numeric, numeric, numeric, numeric, numeric, text
 ) to authenticated;
@@ -546,5 +777,6 @@ grant execute on function public.create_stock_with_effects(
 ) to authenticated;
 
 grant execute on function public.cancel_sale_with_effects(uuid, text, text) to authenticated;
+grant execute on function public.cancel_stock_purchase_with_effects(uuid, text, text) to authenticated;
 
 notify pgrst, 'reload schema';
