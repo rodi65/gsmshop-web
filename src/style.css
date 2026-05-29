@@ -11203,3 +11203,124 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     display: none !important;
   }
 }
+
+/* Kasa reference pixel pass: 29.05.2026 03:04 mockup ile hizalama. */
+@media (min-width: 921px) {
+  .premium-dashboard {
+    padding: 5px !important;
+  }
+
+  .premium-dashboard .shell.app-shell {
+    grid-template-columns: 252px minmax(0, 1fr) !important;
+    grid-template-rows: 124px minmax(0, 1fr) !important;
+    gap: 14px !important;
+    height: calc(100vh - 10px) !important;
+  }
+
+  .premium-dashboard .premium-sidebar {
+    width: 252px !important;
+    min-width: 252px !important;
+    max-width: 252px !important;
+  }
+
+  .premium-dashboard .app-shell > .hero-banner,
+  .premium-dashboard .hero-banner {
+    height: 124px !important;
+    min-height: 124px !important;
+    max-height: 124px !important;
+    padding: 12px 20px !important;
+  }
+
+  .premium-dashboard .hero-mockup-grid {
+    grid-template-columns: 250px minmax(0, 1fr) 350px !important;
+    gap: 22px !important;
+  }
+
+  .premium-dashboard .hero-banner .hero-brand-block h1,
+  .premium-dashboard .hero-banner h1 {
+    font-size: 40px !important;
+  }
+
+  .premium-dashboard .hero-banner .hero-banner-text strong {
+    font-size: 36px !important;
+  }
+
+  .premium-dashboard .hero-banner .hero-banner-text p {
+    font-size: 15px !important;
+  }
+
+  .premium-dashboard .hero-date-card {
+    width: 220px !important;
+    min-height: 86px !important;
+    justify-self: start !important;
+  }
+
+  .premium-dashboard .hero-date-card strong {
+    font-size: 22px !important;
+  }
+
+  .premium-dashboard .kasa-mockup-dashboard,
+  .premium-dashboard .kasa-home-dashboard.kasa-mockup-dashboard {
+    grid-template-rows: 64px minmax(0, 1fr) !important;
+    gap: 16px !important;
+  }
+
+  .premium-dashboard .kasa-main-tabs {
+    height: 64px !important;
+    padding: 8px !important;
+    grid-template-columns: 150px 170px 140px 160px 180px !important;
+  }
+
+  .premium-dashboard .kasa-main-tabs .choice {
+    height: 48px !important;
+    min-height: 48px !important;
+    font-size: 13px !important;
+  }
+
+  .premium-dashboard .kasa-layout {
+    grid-template-columns: 382px minmax(0, 1fr) 320px !important;
+    gap: 14px !important;
+  }
+
+  .premium-dashboard .kasa-mid {
+    grid-template-rows: 365px minmax(0, 1fr) !important;
+  }
+
+  .premium-dashboard .kasa-day-grid > .summary-col {
+    display: grid !important;
+    grid-template-rows: 30px repeat(6, minmax(22px, auto)) !important;
+    align-content: start !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    gap: 0 !important;
+  }
+
+  .premium-dashboard .summary-col .srow {
+    width: 100% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  .premium-dashboard .cart-table-wrap td[colspan="3"] {
+    text-align: center !important;
+  }
+
+  .premium-dashboard .cart-empty-state {
+    width: 100% !important;
+    min-height: 138px !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .cart-empty-state strong,
+  .premium-dashboard .cart-empty-state span {
+    max-width: 100% !important;
+    white-space: normal !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    text-align: center !important;
+    font-size: 11px !important;
+  }
+}
