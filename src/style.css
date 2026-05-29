@@ -13238,3 +13238,173 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     font-size: 9px;
   }
 }
+
+/* Üst reklam kartı hareket efekti: yumuşak neon akış, parıltı ve canlı durum animasyonu. */
+.premium-dashboard .hero-banner {
+  background-size: 180% 180%, 160% 160%, 100% 100% !important;
+  animation: heroAdAurora 8s ease-in-out infinite alternate;
+}
+
+.premium-dashboard .hero-banner::before {
+  background:
+    linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, .04) 32%, rgba(255, 255, 255, .26) 48%, rgba(34, 211, 238, .12) 58%, transparent 74%) !important;
+  transform: translateX(-62%);
+  animation: heroAdShine 4.8s ease-in-out infinite;
+  z-index: 1 !important;
+}
+
+.premium-dashboard .hero-banner-copy,
+.premium-dashboard .hero-banner-visual,
+.premium-dashboard .hero-banner .status-pill {
+  z-index: 2 !important;
+}
+
+.premium-dashboard .hero-brand-block h1 {
+  animation: heroLogoFloat 4.6s ease-in-out infinite;
+}
+
+.premium-dashboard .hero-banner .brand-log {
+  text-shadow: 0 0 18px rgba(147, 197, 253, .72), 0 0 38px rgba(34, 211, 238, .36) !important;
+}
+
+.premium-dashboard .hero-module-chips span {
+  animation: heroChipFloat 3.4s ease-in-out infinite;
+}
+
+.premium-dashboard .hero-module-chips span:nth-child(2) {
+  animation-delay: .18s;
+}
+
+.premium-dashboard .hero-module-chips span:nth-child(3) {
+  animation-delay: .36s;
+}
+
+.premium-dashboard .hero-module-chips span:nth-child(4) {
+  animation-delay: .54s;
+}
+
+.premium-dashboard .hero-ad-card-copy {
+  animation: heroAdCardPulse 5.6s ease-in-out infinite;
+}
+
+.premium-dashboard .hero-ad-eyebrow {
+  animation: heroEyebrowGlow 2.8s ease-in-out infinite;
+}
+
+.premium-dashboard .hero-ad-status-card::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  right: 16px;
+  top: 16px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, .6);
+  animation: heroLivePulse 1.8s ease-out infinite;
+}
+
+.premium-dashboard .hero-ad-status-card strong {
+  animation: heroClockGlow 2.4s ease-in-out infinite;
+}
+
+@keyframes heroAdAurora {
+  0% {
+    background-position: 0% 40%, 100% 80%, center;
+    box-shadow: 0 22px 64px rgba(30, 41, 59, .20), 0 0 0 rgba(34, 211, 238, 0);
+  }
+
+  100% {
+    background-position: 100% 18%, 0% 40%, center;
+    box-shadow: 0 24px 72px rgba(30, 41, 59, .24), 0 0 32px rgba(34, 211, 238, .16);
+  }
+}
+
+@keyframes heroAdShine {
+  0%, 34% {
+    transform: translateX(-68%);
+    opacity: 0;
+  }
+
+  46% {
+    opacity: 1;
+  }
+
+  72%, 100% {
+    transform: translateX(74%);
+    opacity: 0;
+  }
+}
+
+@keyframes heroLogoFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes heroChipFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes heroAdCardPulse {
+  0%, 100% {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 0 0 rgba(34, 211, 238, 0) !important;
+  }
+
+  50% {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .24), 0 18px 48px rgba(34, 211, 238, .16) !important;
+  }
+}
+
+@keyframes heroEyebrowGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 0 rgba(187, 247, 208, 0));
+  }
+
+  50% {
+    filter: drop-shadow(0 0 10px rgba(187, 247, 208, .42));
+  }
+}
+
+@keyframes heroLivePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, .62);
+  }
+
+  70%, 100% {
+    box-shadow: 0 0 0 12px rgba(34, 197, 94, 0);
+  }
+}
+
+@keyframes heroClockGlow {
+  0%, 100% {
+    text-shadow: 0 0 0 rgba(187, 247, 208, 0);
+  }
+
+  50% {
+    text-shadow: 0 0 18px rgba(187, 247, 208, .42);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-dashboard .hero-banner,
+  .premium-dashboard .hero-banner::before,
+  .premium-dashboard .hero-brand-block h1,
+  .premium-dashboard .hero-module-chips span,
+  .premium-dashboard .hero-ad-card-copy,
+  .premium-dashboard .hero-ad-eyebrow,
+  .premium-dashboard .hero-ad-status-card::after,
+  .premium-dashboard .hero-ad-status-card strong {
+    animation: none !important;
+  }
+}
