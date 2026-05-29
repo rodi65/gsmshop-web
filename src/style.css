@@ -14596,7 +14596,7 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   }
 }
 
-/* SORGULA satış başlangıcı: manuel yeni satış formu yerine sade ve merkezi arama akışı. */
+/* SOR SAT satış başlangıcı: manuel yeni satış formu yerine sade ve merkezi arama akışı. */
 .kasa-sorgula-card {
   display: flex !important;
   flex-direction: column !important;
@@ -14672,27 +14672,6 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   line-height: 1.35;
 }
 
-.kasa-sorgula-note {
-  display: grid;
-  gap: 6px;
-  padding: 14px 16px;
-  border: 1px dashed rgba(37, 99, 235, .22);
-  border-radius: 18px;
-  color: #0f172a;
-  background: rgba(248, 251, 255, .92);
-  text-align: center;
-}
-
-.kasa-sorgula-note b {
-  font-size: 14px;
-  font-weight: 1000;
-}
-
-.kasa-sorgula-note span {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-}
 
 .kasa-search-modal-backdrop {
   position: fixed;
