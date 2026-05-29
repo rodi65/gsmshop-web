@@ -17,6 +17,7 @@ const requiredFiles = [
   "src/lib/business/idempotency.ts",
   "supabase/ceplog_business_ledger_foundation_20260529.sql",
   "supabase/ceplog_business_transaction_rpcs_20260529.sql",
+  "supabase/technical_service_transactions_20260529.sql",
 ];
 
 const requiredRpcNames = [
@@ -28,6 +29,9 @@ const requiredRpcNames = [
   "ceplog_cancel_stock_purchase_transaction",
   "ceplog_record_stock_purchase_transaction",
   "ceplog_record_manual_stock_adjustment",
+  "ceplog_record_cash_movement_transaction",
+  "ceplog_record_technical_service_transaction",
+  "ceplog_record_technical_service_finance_transaction",
 ];
 
 function read(relativePath) {
@@ -44,7 +48,10 @@ for (const file of requiredFiles) {
   assert(fs.existsSync(path.join(root, file)), `Eksik dosya: ${file}`);
 }
 
-const rpcSql = read("supabase/ceplog_business_transaction_rpcs_20260529.sql");
+const rpcSql = [
+  read("supabase/ceplog_business_transaction_rpcs_20260529.sql"),
+  read("supabase/technical_service_transactions_20260529.sql"),
+].join("\n");
 const foundationSql = read("supabase/ceplog_business_ledger_foundation_20260529.sql");
 const dataService = read("src/services/dataService.js");
 const app = read("src/App.jsx");
@@ -73,6 +80,10 @@ assert(dataService.includes("ceplog_apply_sale_transaction"), "Satış transacti
 assert(dataService.includes("ceplog_record_stock_purchase_transaction"), "Alış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_expense_transaction"), "Gider transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_collection_transaction"), "Tahsilat transaction RPC bağlantısı eksik.");
+assert(dataService.includes("ceplog_record_cash_movement_transaction"), "Kasa hareketi transaction RPC bağlantısı eksik.");
+assert(dataService.includes("Banka hareketi doğrudan yazılamaz"), "Direkt banka hareketi yazımı kapalı olmalı.");
+assert(dataService.includes("Otomatik stok finans onarımı kapalıdır"), "Otomatik stok finans onarımı kapalı olmalı.");
+assert(dataService.includes("doğrudan silinemez"), "Genel soft delete kritik kayıtlarda kapalı olmalı.");
 assert(!app.includes("<StockEditModal"), "Stok ekranında düzenleme modalı görünür durumda kalmamalı.");
 assert(!app.includes("repairStockSideEffects(data.stock"), "Veri yükleme sırasında otomatik finansal onarım çalışmamalı.");
 

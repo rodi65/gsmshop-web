@@ -37,6 +37,60 @@ alter table if exists public.expenses
   add column if not exists business_transaction_id uuid null,
   add column if not exists idempotency_key text null;
 
+alter table if exists public.audit_logs
+  add column if not exists business_transaction_id uuid null,
+  add column if not exists created_by uuid null;
+
+alter table if exists public.cash_movements
+  drop constraint if exists cash_movements_movement_type_check;
+
+alter table if exists public.cash_movements
+  add constraint cash_movements_movement_type_check
+  check (movement_type in (
+    'Devir Nakit',
+    'Dünden Devir Nakit',
+    'Cari Ödeme',
+    'Manuel Nakit Girişi',
+    'Nakit Girişi',
+    'Kasaya Nakit Girişi',
+    'Nakit Girişi İptali',
+    'Stok Ödemesi',
+    'Stok Ödemesi İptali',
+    'Alım Ödemesi',
+    'Alım Ödemesi İptali',
+    'Cihaz Alım Ödemesi',
+    'Telefon Alım Ödemesi',
+    'Stok Alım Ödemesi',
+    'Aksesuar Alım Ödemesi',
+    'Ürün Alım Ödemesi',
+    'Tedarikçi Ödemesi',
+    'Tedarikçi Ödemesi İptali',
+    'Cihaz Alış İptali',
+    'Telefon Alış İptali',
+    'Stok Alış İptali',
+    'Gider',
+    'Nakit Çıkışı',
+    'Gider İptali',
+    'Nakit Çıkışı İptali',
+    'Satış Nakit',
+    'Satış Tahsilatı',
+    'Satış İadesi',
+    'Satış İptali',
+    'Bankadan Nakit Gelen',
+    'Gelen Alacak',
+    'Alacak Tahsilatı',
+    'Alacak Ödemesi',
+    'Cari Tahsilat',
+    'Bankaya Yatırılan Nakit',
+    'Teknik Servis Geliri',
+    'Teknik Servis Kaparo',
+    'Teknik Servis Tahsilat',
+    'Teknik Servis Tahsilatı',
+    'Teknik Servis İade',
+    'Teknik Servis İadesi',
+    'Düzeltme'
+  ));
+
 create table if not exists public.business_transactions (
   id uuid primary key default gen_random_uuid(),
   workspace_id text not null,
@@ -844,6 +898,137 @@ begin
 end;
 $$;
 
+create or replace function public.ceplog_record_cash_movement_transaction(payload jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_workspace text := nullif(payload->>'workspace_id', '');
+  v_actor text := nullif(payload->>'actor_id', '');
+  v_key text := coalesce(nullif(payload->>'idempotency_key', ''), nullif(payload->>'idempotencyKey', ''));
+  v_existing public.business_transactions%rowtype;
+  v_tx uuid;
+  v_movement public.cash_movements%rowtype;
+  v_amount numeric := public.ceplog_money_from_text(payload->>'amount');
+  v_direction text := lower(coalesce(payload->>'direction', ''));
+  v_type text := nullif(payload->>'movement_type', '');
+  v_related_table text := nullif(payload->>'related_table', '');
+  v_related_id text := nullif(payload->>'related_id', '');
+  v_reference_id text := nullif(payload->>'reference_id', '');
+begin
+  if v_workspace is null then raise exception 'workspace_id zorunludur'; end if;
+  if v_key is null then raise exception 'idempotency_key zorunludur'; end if;
+  if v_type is null then raise exception 'movement_type zorunludur'; end if;
+  if v_direction not in ('in', 'out') then raise exception 'Kasa hareket yönü in/out olmalıdır'; end if;
+  if v_amount <= 0 then raise exception 'Kasa hareket tutarı 0’dan büyük olmalıdır'; end if;
+
+  select * into v_existing
+  from public.business_transactions
+  where workspace_id = v_workspace and idempotency_key = v_key;
+
+  if found then
+    return jsonb_build_object(
+      'transaction_id', v_existing.id,
+      'reference_id', v_existing.reference_id,
+      'status', v_existing.status,
+      'duplicate', true
+    );
+  end if;
+
+  insert into public.business_transactions (
+    workspace_id, transaction_type, idempotency_key, reference_type, reference_id, note, metadata, created_by
+  )
+  values (
+    v_workspace,
+    case when v_direction = 'in' then 'CASH_IN' else 'CASH_OUT' end,
+    v_key,
+    coalesce(v_related_table, 'cash_movements'),
+    coalesce(v_related_id, v_reference_id),
+    coalesce(payload->>'note', ''),
+    payload,
+    v_actor
+  )
+  returning id into v_tx;
+
+  insert into public.cash_movements (
+    workspace_id,
+    movement_type,
+    direction,
+    amount,
+    note,
+    related_table,
+    related_id,
+    reference_id,
+    status,
+    created_by,
+    business_transaction_id,
+    idempotency_key
+  )
+  values (
+    v_workspace,
+    v_type,
+    v_direction,
+    v_amount,
+    coalesce(payload->>'note', ''),
+    v_related_table,
+    v_related_id,
+    v_reference_id,
+    'active',
+    public.ceplog_uuid_or_null(v_actor),
+    v_tx,
+    v_key
+  )
+  returning * into v_movement;
+
+  if v_direction = 'in' then
+    insert into public.ledger_entries (workspace_id, business_transaction_id, account_type, direction, amount, entity_type, entity_id, description)
+    values (v_workspace, v_tx, 'CASH', 'DEBIT', v_amount, 'cash_movements', v_movement.id::text, v_type);
+
+    insert into public.ledger_entries (workspace_id, business_transaction_id, account_type, direction, amount, entity_type, entity_id, description)
+    values (v_workspace, v_tx, 'EQUITY_ADJUSTMENT', 'CREDIT', v_amount, 'cash_movements', v_movement.id::text, v_type);
+  else
+    insert into public.ledger_entries (workspace_id, business_transaction_id, account_type, direction, amount, entity_type, entity_id, description)
+    values (v_workspace, v_tx, 'EQUITY_ADJUSTMENT', 'DEBIT', v_amount, 'cash_movements', v_movement.id::text, v_type);
+
+    insert into public.ledger_entries (workspace_id, business_transaction_id, account_type, direction, amount, entity_type, entity_id, description)
+    values (v_workspace, v_tx, 'CASH', 'CREDIT', v_amount, 'cash_movements', v_movement.id::text, v_type);
+  end if;
+
+  perform public.ceplog_assert_ledger_balanced(v_tx);
+
+  update public.business_transactions
+     set reference_type = 'cash_movements',
+         reference_id = v_movement.id::text
+   where id = v_tx;
+
+  perform public.ceplog_write_audit_safe(
+    v_workspace,
+    'cash_movements',
+    v_movement.id::text,
+    'INSERT',
+    'cash_movement_transaction',
+    null,
+    to_jsonb(v_movement),
+    coalesce(payload->>'note', ''),
+    v_tx,
+    v_key
+  );
+
+  return jsonb_build_object(
+    'transaction_id', v_tx,
+    'reference_id', v_movement.id,
+    'status', 'POSTED',
+    'summary', jsonb_build_object(
+      'movementType', v_type,
+      'direction', v_direction,
+      'amount', v_amount
+    )
+  );
+end;
+$$;
+
 grant execute on function public.ceplog_apply_sale_transaction(jsonb) to authenticated;
 grant execute on function public.ceplog_record_stock_purchase_transaction(jsonb) to authenticated;
 grant execute on function public.ceplog_record_expense_transaction(jsonb) to authenticated;
@@ -853,5 +1038,6 @@ grant execute on function public.ceplog_return_sale_transaction(jsonb) to authen
 grant execute on function public.ceplog_cancel_stock_purchase_transaction(jsonb) to authenticated;
 grant execute on function public.ceplog_exchange_sale_transaction(jsonb) to authenticated;
 grant execute on function public.ceplog_record_manual_stock_adjustment(jsonb) to authenticated;
+grant execute on function public.ceplog_record_cash_movement_transaction(jsonb) to authenticated;
 
 notify pgrst, 'reload schema';

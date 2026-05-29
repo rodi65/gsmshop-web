@@ -1,4 +1,4 @@
--- GSMSHOP V28 CARI + KASA + STOK KALICILIK DUZELTMESI
+-- CEPLOG V28 CARI + KASA + STOK KALICILIK DUZELTMESI
 create table if not exists public.contacts (
   id uuid primary key default gen_random_uuid(),
   kind text not null check (kind in ('customer','supplier','seller')),

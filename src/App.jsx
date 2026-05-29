@@ -15,7 +15,7 @@ if (typeof window !== "undefined" && !window.__ceplogBankMovementConstraintGuard
       message.includes("bank_movements_movement_type_check") ||
       (message.includes("bank_movements") && message.includes("movement_type"))
     ) {
-      console.warn("CELOG güvenli mod: Satıştan sonra gereksiz bank_movements constraint hatası bastırıldı.", event.reason);
+      console.warn("CEPLOG güvenli mod: Satıştan sonra gereksiz bank_movements constraint hatası bastırıldı.", event.reason);
       event.preventDefault();
     }
   });
@@ -30,17 +30,19 @@ import {
   createSale,
   createExpense,
   createCashMovement,
-  createBankMovement,
   createBankWithdrawal,
   createContactPayment,
   createReceivablePayment,
-  softDelete,
-	  cancelRecord,
-	  cancelStockPurchase,
-	  refundSaleWithEffects,
-	  updateSaleRecord,
-	  updateStockItem,
-	} from "./services/dataService";
+  createTechnicalServiceWithEffects,
+  recordTechnicalServiceFinanceWithEffects,
+  updateTechnicalServiceRecord,
+  createAuditLog,
+  cancelRecord,
+  cancelStockPurchase,
+  refundSaleWithEffects,
+  updateSaleRecord,
+  updateStockItem,
+} from "./services/dataService";
 
 import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText, Settings, Calculator, Printer, Globe, MessageCircle, Camera, Trash2 } from "lucide-react";
 
@@ -196,6 +198,17 @@ const handleSafeSaleBankMovementError = (error) => {
     return true;
   }
   return false;
+};
+
+const purgeLegacyTechnicalServiceCache = () => {
+  if (typeof window === "undefined") return;
+  try {
+    Object.keys(window.localStorage || {})
+      .filter((key) => key === "ceplog_technical_services" || key.startsWith("ceplog_technical_services_"))
+      .forEach((key) => window.localStorage.removeItem(key));
+  } catch (error) {
+    console.warn("Eski teknik servis localStorage kayıtları temizlenemedi.", error);
+  }
 };
 
 const money = (value) => `${new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 0 }).format(parseMoneyInput(value))} TL`;
@@ -853,6 +866,41 @@ const fromDbContact = (item) => ({
   status: item.status || "active",
 });
 
+const fromDbTechnicalService = (item) => {
+  const payload = item?.payload && typeof item.payload === "object" ? item.payload : {};
+  return {
+    ...payload,
+    id: item.id || payload.id,
+    workspace_id: item.workspace_id || payload.workspace_id || payload.workspaceId || "",
+    workspaceId: item.workspace_id || payload.workspaceId || payload.workspace_id || "",
+    customerName: item.customer_name || payload.customerName || "",
+    phone: item.phone || payload.phone || "",
+    brand: item.brand || payload.brand || "",
+    model: item.model || payload.model || "",
+    device: item.device || payload.device || "",
+    imei: item.imei || payload.imei || "",
+    color: item.color || payload.color || "",
+    accessory: item.accessory || payload.accessory || "",
+    stockItemId: item.stock_item_id || payload.stockItemId || "",
+    issue: item.issue || payload.issue || "",
+    repairAction: item.repair_action || payload.repairAction || "",
+    technician: item.technician || payload.technician || "",
+    estimatedPrice: formatMoneyInput(item.estimated_price ?? payload.estimatedPrice ?? 0),
+    deposit: formatMoneyInput(item.deposit ?? payload.deposit ?? 0),
+    cashDeposit: formatMoneyInput(item.cash_deposit ?? payload.cashDeposit ?? 0),
+    cardDeposit: formatMoneyInput(item.card_deposit ?? payload.cardDeposit ?? 0),
+    bank: item.bank_name || payload.bank || "",
+    dueDate: item.due_date || payload.dueDate || "",
+    deliveryDateTime: item.delivery_date_time || payload.deliveryDateTime || item.due_date || "",
+    status: item.status || payload.status || "Beklemede",
+    note: item.note || payload.note || "",
+    createdAt: item.created_at || payload.createdAt || new Date().toISOString(),
+    updatedAt: item.updated_at || payload.updatedAt || item.created_at || new Date().toISOString(),
+    source: "supabase",
+    financeSource: "supabase",
+  };
+};
+
 const isActiveRecord = (item) => {
   const status = String(item?.status || "active").toLocaleLowerCase("tr-TR");
   return !["deleted", "cancelled", "canceled", "iptal", "iade", "refunded", "refund", "silindi"].includes(status) &&
@@ -1323,7 +1371,6 @@ export default function App() {
   const [technicalStatusFilter, setTechnicalStatusFilter] = useState("TÜMÜ");
   const [technicalPaymentForm, setTechnicalPaymentForm] = useState(emptyTechnicalPaymentForm);
   const [technicalRefundForm, setTechnicalRefundForm] = useState(emptyTechnicalPaymentForm);
-  const [technicalServiceStorageReadyKey, setTechnicalServiceStorageReadyKey] = useState("");
   const [visibleKasaStats, setVisibleKasaStats] = useState({});
   const [profitUnlocked, setProfitUnlocked] = useState(false);
   const [securityPasswordDrafts, setSecurityPasswordDrafts] = useState(() => getSecurityPasswords());
@@ -1359,10 +1406,10 @@ export default function App() {
     if (cleanKey) pendingActionKeysRef.current.delete(cleanKey);
   }
 
-  const isManualCashEntryCancelAction = (modal) => {
-    const action = String(modal?.action || "").toLocaleLowerCase("tr-TR");
-    const rowType = String(modal?.row?.type || "").toLocaleLowerCase("tr-TR");
-    const description = String(modal?.row?.description || "").toLocaleLowerCase("tr-TR");
+	  const isManualCashEntryCancelAction = (modal) => {
+	    const action = String(modal?.action || "").toLocaleLowerCase("tr-TR");
+	    const rowType = String(modal?.row?.type || "").toLocaleLowerCase("tr-TR");
+	    const description = String(modal?.row?.description || "").toLocaleLowerCase("tr-TR");
 
     return (
       action === "iptal" &&
@@ -1371,14 +1418,31 @@ export default function App() {
         rowType.includes("manuel nakit") ||
         description.includes("manuel nakit")
       ) &&
-      !rowType.includes("satış")
-    );
-  };
+	      !rowType.includes("satış")
+	    );
+	  };
 
-  const handleManualCashEntryCancel = ({ reason, password }) => {
-    const row = kasaBrainModal?.row || {};
-    const targetNo = Number(row.no || 0);
-    const targetAmount = Number(row.cash || row.total || 0);
+  async function writeKasaBrainAuditLog(logRecord, { action = "UPDATE", eventType = "kasa_brain_action", reason = "" } = {}) {
+    const auditId = await createAuditLog({
+      tableName: "kasa_brain",
+      recordId: logRecord?.rowId || logRecord?.recordId || logRecord?.saleId || logRecord?.stockItemId || null,
+      action,
+      eventType,
+      reason: reason || logRecord?.reason || "",
+      oldData: logRecord?.beforeData || null,
+      newData: logRecord || null,
+      metadata: logRecord || {},
+      requestKey: logRecord?.id || logRecord?.actionKey || "",
+      strict: true,
+    });
+    if (!auditId) throw new Error("Kasa Beyni audit kaydı oluşturulamadı.");
+    return auditId;
+  }
+
+	  const handleManualCashEntryCancel = async ({ reason, password }) => {
+	    const row = kasaBrainModal?.row || {};
+	    const targetNo = Number(row.no || 0);
+	    const targetAmount = Number(row.cash || row.total || 0);
 
     if (!targetNo || !targetAmount || targetAmount <= 0) {
       window.alert("Kasa Beyni: İptal edilecek manuel nakit girişi bulunamadı.");
@@ -1406,91 +1470,77 @@ export default function App() {
       return false;
     }
 
-    const originalRef = String(targetReportRow.id || row.id || targetNo);
+	    const originalRef = String(targetReportRow.id || row.id || targetReportRow.relatedId || row.relatedId || targetNo);
+      const originalMovement = activeCashMovements.find((movement) => String(movement.id || "") === originalRef) || null;
 
-    const alreadyCancelled = (cashMovements || []).some((movement) => {
-      const movementType = String(movement.movement_type || movement.type || "").toLocaleLowerCase("tr-TR");
-      const relatedId = String(movement.relatedId || movement.related_id || "");
-      const note = String(movement.note || "").toLocaleLowerCase("tr-TR");
+      if (!originalMovement) {
+        window.alert("Kasa Beyni: Bu nakit girişi gerçek cash_movements kaydıyla eşleşmedi. Local/geçici iptal yapılmadı.");
+        await refreshFromDatabase();
+        return true;
+      }
 
-      return (
-        movementType.includes("nakit girişi iptal") &&
-        (
-          relatedId === originalRef ||
-          note.includes(`kayıt no: ${targetNo}`) ||
-          note.includes(String(targetReportRow.description || row.description || "").toLocaleLowerCase("tr-TR"))
-        )
-      );
-    });
+	    if (cashMovementCancellationFor(originalMovement)) {
+	      window.alert("Kasa Beyni: Bu manuel nakit girişi daha önce iptal edilmiş. İkinci kez iptal edilemez.");
+	      return false;
+	    }
 
-    if (alreadyCancelled) {
-      window.alert("Kasa Beyni: Bu manuel nakit girişi daha önce iptal edilmiş. İkinci kez iptal edilemez.");
-      return false;
-    }
+	    const nowIso = new Date().toISOString();
+	    const actionKey = `cash-entry-cancel:${originalMovement.id}`;
+      if (!beginPendingAction(actionKey)) return true;
 
-    const nowIso = new Date().toISOString();
-    const cancelId = `cash-cancel-${Date.now()}`;
+      try {
+        setKasaBrainProcessing(true);
+        const cancellationMovement = await createCashMovementCancellation({
+          movement_type: cashMovementCancellationTypeFor(originalMovement) || cashEntryCancellationType,
+          direction: "out",
+          amount: targetAmount,
+          note: `İptal: ${targetReportRow.description || row.description || "Manuel Nakit Girişi"} | Kayıt No: ${targetNo} | Sebep: ${reason}`,
+          related_table: "cash_movements",
+          related_id: originalMovement.id,
+        });
 
-    const cancellationMovement = {
-      id: cancelId,
-      date: nowIso,
-      createdAt: nowIso,
-      movement_type: "Nakit Girişi İptal",
-      movementType: "Nakit Girişi İptal",
-      type: "Nakit Girişi İptal",
-      direction: "out",
-      amount: targetAmount,
-      note: `İptal: ${targetReportRow.description || row.description || "Manuel Nakit Girişi"} | Kayıt No: ${targetNo} | Sebep: ${reason}`,
-      relatedTable: "cash_movements",
-      related_table: "cash_movements",
-      relatedId: originalRef,
-      related_id: originalRef,
-      originalRecordNo: targetNo,
-      cancelledByKasaBrain: true,
-      kasaBrainReason: reason,
-      kasaBrainPasswordUsed: Boolean(password),
-      status: "cancelled_reverse_movement"
-    };
+        const logRecord = {
+          id: `kasa-brain-real-${Date.now()}`,
+          actionKey,
+          createdAt: nowIso,
+          action: kasaBrainModal.action || "İptal",
+          rowId: originalMovement.id,
+          recordNo: row.no || null,
+          type: row.type || "",
+          description: row.description || "",
+          party: row.party || "",
+          cash: Number(row.cash || 0),
+          bank: Number(row.bank || 0),
+          debt: Number(row.debt || 0),
+          refund: Number(row.refund || 0),
+          total: Number(row.total || 0),
+          reason,
+          status: "CASH_ENTRY_CANCEL_SUPABASE_MOVEMENT",
+          result: "Reverse cash movement created in Supabase",
+          reverseMovementId: cancellationMovement?.id || null,
+          duplicateProtected: true,
+          passwordUsed: Boolean(password),
+        };
+        await writeKasaBrainAuditLog(logRecord, { action: "CANCEL", eventType: "kasa_brain_cash_entry_cancel", reason });
+        await refreshFromDatabase();
 
-    setCashMovements((current) => [cancellationMovement, ...(current || [])]);
-
-    const logRecord = {
-      id: `kasa-brain-real-${Date.now()}`,
-      createdAt: nowIso,
-      action: kasaBrainModal.action || "İptal",
-      recordNo: row.no || null,
-      type: row.type || "",
-      description: row.description || "",
-      party: row.party || "",
-      cash: Number(row.cash || 0),
-      bank: Number(row.bank || 0),
-      debt: Number(row.debt || 0),
-      refund: Number(row.refund || 0),
-      total: Number(row.total || 0),
-      reason,
-      status: "REAL_CASH_ENTRY_CANCEL_PHASE_5A",
-      result: "Reverse cash movement created",
-      reverseMovementId: cancelId,
-      duplicateProtected: true
-    };
-
-    try {
-      const currentLogs = JSON.parse(localStorage.getItem("ceplogKasaBrainAuditLogs") || "[]");
-      localStorage.setItem("ceplogKasaBrainAuditLogs", JSON.stringify([logRecord, ...currentLogs]));
-    } catch (error) {
-      console.error("Kasa Beyni gerçek audit log yazılamadı:", error);
-    }
-
-    window.alert(`Kasa Beyni: Manuel nakit girişi iptal edildi.
+        window.alert(`Kasa Beyni: Manuel nakit girişi iptal edildi.
 Ters hareket: -${money(targetAmount)}
 Gerçek silme yapılmadı.
 Bu kayıt ikinci kez iptal edilemez.`);
-    setSyncMessage(`Kasa Beyni: Manuel nakit girişi iptal edildi. Ters hareket oluşturuldu: -${money(targetAmount)}. İkinci iptal engellendi.`);
-    setKasaBrainReason("");
-    setKasaBrainPassword("");
-    setKasaBrainModal(null);
-    return true;
-  };
+        setSyncMessage(`Kasa Beyni: Manuel nakit girişi iptal edildi. Ters hareket oluşturuldu: -${money(targetAmount)}. İkinci iptal engellendi.`);
+        closeKasaBrainModal();
+        return true;
+      } catch (error) {
+        console.error("Kasa Beyni manuel nakit iptal hatası:", error);
+        window.alert(error.message || "Kasa Beyni: Manuel nakit girişi iptal edilemedi.");
+        await refreshFromDatabase();
+        return true;
+      } finally {
+        setKasaBrainProcessing(false);
+        endPendingAction(actionKey);
+      }
+	  };
 
 	  const isSaleCancelAction = (modal) => {
 	    const action = String(modal?.action || "").toLocaleLowerCase("tr-TR");
@@ -1857,124 +1907,6 @@ Bu kayıt ikinci kez iptal edilemez.`);
     return null;
   }
 
-  const restoreStockForCancelledSale = (targetSale) => {
-    const productId = String(
-      targetSale?.productId ||
-      targetSale?.product_id ||
-      targetSale?.stockId ||
-      targetSale?.stock_id ||
-      ""
-    );
-
-    const saleDescription = normalizeKasaBrainText(
-      targetSale?.description ||
-      targetSale?.productName ||
-      targetSale?.product ||
-      targetSale?.deviceName ||
-      targetSale?.model ||
-      targetSale?.name ||
-      targetSale?.title
-    );
-
-    let restored = false;
-
-    setStock((currentStock) =>
-      (currentStock || []).map((product) => {
-        const currentProductId = String(product?.id || product?.productId || product?.stockId || "");
-        const productText = normalizeKasaBrainText(
-          product?.name ||
-          product?.productName ||
-          product?.model ||
-          product?.title ||
-          product?.description
-        );
-
-        const idMatch = productId && currentProductId && productId === currentProductId;
-        const textMatch =
-          !productId &&
-          saleDescription &&
-          productText &&
-          (saleDescription.includes(productText) || productText.includes(saleDescription));
-
-        if (!idMatch && !textMatch) return product;
-
-        restored = true;
-
-        const currentQuantity = Number(product?.quantity ?? product?.stock ?? product?.adet ?? 0);
-        const nextQuantity = Number.isFinite(currentQuantity) ? currentQuantity + 1 : 1;
-
-        return {
-          ...product,
-          quantity: nextQuantity,
-          stock: product?.stock !== undefined ? nextQuantity : product?.stock,
-          adet: product?.adet !== undefined ? nextQuantity : product?.adet,
-          status: product?.status === "sold" || product?.status === "Satıldı" ? "active" : product?.status,
-          restoredByKasaBrain: true,
-          restoredAt: new Date().toISOString()
-        };
-      })
-    );
-
-    return restored;
-  };
-
-  const restoreStockForKasaBrainRowFallback = (row) => {
-    const clean = (value) =>
-      String(value || "")
-        .toLocaleLowerCase("tr-TR")
-        .replace(/\s+/g, " ")
-        .replace(/[|,;:]/g, " ")
-        .trim();
-
-    const rowText = clean(row?.description || row?.product || row?.model || row?.title);
-    if (!rowText) return false;
-
-    let restored = false;
-
-    setStock((currentStock) =>
-      (currentStock || []).map((product) => {
-        const productText = clean(
-          product?.name ||
-          product?.productName ||
-          product?.model ||
-          product?.title ||
-          product?.description ||
-          product?.imei
-        );
-
-        const productImei = clean(product?.imei || product?.serial || product?.barcode);
-        const rowHasProduct =
-          productText &&
-          (
-            rowText.includes(productText) ||
-            productText.includes(rowText) ||
-            rowText.split(" ").filter((w) => w.length > 2).some((w) => productText.includes(w))
-          );
-
-        const imeiMatch = productImei && rowText.includes(productImei);
-
-        if (!rowHasProduct && !imeiMatch) return product;
-
-        restored = true;
-
-        const currentQuantity = Number(product?.quantity ?? product?.stock ?? product?.adet ?? 0);
-        const nextQuantity = Number.isFinite(currentQuantity) ? currentQuantity + 1 : 1;
-
-        return {
-          ...product,
-          quantity: nextQuantity,
-          stock: product?.stock !== undefined ? nextQuantity : product?.stock,
-          adet: product?.adet !== undefined ? nextQuantity : product?.adet,
-          status: product?.status === "sold" || product?.status === "Satıldı" ? "active" : product?.status,
-          restoredByKasaBrain: true,
-          restoredAt: new Date().toISOString()
-        };
-      })
-    );
-
-    return restored;
-  };
-
 	  const handleSaleCancel = async ({ reason, password }) => {
     const row = kasaBrainModal?.row || {};
     const targetSale = findSaleForKasaBrainRow(row);
@@ -2004,12 +1936,11 @@ Bu kayıt ikinci kez iptal edilemez.`);
       return true;
     }
 
-    const nowIso = new Date().toISOString();
-    const fallbackSaleId = `report-row-${row?.no || Date.now()}-${String(row?.description || "").slice(0, 20)}`;
-    const saleId = String(targetSale?.id || targetSale?.saleId || row?.id || row?.saleId || row?.relatedId || row?.related_id || fallbackSaleId);
-    const cancelId = `sale-cancel-${Date.now()}`;
+	    const nowIso = new Date().toISOString();
+	    const fallbackSaleId = `report-row-${row?.no || Date.now()}-${String(row?.description || "").slice(0, 20)}`;
+	    const saleId = String(targetSale?.id || targetSale?.saleId || row?.id || row?.saleId || row?.relatedId || row?.related_id || fallbackSaleId);
 
-    const numberValue = (value) => {
+	    const numberValue = (value) => {
       if (typeof value === "number") return value;
       return Number(
         String(value || "0")
@@ -2093,12 +2024,7 @@ Bu kayıt ikinci kez iptal edilemez.`);
           passwordUsed: Boolean(password)
         };
 
-        try {
-          const currentLogs = JSON.parse(localStorage.getItem("ceplogKasaBrainAuditLogs") || "[]");
-          localStorage.setItem("ceplogKasaBrainAuditLogs", JSON.stringify([logRecord, ...currentLogs]));
-        } catch (logError) {
-          console.error("Kasa Beyni satış iptal audit log yazılamadı:", logError);
-        }
+	        await writeKasaBrainAuditLog(logRecord, { action: "CANCEL", eventType: "kasa_brain_sale_cancel", reason });
 
         window.alert(
           `Kasa Beyni: Satış iptal edildi.\n` +
@@ -2124,161 +2050,8 @@ Bu kayıt ikinci kez iptal edilemez.`);
       }
     }
 
-    if (targetSale) {
-      setSales((currentSales) =>
-        (currentSales || []).map((sale) => {
-          const currentId = String(sale?.id || sale?.saleId || "");
-          const sameSale = currentId === saleId || sale === targetSale;
-
-          if (!sameSale) return sale;
-
-          return {
-            ...sale,
-            status: "cancelled",
-            cancelled: true,
-            cancelledAt: nowIso,
-            cancelledByKasaBrain: true,
-            cancellationReason: reason,
-            kasaBrainCancelId: cancelId
-          };
-        })
-      );
-    } else {
-      console.warn("Kasa Beyni: Satış kaydı sales içinde bulunamadı; rapor satırı üzerinden finansal ters hareket uygulanıyor.", row);
-    }
-
-    const reverseMovements = [];
-
-    if (rowCash > 0) {
-      reverseMovements.push({
-        id: `${cancelId}-cash`,
-        date: nowIso,
-        createdAt: nowIso,
-        movement_type: "Satış İptal Nakit",
-        movementType: "Satış İptal Nakit",
-        type: "Satış İptal Nakit",
-        direction: "out",
-        amount: rowCash,
-        note: `Satış iptal nakit ters hareket | Kayıt No: ${row.no || "-"} | ${row.description || ""} | Sebep: ${reason}`,
-        relatedTable: "sales",
-        related_table: "sales",
-        relatedId: saleId,
-        related_id: saleId,
-        originalRecordNo: row.no || null,
-        cancelledByKasaBrain: true,
-        kasaBrainReason: reason,
-        kasaBrainPasswordUsed: Boolean(password),
-        status: "sale_cancel_reverse_cash"
-      });
-    }
-
-    if (rowBank > 0) {
-      reverseMovements.push({
-        id: `${cancelId}-bank-shadow`,
-        date: nowIso,
-        createdAt: nowIso,
-        movement_type: "Satış İptal Kart/Banka",
-        movementType: "Satış İptal Kart/Banka",
-        type: "Satış İptal Kart/Banka",
-        direction: "out",
-        amount: rowBank,
-        note: `Satış iptal kart/banka ters hareket | Kayıt No: ${row.no || "-"} | ${row.description || ""} | Sebep: ${reason}`,
-        relatedTable: "sales",
-        related_table: "sales",
-        relatedId: saleId,
-        related_id: saleId,
-        originalRecordNo: row.no || null,
-        cancelledByKasaBrain: true,
-        kasaBrainReason: reason,
-        kasaBrainPasswordUsed: Boolean(password),
-        status: "sale_cancel_reverse_bank_shadow"
-      });
-    }
-
-    if (rowDebt > 0) {
-      reverseMovements.push({
-        id: `${cancelId}-debt-shadow`,
-        date: nowIso,
-        createdAt: nowIso,
-        movement_type: "Satış İptal Cari",
-        movementType: "Satış İptal Cari",
-        type: "Satış İptal Cari",
-        direction: "out",
-        amount: rowDebt,
-        note: `Satış iptal cari/kalan borç kapama | Kayıt No: ${row.no || "-"} | ${row.description || ""} | Sebep: ${reason}`,
-        relatedTable: "sales",
-        related_table: "sales",
-        relatedId: saleId,
-        related_id: saleId,
-        originalRecordNo: row.no || null,
-        cancelledByKasaBrain: true,
-        kasaBrainReason: reason,
-        kasaBrainPasswordUsed: Boolean(password),
-        status: "sale_cancel_reverse_debt_shadow"
-      });
-    }
-
-    if (reverseMovements.length) {
-      setCashMovements((current) => [...reverseMovements, ...(current || [])]);
-    }
-
-    const stockRestored = targetSale
-      ? restoreStockForCancelledSale(targetSale) || restoreStockForKasaBrainRowFallback(row)
-      : restoreStockForKasaBrainRowFallback(row);
-
-    const logRecord = {
-      id: `kasa-brain-real-${Date.now()}`,
-      createdAt: nowIso,
-      action: kasaBrainModal.action || "Satış İptal",
-      recordNo: row.no || null,
-      saleId,
-      saleFound: Boolean(targetSale),
-      type: row.type || "Satış",
-      description: row.description || "",
-      party: row.party || "",
-      cash: rowCash,
-      bank: rowBank,
-      debt: rowDebt,
-      refund: numberValue(row.refund),
-      total: rowTotal,
-      reason,
-      status: "REAL_SALE_CANCEL_PHASE_5B3_REPORT_ROW_REVERSAL",
-      result: "Sale cancel applied from cash report row; reverse cash/bank/debt movements created; stock restore attempted; no hard delete",
-      reverseMovementIds: reverseMovements.map((item) => item.id),
-      stockRestored,
-      cancelId,
-      passwordUsed: Boolean(password)
-    };
-
-    try {
-      const currentLogs = JSON.parse(localStorage.getItem("ceplogKasaBrainAuditLogs") || "[]");
-      localStorage.setItem("ceplogKasaBrainAuditLogs", JSON.stringify([logRecord, ...currentLogs]));
-    } catch (error) {
-      console.error("Kasa Beyni satış iptal audit log yazılamadı:", error);
-    }
-
-    window.alert(
-      `Kasa Beyni: Satış iptal edildi.
-` +
-      `Kayıt No: ${row.no || "-"}
-` +
-      `Nakit ters hareket: -${money(rowCash)}
-` +
-      `Kart/Banka ters hareket: -${money(rowBank)}
-` +
-      `Cari/Kalan kapama: -${money(rowDebt)}
-` +
-      `Stok geri alma: ${stockRestored ? "denendi/uygulandı" : "eşleşen stok bulunamadı"}
-` +
-      `Satış kaydı eşleşmesi: ${targetSale ? "bulundu" : "rapor satırı üzerinden yapıldı"}
-` +
-      `Gerçek silme yapılmadı.`
-    );
-
-    setSyncMessage(`Kasa Beyni: Satış iptal edildi. Nakit/Kart/Cari ters hareket oluşturuldu. Kayıt No: ${row.no}.`);
-    setKasaBrainReason("");
-    setKasaBrainPassword("");
-    setKasaBrainModal(null);
+	    window.alert("Kasa Beyni: Satış iptali yalnızca gerçek satış kaydı ve Supabase merkezi transaction RPC ile yapılır. Local/geçici ters hareket oluşturulmadı.");
+	    await refreshFromDatabase();
 	    return true;
 	  };
 
@@ -2345,12 +2118,7 @@ Bu kayıt ikinci kez iptal edilemez.`);
 	        passwordUsed: Boolean(password),
 	      };
 
-	      try {
-	        const currentLogs = JSON.parse(localStorage.getItem("ceplogKasaBrainAuditLogs") || "[]");
-	        localStorage.setItem("ceplogKasaBrainAuditLogs", JSON.stringify([logRecord, ...currentLogs]));
-	      } catch (logError) {
-	        console.error("Kasa Beyni satış iade audit log yazılamadı:", logError);
-	      }
+		      await writeKasaBrainAuditLog(logRecord, { action: "UPDATE", eventType: "kasa_brain_sale_refund", reason });
 
 	      window.alert(
 	        `Kasa Beyni: Satış iadesi işlendi.\n` +
@@ -2424,12 +2192,7 @@ Bu kayıt ikinci kez iptal edilemez.`);
         passwordUsed: Boolean(password)
       };
 
-      try {
-        const currentLogs = JSON.parse(localStorage.getItem("ceplogKasaBrainAuditLogs") || "[]");
-        localStorage.setItem("ceplogKasaBrainAuditLogs", JSON.stringify([logRecord, ...currentLogs]));
-      } catch (logError) {
-        console.error("Kasa Beyni alım iptal audit log yazılamadı:", logError);
-      }
+	      await writeKasaBrainAuditLog(logRecord, { action: "CANCEL", eventType: "kasa_brain_purchase_cancel", reason });
 
       window.alert(
         `Kasa Beyni: Alım iptal edildi.\n` +
@@ -2643,10 +2406,10 @@ const isSameSalesListDay = (item, dateKey) => {
 	      }
 	    }
 
-	    if (isManualCashEntryCancelAction(kasaBrainModal)) {
-	      const done = handleManualCashEntryCancel({ reason, password });
-      if (done) return;
-    }
+		    if (isManualCashEntryCancelAction(kasaBrainModal)) {
+		      const done = await handleManualCashEntryCancel({ reason, password });
+	      if (done) return;
+	    }
 
 	    if (isSaleCancelAction(kasaBrainModal)) {
 	      const done = await handleSaleCancel({ reason, password });
@@ -2680,14 +2443,13 @@ const isSameSalesListDay = (item, dateKey) => {
       status: "PRE_AUDIT_ONLY_PHASE_4"
     };
 
-    try {
-      const currentLogs = JSON.parse(localStorage.getItem("ceplogKasaBrainAuditLogs") || "[]");
-      localStorage.setItem("ceplogKasaBrainAuditLogs", JSON.stringify([logRecord, ...currentLogs]));
-    } catch (error) {
-      console.error("Kasa Beyni audit log yazılamadı:", error);
-      window.alert("Kasa Beyni: Audit log yazılamadı.");
-      return;
-    }
+	    try {
+	      await writeKasaBrainAuditLog(logRecord, { action: "UPDATE", eventType: "kasa_brain_pre_audit", reason });
+	    } catch (error) {
+	      console.error("Kasa Beyni audit log yazılamadı:", error);
+	      window.alert(error.message || "Kasa Beyni: Audit log yazılamadı.");
+	      return;
+	    }
 
     window.alert(`Kasa Beyni ön audit log oluşturuldu.\nİşlem: ${logRecord.action}\nKayıt No: ${logRecord.recordNo}\nGerçek finansal işlem yapılmadı.`);
     setSyncMessage(`Kasa Beyni ön audit log oluşturuldu: ${logRecord.action} / Kayıt No: ${logRecord.recordNo}. Gerçek finansal işlem yapılmadı.`);
@@ -3457,6 +3219,7 @@ const isSameSalesListDay = (item, dateKey) => {
     setReturnItems(data.returnItems || []);
     setExchanges(data.exchanges || []);
     setPosMovements(data.posMovements || []);
+    setTechnicalServices((data.technicalServices || []).map(fromDbTechnicalService));
     setSchemaStatus(data.schemaStatus || []);
     setActiveWorkspaceId(data.workspaceId || data.profile?.workspace_id || "");
     setDbReady(true);
@@ -4126,12 +3889,17 @@ const isSameSalesListDay = (item, dateKey) => {
       const direction = movementDirection(item, type);
       const inactive = !isActiveMovement(item);
       const classification = classifyFinancialMovement(item);
-      const reportType = inactive ? { label: "İptal", tone: "cancel" } : dailyReportRowType(item);
-      const signedCash = inactive ? 0 : getCashNetEffect(item);
-      rows.push({
-        date: reportDateValue(item),
-        tone: reportType.tone,
-        type: reportType.label,
+	      const reportType = inactive ? { label: "İptal", tone: "cancel" } : dailyReportRowType(item);
+	      const signedCash = inactive ? 0 : getCashNetEffect(item);
+	      rows.push({
+	        id: item.id || `cash-${rows.length + 1}`,
+	        relatedTable: item.relatedTable || item.related_table || "cash_movements",
+	        related_table: item.relatedTable || item.related_table || "cash_movements",
+	        relatedId: item.relatedId || item.related_id || item.referenceId || item.reference_id || item.id || "",
+	        related_id: item.relatedId || item.related_id || item.referenceId || item.reference_id || item.id || "",
+	        date: reportDateValue(item),
+	        tone: reportType.tone,
+	        type: reportType.label,
         description: item.note || type || "-",
         party: "",
         buy: !inactive && classification === "purchase_payment" ? amount : 0,
@@ -4154,11 +3922,16 @@ const isSameSalesListDay = (item, dateKey) => {
       const direction = bankMovementDirection(item);
       const inactive = !isActiveMovement(item);
       const classification = classifyFinancialMovement(item);
-      const reportType = inactive ? { label: "İptal", tone: "cancel" } : dailyReportRowType(item);
-      const signedBank = direction === "out" ? -amount : amount;
-      rows.push({
-        date: reportDateValue(item),
-        tone: reportType.tone === "cash-in" ? "bank" : reportType.tone,
+	      const reportType = inactive ? { label: "İptal", tone: "cancel" } : dailyReportRowType(item);
+	      const signedBank = direction === "out" ? -amount : amount;
+	      rows.push({
+	        id: item.id || `bank-${rows.length + 1}`,
+	        relatedTable: item.relatedTable || item.related_table || "bank_movements",
+	        related_table: item.relatedTable || item.related_table || "bank_movements",
+	        relatedId: item.relatedId || item.related_id || item.referenceId || item.reference_id || item.id || "",
+	        related_id: item.relatedId || item.related_id || item.referenceId || item.reference_id || item.id || "",
+	        date: reportDateValue(item),
+	        tone: reportType.tone === "cash-in" ? "bank" : reportType.tone,
         type: isTechnicalServiceMovement(type) ? reportType.label : "Banka Hareketi",
         description: item.note || type || "-",
         party: item.bank || item.bank_name || "",
@@ -4445,9 +4218,8 @@ const isSameSalesListDay = (item, dateKey) => {
   }
 
   function openStockEditor(product) {
-    if (!product?.id) return alert("Düzenlenecek stok kaydı bulunamadı.");
-    if (!requireSecurityPassword("edit", "Stok düzenleme")) return;
-    setEditingStock({ ...product });
+    if (!product?.id) return alert("Stok kaydı bulunamadı.");
+    alert("Stok ekranından düzenleme kapalıdır. Düzeltme, iptal ve iade işlemleri sadece Günlük Kasa Raporu / Kasa Beyni üzerinden yapılır.");
   }
 
   function stockReferenceValues(product) {
@@ -4556,43 +4328,7 @@ const isSameSalesListDay = (item, dateKey) => {
   }
 
   async function createStockPurchaseCancellationMovements(product, links) {
-    const title = productTitle(product) || "Stok kaydı";
-    const movementType = product?.module === "Cihaz" ? "Cihaz Alış İptali" : "Stok Alış İptali";
-    const note = `Stok alış iptali - ${title}`;
-    let createdCount = 0;
-
-    for (const movement of links.linkedBankPurchases) {
-      const amount = bankMovementAmount(movement);
-      if (!amount) continue;
-      const originalDirection = bankMovementDirection(movement);
-      await createBankMovement({
-        movement_type: movementType,
-        direction: originalDirection === "out" ? "in" : "out",
-        bank_name: movement.bank || movement.bank_name || "",
-        amount,
-        related_table: "stock_items",
-        related_id: product.id,
-        note,
-      });
-      createdCount += 1;
-    }
-
-    for (const movement of links.linkedCashPurchases) {
-      const amount = cashMovementAmount(movement);
-      if (!amount) continue;
-      const originalDirection = movement.direction || "out";
-      await createCashMovement({
-        movement_type: movementType,
-        direction: originalDirection === "out" ? "in" : "out",
-        amount,
-        related_table: "stock_items",
-        related_id: product.id,
-        note,
-      });
-      createdCount += 1;
-    }
-
-    return createdCount;
+    throw new Error("Stok ekranından alış iptali kapalıdır. İşlem sadece Günlük Kasa Raporu / Kasa Beyni üzerinden yapılır.");
   }
 
   async function deleteSale(id) {
@@ -4607,64 +4343,13 @@ const isSameSalesListDay = (item, dateKey) => {
   }
 
   async function deleteStock(id) {
-    const product = activeStock.find((item) => String(item.id) === String(id)) || stock.find((item) => String(item.id) === String(id));
-    if (!product) return alert("Silinecek stok kaydı bulunamadı.");
-    if (!requireSecurityPassword("delete", "Stok kaydı silme")) return;
-
-    const links = analyzeStockDeleteLinks(product);
-    if (links.linkedSales.length) {
-      alert("Bu cihaz satış kaydına bağlı olduğu için stoktan doğrudan silinemez. Önce Kasa > Satış Listesi bölümünden satış iptal/iade işlemi yapılmalıdır.");
-      return;
-    }
-
-    try {
-      let deleteMode = "stockOnly";
-      if (links.hasFinancialLink) {
-        const choiceText = links.hasCancellablePurchaseLink
-          ? "Bu stok kaydı alış/kasa hareketine bağlı.\n\nBu cihazı/ürünü stoktan kaldırırken kasa/banka etkisini değiştirmek isteyip istemediğinizi seçin.\n\n1 - Sadece stoktan kaldır\n2 - Alış/kasa etkisini iptal ederek kaldır\n3 - Vazgeç"
-          : "Bu stok kaydı başka kayıtlara bağlı görünüyor ancak açık alış/kasa ödeme bağlantısı bulunamadı.\n\n1 - Sadece stoktan kaldır\n3 - Vazgeç";
-        const choice = window.prompt(choiceText);
-        if (choice === null || choice.trim() === "" || choice.trim() === "3") return;
-        if (!["1", "2"].includes(choice.trim()) || choice.trim() === "2" && !links.hasCancellablePurchaseLink) {
-          alert("Geçerli bir seçim yapılmadı. İşlem iptal edildi.");
-          return;
-        }
-
-        if (choice.trim() === "2") {
-          try {
-            const createdCount = await createStockPurchaseCancellationMovements(product, links);
-            deleteMode = createdCount > 0 ? "purchaseCancelled" : "stockOnly";
-          } catch (error) {
-            console.error("Stok alış iptali ters hareket hatası", error);
-            const message = String(error?.message || error || "");
-            if (message.includes("movement_type") || message.includes("violates check constraint")) {
-              alert("Stok alış iptali hareket tipi Supabase'de eksik. supabase/stock_purchase_cancel_movement_type_20260526.sql dosyasını SQL Editor'da çalıştırın.");
-            } else {
-              alert(`Stok alış iptali için ters kasa/banka hareketi oluşturulamadı: ${error.message || error}`);
-            }
-            await refreshFromDatabase();
-            return;
-          }
-        }
-      }
-
-      await softDelete("stock_items", id);
-      await refreshFromDatabase();
-      const message = deleteMode === "purchaseCancelled"
-        ? "Stok kaydı kaldırıldı ve kasa/banka etkisi ters hareketle düzeltildi."
-        : links.hasUntrustedFinanceHint
-          ? "Bu kayıtla ilgili finansal bağlantı kesin olarak bulunamadı. Kasa/banka hareketi değiştirilmedi."
-          : "Cihaz stoktan kaldırıldı. Kasa/banka hareketleri değiştirilmedi.";
-      setSyncMessage(message);
-      alert(message);
-    } catch (error) {
-      alert(error.message || "Stok silinemedi.");
-    }
+    if (!id) return alert("Stok kaydı bulunamadı.");
+    alert("Stok ekranından silme/kaldırma kapalıdır. Düzeltme, iptal ve iade işlemleri sadece Günlük Kasa Raporu / Kasa Beyni üzerinden yapılır.");
   }
 
   function deleteSupplierDebt(supplierName) {
-    if (!requireSecurityPassword("delete", "Tedarikçi/Firma kaydı silme")) return;
-    setStock(stock.filter((product) => product.supplier !== supplierName));
+    if (!supplierName) return alert("Tedarikçi bulunamadı.");
+    alert("Tedarikçi/stok bağlantısı silme kapalıdır. Cari/stok düzeltmeleri sadece Günlük Kasa Raporu / Kasa Beyni ve merkezi transaction üzerinden yapılır.");
   }
 
   async function saveExpense() {
@@ -4698,13 +4383,8 @@ const isSameSalesListDay = (item, dateKey) => {
 
   async function deleteExpense(id) {
     if (!requireSecurityPassword("delete", "Gider kaydı silme")) return;
-    try {
-      await softDelete("expenses", id);
-      setExpenses(expenses.filter((item) => item.id !== id));
-      setSyncMessage("Gider Supabase'de silindi olarak işaretlendi.");
-    } catch (error) {
-      alert(error.message || "Gider silinemedi.");
-    }
+    void id;
+    alert("Gider silme kapalıdır. Gider iptal/düzeltme işlemleri sadece Günlük Kasa Raporu / Kasa Beyni merkezi transaction akışından yapılmalıdır.");
   }
 
   async function saveCashEntry() {
@@ -4809,26 +4489,8 @@ const isSameSalesListDay = (item, dateKey) => {
     setBanks(result.banks);
     saveStoredBanks(result.banks);
     setBankCashSkeletonForm({ name: "", balance: "" });
-    const openingBalance = parseMoneyInput(bankCashSkeletonForm.balance);
 
-    if (openingBalance > 0) {
-      try {
-        await createBankMovement({
-          movement_type: "Düzeltme",
-          direction: "in",
-          bank_name: name,
-          amount: openingBalance,
-          note: "Banka başlangıç bakiyesi",
-        });
-        await refreshFromDatabase();
-      } catch (error) {
-        alert(error.message || "Banka eklendi fakat başlangıç bakiyesi Supabase hareketlerine yazılamadı.");
-        endPendingAction(actionKey);
-        return;
-      }
-    }
-
-    alert("Banka listeye eklendi.");
+    alert("Banka listeye eklendi. Başlangıç bakiyesi bu aşamada sadece gösterim/listede tutulur; gerçek banka hareketi oluşturulmadı.");
     endPendingAction(actionKey);
   }
 
@@ -5197,6 +4859,8 @@ const isSameSalesListDay = (item, dateKey) => {
   }
 
   async function updateStock() {
+    alert("Stok ekranından düzenleme kapalıdır. Düzeltme, iptal ve iade işlemleri sadece Günlük Kasa Raporu / Kasa Beyni üzerinden yapılır.");
+    return;
     const fixed = {
       ...editingStock,
       barcode: cleanBarcode(editingStock.barcode),
@@ -5363,7 +5027,6 @@ const isSameSalesListDay = (item, dateKey) => {
     if (cardDeposit > 0 && !technicalServiceForm.bank) return alert("Kart/banka kaparosu için banka seçmek zorunludur.");
 
     const serviceId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
-    const movementNote = `${customerName} - ${device} - ${issue}`.slice(0, 180);
     const actionKey = "technical-service:create";
     if (!beginPendingAction(actionKey)) return;
 
@@ -5394,58 +5057,16 @@ const isSameSalesListDay = (item, dateKey) => {
       updatedAt: new Date().toISOString(),
     };
 
-    let cashMovementSaved = false;
     try {
-      if (cashDeposit > 0) {
-        await createCashMovement({
-          movement_type: "Teknik Servis Kaparo",
-          direction: "in",
-          amount: cashDeposit,
-          related_table: "technical_services",
-          related_id: serviceId,
-          related_service_id: serviceId,
-          service_record_id: serviceId,
-          reference_id: serviceId,
-          note: movementNote,
-        });
-        cashMovementSaved = true;
-      }
-
-      if (cardDeposit > 0) {
-        await createBankMovement({
-          movement_type: "Teknik Servis Kaparo",
-          direction: "in",
-          bank_name: technicalServiceForm.bank,
-          amount: cardDeposit,
-          related_table: "technical_services",
-          related_id: serviceId,
-          related_service_id: serviceId,
-          service_record_id: serviceId,
-          reference_id: serviceId,
-          note: movementNote,
-        });
-      }
+      await createTechnicalServiceWithEffects(record);
     } catch (error) {
-      console.error("Teknik servis kayıt finans hareketi hatası", error);
-      if (cashMovementSaved && cardDeposit > 0) {
-        setTechnicalServices([record, ...technicalServices]);
-        setTechnicalServiceForm(makeEmptyTechnicalServiceForm());
-        setSelectedTechnicalServiceId(serviceId);
-        setTechnicalServiceMode("detail");
-        setTechnicalServiceFormModalOpen(false);
-        await refreshFromDatabase();
-        const message = error.message || "Banka/kart hareketi kaydedilemedi.";
-        alert(`Yarım işlem uyarısı: Nakit hareket kasaya kaydedildi ancak banka/kart hareketi kaydedilemedi. Hata: ${message}`);
-        setSyncMessage("Yarım işlem: Nakit kaparo kaydedildi, banka/kart kaparosu kaydedilemedi.");
-        return;
-      }
-      alert(error.message || "Teknik servis finansal hareketi kaydedilemedi. Supabase migration gerekebilir.");
+      console.error("Teknik servis transaction hatası", error);
+      alert(error.message || "Teknik servis kaydı merkezi transaction ile oluşturulamadı. Kayıt yapılmadı.");
       return;
     } finally {
       endPendingAction(actionKey);
     }
 
-    setTechnicalServices([record, ...technicalServices]);
     setTechnicalServiceForm(makeEmptyTechnicalServiceForm());
     setSelectedTechnicalServiceId(serviceId);
     setTechnicalServiceMode("detail");
@@ -5454,13 +5075,18 @@ const isSameSalesListDay = (item, dateKey) => {
     setSyncMessage("Teknik servis kaydı açıldı; kaparo/ödeme kasa veya banka hareketlerine işlendi.");
   }
 
-  function updateTechnicalServiceStatus(id, status) {
+  async function updateTechnicalServiceStatus(id, status) {
     const actionType = status === "İptal" ? "cancel" : "edit";
     const actionLabel = status === "İptal" ? "Teknik servis iptali" : "Teknik servis durum düzenleme";
     if (!requireSecurityPassword(actionType, actionLabel)) return;
-    setTechnicalServices(technicalServices.map((item) => (
-      item.id === id ? { ...item, status, updatedAt: new Date().toISOString() } : item
-    )));
+    try {
+      const current = technicalServices.find((item) => String(item.id) === String(id)) || {};
+      await updateTechnicalServiceRecord(id, { ...current, status, payload: { ...current, status } });
+      await refreshFromDatabase();
+      setSyncMessage("Teknik servis durumu Supabase üzerinde güncellendi.");
+    } catch (error) {
+      alert(error.message || "Teknik servis durumu güncellenemedi.");
+    }
   }
 
   async function saveTechnicalServiceFinance(service, mode) {
@@ -5506,49 +5132,25 @@ const isSameSalesListDay = (item, dateKey) => {
       if (amount > available) return alert(`Bu kaynaktan en fazla ${money(available)} iade yapılabilir.`);
     }
 
-    const movementType = isRefund ? "Teknik Servis İade" : "Teknik Servis Tahsilat";
-    const direction = isRefund ? "out" : "in";
     const note = (form.note || `${isRefund ? "Teknik servis iade" : "Teknik servis tahsilat"} - ${service.customerName || "Müşteri"} - ${service.device || "Cihaz"}`).slice(0, 180);
     const actionKey = `technical-service-finance:${mode}:${service.id}`;
 
     if (!beginPendingAction(actionKey)) return;
     try {
-      if (method === "Kart/Banka") {
-        await createBankMovement({
-          movement_type: movementType,
-          direction,
-          bank_name: form.bank,
-          amount,
-          related_table: "technical_services",
-          related_id: service.id,
-          related_service_id: service.id,
-          service_record_id: service.id,
-          reference_id: service.id,
-          note,
-        });
-      } else {
-        await createCashMovement({
-          movement_type: movementType,
-          direction,
-          amount,
-          related_table: "technical_services",
-          related_id: service.id,
-          related_service_id: service.id,
-          service_record_id: service.id,
-          reference_id: service.id,
-          note,
-        });
-      }
-
-      setTechnicalServices(technicalServices.map((item) => (
-        String(item.id) === String(service.id) ? { ...item, updatedAt: new Date().toISOString() } : item
-      )));
+      await recordTechnicalServiceFinanceWithEffects({
+        serviceId: service.id,
+        mode,
+        amount,
+        method,
+        bank: form.bank,
+        note,
+      });
       if (isRefund) setTechnicalRefundForm(emptyTechnicalPaymentForm);
       else setTechnicalPaymentForm(emptyTechnicalPaymentForm);
       await refreshFromDatabase();
       setSyncMessage(isRefund ? "Teknik servis iadesi kaydedildi." : "Teknik servis ödemesi kaydedildi.");
     } catch (error) {
-      alert(error.message || "Teknik servis ödeme/iade hareketi kaydedilemedi. Supabase migration gerekebilir.");
+      alert(error.message || "Teknik servis ödeme/iade merkezi transaction ile kaydedilemedi. İşlem yapılmadı.");
     } finally {
       endPendingAction(actionKey);
     }
@@ -5849,25 +5451,8 @@ const isSameSalesListDay = (item, dateKey) => {
   }, [accessoryShortcuts, accessoryShortcutStorageKey]);
 
   useEffect(() => {
-    if (!technicalServiceStorageKey) return;
-    const saved = localStorage.getItem(`ceplog_technical_services_${technicalServiceStorageKey}`);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setTechnicalServices(Array.isArray(parsed) ? parsed : []);
-      } catch {
-        setTechnicalServices([]);
-      }
-    } else {
-      setTechnicalServices([]);
-    }
-    setTechnicalServiceStorageReadyKey(technicalServiceStorageKey);
+    purgeLegacyTechnicalServiceCache();
   }, [technicalServiceStorageKey]);
-
-  useEffect(() => {
-    if (!technicalServiceStorageKey || technicalServiceStorageReadyKey !== technicalServiceStorageKey) return;
-    localStorage.setItem(`ceplog_technical_services_${technicalServiceStorageKey}`, JSON.stringify(technicalServices.slice(0, 1000)));
-  }, [technicalServices, technicalServiceStorageKey, technicalServiceStorageReadyKey]);
 
   useEffect(() => {
     if (!stockChoiceStorageKey) return;

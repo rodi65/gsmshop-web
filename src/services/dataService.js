@@ -144,7 +144,7 @@ function isMissingSchemaError(error) {
   return isMissingRelationError(error) || error?.code === "42703" || message.includes("column") && message.includes("does not exist");
 }
 
-async function safeWorkspaceRows(tableName, workspaceId, { orderColumn = "created_at", ascending = false, limit = 500 } = {}) {
+async function safeWorkspaceRows(tableName, workspaceId, { orderColumn = "created_at", ascending = false, limit = 5000 } = {}) {
   try {
     let query = supabase.from(tableName).select("*").eq("workspace_id", workspaceId);
     if (orderColumn) query = query.order(orderColumn, { ascending });
@@ -168,7 +168,7 @@ async function safeWorkspaceRows(tableName, workspaceId, { orderColumn = "create
 }
 
 async function safeWorkspaceTable(tableName, workspaceId, options = {}) {
-  const { orderColumn = "created_at", ascending = false, limit = 500 } = options;
+  const { orderColumn = "created_at", ascending = false, limit = 5000 } = options;
   try {
     let query = supabase.from(tableName).select("*").eq("workspace_id", workspaceId);
     if (orderColumn) query = query.order(orderColumn, { ascending });
@@ -270,8 +270,9 @@ async function callBusinessTransactionRpc(name, payload) {
   const { data, error } = await supabase.rpc(name, { payload });
   if (error) {
     if (isMissingRpcError(error)) {
-      console.warn(`${name} RPC kurulmamış; mevcut işlem akışı kullanılacak.`, error);
-      return { applied: false, error };
+      const wrapped = new Error(`${name} merkezi transaction RPC kurulmamış. İşlem durduruldu; eski çoklu tablo akışı güvenlik nedeniyle çalıştırılmadı.`);
+      wrapped.cause = error;
+      throw wrapped;
     }
     throw error;
   }
@@ -301,6 +302,7 @@ export async function createAuditLog({
   metadata = {},
   requestKey = "",
   workspaceId: workspaceIdArg = "",
+  strict = false,
 } = {}) {
   try {
     const workspaceId = workspaceIdArg || await getCurrentWorkspaceId();
@@ -319,15 +321,22 @@ export async function createAuditLog({
 
     if (error) {
       if (isMissingRpcError(error) || isMissingRelationError(error)) {
+        if (strict) {
+          const wrapped = new Error("Audit log RPC kurulmamış. Kritik işlem audit kaydı olmadan tamamlanamaz.");
+          wrapped.cause = error;
+          throw wrapped;
+        }
         console.warn("Audit log RPC kurulmamış; işlem devam etti.", error);
         return null;
       }
+      if (strict) throw error;
       console.warn("Audit log Supabase'e yazılamadı; işlem devam etti.", error);
       return null;
     }
 
     return data || null;
   } catch (error) {
+    if (strict) throw error;
     console.warn("Audit log hazırlanamadı; işlem devam etti.", error);
     return null;
   }
@@ -356,7 +365,7 @@ export async function tryBeginIdempotency({
   const key = operationKey || criticalOperationKey(operationType, targetTable, targetId);
 
   if (!key) {
-    return { allowed: true, operationKey: "", workspaceId, missing: true };
+    throw new Error("Idempotency anahtarı oluşturulamadı. Kritik işlem durduruldu.");
   }
 
   const requestPayload = (() => {
@@ -379,8 +388,9 @@ export async function tryBeginIdempotency({
 
     if (error) {
       if (idempotencyUnavailable(error)) {
-        console.warn("Idempotency RPC kurulmamış; işlem mevcut kontrollerle devam etti.", error);
-        return { allowed: true, operationKey: key, workspaceId, missing: true };
+        const wrapped = new Error("Idempotency RPC kurulmamış. Çift kayıt riski nedeniyle işlem durduruldu.");
+        wrapped.cause = error;
+        throw wrapped;
       }
       throw error;
     }
@@ -397,8 +407,9 @@ export async function tryBeginIdempotency({
     };
   } catch (error) {
     if (idempotencyUnavailable(error)) {
-      console.warn("Idempotency kontrolü yapılamadı; işlem mevcut kontrollerle devam etti.", error);
-      return { allowed: true, operationKey: key, workspaceId, missing: true };
+      const wrapped = new Error("Idempotency kontrolü yapılamadı. Çift kayıt riski nedeniyle işlem durduruldu.");
+      wrapped.cause = error;
+      throw wrapped;
     }
     throw error;
   }
@@ -430,11 +441,11 @@ export async function completeIdempotency({
 
   if (error) {
     if (idempotencyUnavailable(error)) {
-      console.warn("Idempotency tamamlanamadı; SQL migration henüz çalışmamış olabilir.", error);
-      return null;
+      const wrapped = new Error("Idempotency tamamlanamadı. İşlem sonucu güvenli şekilde işaretlenemedi.");
+      wrapped.cause = error;
+      throw wrapped;
     }
-    console.warn("Idempotency durumu güncellenemedi.", error);
-    return null;
+    throw error;
   }
 
   return data;
@@ -494,6 +505,7 @@ export async function loadDashboardData() {
     returnItemsTable,
     exchangesTable,
     posMovementsTable,
+    technicalServicesTable,
   ] = await Promise.all([
     supabase.from("stock_items").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.eq.active").order("created_at", { ascending: false }),
     supabase.from("sales").select("*").eq("workspace_id", workspaceId).or("status.is.null,status.neq.deleted").order("created_at", { ascending: false }),
@@ -512,6 +524,7 @@ export async function loadDashboardData() {
     safeWorkspaceTable("return_items", workspaceId),
     safeWorkspaceTable("exchanges", workspaceId),
     safeWorkspaceTable("pos_movements", workspaceId),
+    safeWorkspaceTable("technical_services", workspaceId),
   ]);
 
   for (const response of [stock, sales, expenses, bank, closings]) {
@@ -549,6 +562,7 @@ export async function loadDashboardData() {
     returnItems: returnItemsTable.rows,
     exchanges: exchangesTable.rows,
     posMovements: posMovementsTable.rows,
+    technicalServices: technicalServicesTable.rows,
     schemaStatus: [
       auditLogsTable,
       businessTransactionsTable,
@@ -560,22 +574,39 @@ export async function loadDashboardData() {
       returnItemsTable,
       exchangesTable,
       posMovementsTable,
+      technicalServicesTable,
     ].map(({ table, ready, message, rows }) => ({ table, ready, message, rowCount: rows.length })),
   };
 }
 
 export async function resetAllTestData() {
+  const host = typeof window !== "undefined" ? window.location.hostname : "";
+  const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(host);
+  if (!isLocalhost) {
+    throw new Error("Test sıfırlama sadece localhost ortamında çalıştırılabilir.");
+  }
+
   const workspaceId = await getCurrentWorkspaceId();
   if (!workspaceId) throw new Error("Aktif workspace bulunamadı.");
 
   const tables = [
+    "ledger_entries",
+    "return_items",
+    "returns",
+    "exchanges",
+    "sale_items",
+    "stock_movements",
+    "cari_movements",
+    "pos_movements",
     "cash_movements",
     "bank_movements",
     "cash_closings",
     "expenses",
     "sales",
+    "technical_services",
     "stock_items",
     "contacts",
+    "business_transactions",
     "audit_logs",
   ];
 
@@ -606,7 +637,11 @@ export async function findOrCreateContact({ kind, name, phone = "", balance = 0,
   const user = await getCurrentUser();
   const workspaceId = await getCurrentWorkspaceId();
   const cleanName = String(name || "").trim();
+  const requestedBalance = toDbNumber(balance);
   if (!cleanName) return null;
+  if (requestedBalance !== 0) {
+    throw new Error("Cari bakiyesi doğrudan güncellenemez. Cari etki merkezi transaction/RPC hareketiyle oluşturulmalıdır.");
+  }
 
   const { data: existing, error: findError } = await supabase
     .from("contacts")
@@ -624,7 +659,6 @@ export async function findOrCreateContact({ kind, name, phone = "", balance = 0,
       .from("contacts")
       .update({
         phone: phone || existing.phone,
-        balance: Number(existing.balance || 0) + toDbNumber(balance),
         balance_type: balanceType || existing.balance_type,
         note: note || existing.note,
         status: "active",
@@ -646,7 +680,7 @@ export async function findOrCreateContact({ kind, name, phone = "", balance = 0,
       kind,
       name: cleanName,
       phone,
-      balance: toDbNumber(balance),
+      balance: 0,
       balance_type: balanceType,
       workspace_id: workspaceId,
       note,
@@ -668,105 +702,110 @@ export async function createCashMovement(payload) {
     payload.related_table === "technical_services" ? payload.related_id : ""
   );
 
-  const { data, error } = await supabase
-    .from("cash_movements")
-    .insert([{
-      movement_type: payload.movement_type,
-      direction: payload.direction,
-      amount: toDbNumber(payload.amount),
-      note: payload.note || "",
-      related_table: payload.related_table || null,
-      related_id: payload.related_id || null,
-      ...(serviceReferenceId ? {
-        related_service_id: serviceReferenceId,
-        service_record_id: serviceReferenceId,
-        reference_id: serviceReferenceId,
-      } : {}),
-      workspace_id: workspaceId,
-      status: "active",
-      created_by: user?.id,
-    }])
-    .select()
-    .single();
+  const cashTransaction = await callBusinessTransactionRpc("ceplog_record_cash_movement_transaction", {
+    workspace_id: workspaceId,
+    actor_id: user?.id || null,
+    idempotency_key: payload.idempotency_key || makeIdempotencyKey("cash-movement", [
+      payload.movement_type,
+      payload.direction,
+      payload.related_table,
+      payload.related_id,
+      serviceReferenceId,
+      payload.amount,
+    ]),
+    movement_type: payload.movement_type,
+    direction: payload.direction,
+    amount: toDbNumber(payload.amount),
+    note: payload.note || "",
+    related_table: payload.related_table || null,
+    related_id: payload.related_id || null,
+    related_service_id: serviceReferenceId || null,
+    service_record_id: serviceReferenceId || null,
+    reference_id: serviceReferenceId || payload.reference_id || null,
+  });
 
-  if (error) {
-    console.error("cash_movements insert error", {
-      error,
-      payload: {
-        movement_type: payload.movement_type,
-        direction: payload.direction,
-        amount: toDbNumber(payload.amount),
-        related_table: payload.related_table || null,
-        related_id: payload.related_id || null,
-        related_service_id: serviceReferenceId || null,
-        service_record_id: serviceReferenceId || null,
-        reference_id: serviceReferenceId || null,
-      },
-    });
-    if (serviceReferenceId && isMissingTechnicalServiceFinanceColumn(error)) {
-      throw technicalServiceFinanceColumnsError(error);
-    }
-    if (isTechnicalServiceMovementTypeError(error)) {
-      throw technicalServiceMovementTypeError(error);
-    }
-    throw error;
+  if (!cashTransaction.applied) {
+    throw new Error("Kasa hareketi merkezi transaction RPC sonucu uygulanmadı. Eski direkt cash_movements yazımı güvenlik nedeniyle çalıştırılmadı.");
   }
-  return data;
+
+  const movementId = cashTransaction.data?.reference_id || cashTransaction.data?.referenceId || cashTransaction.data?.movement_id || cashTransaction.data?.movementId;
+  return await fetchWorkspaceRecord("cash_movements", movementId, workspaceId) || cashTransaction.data;
 }
 
 export async function createBankMovement(payload) {
+  void payload;
+  throw new Error("Banka hareketi doğrudan yazılamaz. Banka/POS etkisi sadece merkezi transaction RPC üzerinden oluşturulmalıdır.");
+}
+
+export async function createTechnicalServiceWithEffects(payload) {
   const user = await getCurrentUser();
   const workspaceId = await getCurrentWorkspaceId();
-  const serviceReferenceId = payload.related_service_id || payload.service_record_id || payload.reference_id || (
-    payload.related_table === "technical_services" ? payload.related_id : ""
-  );
+  const serviceId = payload.id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+  const result = await callBusinessTransactionRpc("ceplog_record_technical_service_transaction", {
+    workspace_id: workspaceId,
+    actor_id: user?.id || null,
+    idempotency_key: makeIdempotencyKey("technical-service", [serviceId]),
+    service: {
+      ...payload,
+      id: serviceId,
+      estimated_price: toDbNumber(payload.estimatedPrice ?? payload.estimated_price),
+      cash_deposit: toDbNumber(payload.cashDeposit ?? payload.cash_deposit),
+      card_deposit: toDbNumber(payload.cardDeposit ?? payload.card_deposit),
+      deposit: toDbNumber(payload.deposit),
+      bank_name: payload.bank || payload.bank_name || "",
+    },
+    payments: {
+      cash_amount: toDbNumber(payload.cashDeposit ?? payload.cash_deposit),
+      card_amount: toDbNumber(payload.cardDeposit ?? payload.card_deposit),
+      bank_name: payload.bank || payload.bank_name || "",
+    },
+    note: payload.note || "",
+  });
 
-  if (!payload.bank_name) {
-    throw new Error("Banka seçmek zorunludur.");
-  }
+  const recordId = result.data?.reference_id || result.data?.referenceId || result.data?.service_id || result.data?.serviceId || serviceId;
+  return await fetchWorkspaceRecord("technical_services", recordId, workspaceId) || result.data;
+}
 
+export async function recordTechnicalServiceFinanceWithEffects(payload) {
+  const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
+  const result = await callBusinessTransactionRpc("ceplog_record_technical_service_finance_transaction", {
+    workspace_id: workspaceId,
+    actor_id: user?.id || null,
+    idempotency_key: makeIdempotencyKey("technical-service-finance", [payload.serviceId || payload.service_id, payload.mode]),
+    service_id: payload.serviceId || payload.service_id,
+    mode: payload.mode,
+    amount: toDbNumber(payload.amount),
+    method: payload.method || "Nakit",
+    bank_name: payload.bank || payload.bank_name || "",
+    note: payload.note || "",
+  });
+
+  const recordId = payload.serviceId || payload.service_id || result.data?.reference_id || result.data?.service_id;
+  return recordId ? await fetchWorkspaceRecord("technical_services", recordId, workspaceId) || result.data : result.data;
+}
+
+export async function updateTechnicalServiceRecord(id, payload) {
+  const user = await getCurrentUser();
+  const workspaceId = await getCurrentWorkspaceId();
   const { data, error } = await supabase
-    .from("bank_movements")
-    .insert([{
-      movement_type: payload.movement_type,
-      direction: payload.direction || "in",
-      bank_name: payload.bank_name,
-      amount: toDbNumber(payload.amount),
-      note: payload.note || "",
-      related_sale_id: payload.related_sale_id || null,
-      related_table: payload.related_table || null,
-      related_id: payload.related_id || null,
-      related_service_id: serviceReferenceId || null,
-      service_record_id: serviceReferenceId || null,
-      reference_id: serviceReferenceId || null,
-      workspace_id: workspaceId,
-      status: "active",
-      created_by: user?.id,
-    }])
+    .from("technical_services")
+    .update({
+      status: payload.status,
+      repair_action: payload.repairAction ?? payload.repair_action,
+      note: payload.note,
+      payload: payload.payload || payload,
+      updated_by: user?.id || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("workspace_id", workspaceId)
     .select()
     .single();
 
   if (error) {
-    console.error("bank_movements insert error", {
-      error,
-      payload: {
-        movement_type: payload.movement_type,
-        direction: payload.direction || "in",
-        bank_name: payload.bank_name,
-        amount: toDbNumber(payload.amount),
-        related_sale_id: payload.related_sale_id || null,
-        related_table: payload.related_table || null,
-        related_id: payload.related_id || null,
-        related_service_id: serviceReferenceId || null,
-        service_record_id: serviceReferenceId || null,
-        reference_id: serviceReferenceId || null,
-      },
-    });
-    if (serviceReferenceId && isMissingTechnicalServiceFinanceColumn(error)) {
-      throw technicalServiceFinanceColumnsError(error);
-    }
-    if (isTechnicalServiceMovementTypeError(error)) {
-      throw technicalServiceMovementTypeError(error);
+    if (isMissingRelationError(error)) {
+      throw new Error("technical_services tablosu kurulmamış. Teknik servis kayıtları localStorage yerine Supabase tablosuna taşınmalıdır.");
     }
     throw error;
   }
@@ -796,25 +835,7 @@ export async function createContactPayment({ kind, name, phone = "", amount, cur
   let contact = existing;
 
   if (!contact) {
-    const { data: createdContact, error: createError } = await supabase
-      .from("contacts")
-      .insert([{
-        kind,
-        name: cleanName,
-        phone,
-        balance: toDbNumber(currentBalance),
-        balance_type: "payable",
-        workspace_id: workspaceId,
-        note: "Ödeme sırasında cari kaydı oluşturuldu.",
-        status: "active",
-        created_by: user?.id,
-        updated_by: user?.id,
-      }])
-      .select()
-      .single();
-
-    if (createError) throw createError;
-    contact = createdContact;
+    throw new Error("Cari ödeme için mevcut cari kaydı bulunamadı. Cari kayıt ve bakiye merkezi satış/alım transaction akışından oluşmalıdır.");
   }
 
   const movementId = await callFinancialRpc("record_contact_payment", {
@@ -853,75 +874,14 @@ export async function createReceivablePayment({ saleId, customerName = "", amoun
       transaction: collectionTransaction.data,
     };
   }
-
-  const movementId = await callFinancialRpc("record_receivable_payment", {
-    p_sale_id: saleId,
-    p_workspace_id: workspaceId,
-    p_amount: paymentAmount,
-    p_note: `Alacak ödemesi - ${customerName || "Müşteri"}`,
-  });
-
-  return {
-    sale: { id: saleId, remaining_amount: Math.max(toDbNumber(currentRemaining) - paymentAmount, 0) },
-    movement: { id: movementId },
-  };
+  throw new Error("Cari tahsilat merkezi transaction RPC sonucu uygulanmadı. Eski çoklu tablo akışı güvenlik nedeniyle çalıştırılmadı.");
 }
 
 export async function repairStockSideEffects(stockItems = [], cashMovements = [], contacts = []) {
-  let changed = false;
-
-  for (const item of stockItems) {
-    const paid = Number(item.supplier_paid || 0);
-    const totalBuy = Number(item.buy_price || 0) * Number(item.quantity || 1);
-    const sellerRemaining = Number(item.seller_cari_remaining || 0);
-    const inferredPaid = paid || (sellerRemaining > 0 ? Math.max(totalBuy - sellerRemaining, 0) : 0);
-    const sellerName = stockSellerName(item);
-    const paymentName = sellerName || item.supplier_name || "";
-
-    const hasStockPayment = cashMovements.some((movement) =>
-      movement.movement_type === "Stok Ödemesi" &&
-      movement.related_table === "stock_items" &&
-      String(movement.related_id || "") === String(item.id)
-    );
-
-    if (inferredPaid > 0 && !hasStockPayment) {
-      await createCashMovement({
-        movement_type: "Stok Ödemesi",
-        direction: "out",
-        amount: inferredPaid,
-        related_table: "stock_items",
-        related_id: item.id,
-        note: `${item.product_name || "Stok"} alım ödemesi${paymentName ? ` - ${paymentName}` : ""}`,
-      });
-      changed = true;
-    }
-
-    const isSecondHandPhoneSeller =
-      item.module === "Cihaz" &&
-      (item.device_type || item.deviceType) === "Telefon" &&
-      (item.category === "İkinci El" || item.acquisition_type === "Müşteri") &&
-      Boolean(sellerName);
-    const sellerBalance = sellerRemaining || Math.max(totalBuy - paid, 0);
-    const hasSellerContact = sellerName && contacts.some((contact) =>
-      contact.kind === "seller" &&
-      String(contact.name || "").toLocaleLowerCase("tr-TR") === sellerName.toLocaleLowerCase("tr-TR") &&
-      contact.balance_type === "payable"
-    );
-
-    if (isSecondHandPhoneSeller && sellerBalance > 0 && !hasSellerContact) {
-      await findOrCreateContact({
-        kind: "seller",
-        name: sellerName,
-        phone: item.seller_phone || "",
-        balance: sellerBalance,
-        balanceType: "payable",
-        note: `${item.product_name || "Cihaz"} alımından kalan borç`,
-      });
-      changed = true;
-    }
-  }
-
-  return changed;
+  void stockItems;
+  void cashMovements;
+  void contacts;
+  throw new Error("Otomatik stok finans onarımı kapalıdır. Eksik kasa/cari etkileri sadece merkezi transaction/RPC ve audit ile oluşturulabilir.");
 }
 
 export async function createStockItem(payload) {
@@ -975,79 +935,7 @@ export async function createStockItem(payload) {
     const stockId = stockTransaction.data?.reference_id || stockTransaction.data?.referenceId || stockTransaction.data?.stock_id || stockTransaction.data?.stockId;
     return await fetchWorkspaceRecord("stock_items", stockId, workspaceId) || stockTransaction.data;
   }
-
-  try {
-    const rpcStock = await callFinancialRpc("create_stock_with_effects", {
-      p_workspace_id: workspaceId,
-      p_module: stockPayload.module || "",
-      p_device_type: stockPayload.device_type || "",
-      p_category: stockPayload.category || "",
-      p_sub_type: stockPayload.sub_type || "",
-      p_brand: stockPayload.brand || "",
-      p_model: stockPayload.model || "",
-      p_memory: stockPayload.memory || "",
-      p_product_name: stockPayload.product_name || "Ürün",
-      p_barcode: stockPayload.barcode || "",
-      p_imei: stockPayload.imei || "",
-      p_buy_price: toDbNumber(stockPayload.buy_price),
-      p_sell_price: toDbNumber(stockPayload.sell_price),
-      p_quantity: Number(stockPayload.quantity || 1),
-      p_supplier_name: stockPayload.supplier_name || "",
-      p_seller_person: stockPayload.seller_person || "",
-      p_seller_phone: stockPayload.seller_phone || "",
-      p_acquisition_type: stockPayload.acquisition_type || "",
-      p_supplier_paid: toDbNumber(stockPayload.supplier_paid),
-      p_seller_cari_remaining: Number(stockPayload.seller_cari_remaining || 0),
-      p_note: stockPayload.note || "",
-    }, "Stok kayıt transaction fonksiyonu kurulmamış. Supabase SQL migration çalıştırılmalı.");
-    return rpcStock;
-  } catch (error) {
-    const rpcError = error?.cause || error;
-    if (!isMissingRpcError(rpcError)) throw error;
-    console.warn("create_stock_with_effects RPC kurulmamış; eski stok kayıt akışı kullanılacak.", rpcError);
-  }
-
-  const { data, error } = await supabase
-    .from("stock_items")
-    .insert([{ ...stockPayload, workspace_id: workspaceId, status: stockPayload.status || "active", created_by: user?.id, updated_by: user?.id }])
-    .select()
-    .single();
-
-  if (error) throw error;
-
-  if (paid > 0) {
-    await createCashMovement({
-      movement_type: "Stok Ödemesi",
-      direction: "out",
-      amount: paid,
-      related_table: "stock_items",
-      related_id: data.id,
-      note: `${payload.product_name || "Stok"} alım ödemesi${paymentName ? ` - ${paymentName}` : ""}`,
-    });
-  }
-
-  if (remaining > 0 && isSellerPurchase) {
-    await findOrCreateContact({
-      kind: "seller",
-      name: sellerName,
-      phone: payload.seller_phone || "",
-      balance: Number(stockPayload.seller_cari_remaining || 0) || remaining,
-      balanceType: "payable",
-      note: `${payload.product_name || "Cihaz"} alımından kalan borç`,
-    });
-  }
-
-  if (remaining > 0 && !isSellerPurchase && payload.supplier_name) {
-    await findOrCreateContact({
-      kind: "supplier",
-      name: payload.supplier_name,
-      balance: remaining,
-      balanceType: "payable",
-      note: `${payload.product_name || "Stok"} alımından kalan borç`,
-    });
-  }
-
-  return data;
+  throw new Error("Stok alış merkezi transaction RPC sonucu uygulanmadı. Eski çoklu tablo akışı güvenlik nedeniyle çalıştırılmadı.");
 }
 
 export async function createSale(payload) {
@@ -1108,110 +996,7 @@ export async function createSale(payload) {
     const saleId = saleTransaction.data?.reference_id || saleTransaction.data?.referenceId || saleTransaction.data?.sale_id || saleTransaction.data?.saleId;
     return await fetchWorkspaceRecord("sales", saleId, workspaceId) || saleTransaction.data;
   }
-
-  try {
-    const rpcSale = await callFinancialRpc("create_sale_with_effects", {
-      p_workspace_id: workspaceId,
-      p_sale_group: salePayload.sale_group || "",
-      p_sale_type: salePayload.sale_type || "",
-      p_stock_item_id: salePayload.stock_item_id || null,
-      p_product_name: salePayload.product_name || "Satış",
-      p_customer_name: salePayload.customer_name || "",
-      p_customer_phone: salePayload.customer_phone || "",
-      p_cari_person: salePayload.cari_person || "",
-      p_total_amount: toDbNumber(salePayload.total_amount),
-      p_cash_amount: toDbNumber(salePayload.cash_amount),
-      p_card_amount: toDbNumber(salePayload.card_amount),
-      p_remaining_amount: toDbNumber(salePayload.remaining_amount),
-      p_buy_cost: toDbNumber(salePayload.buy_cost),
-      p_profit_amount: toDbNumber(salePayload.profit_amount),
-      p_bank_name: salePayload.bank_name || "",
-    }, "Satış transaction fonksiyonu kurulmamış. Supabase SQL migration çalıştırılmalı.");
-    return rpcSale;
-  } catch (error) {
-    const rpcError = error?.cause || error;
-    if (!isMissingRpcError(rpcError)) throw error;
-    console.warn("create_sale_with_effects RPC kurulmamış; eski satış kayıt akışı kullanılacak.", rpcError);
-  }
-
-  let stockItemToDecrease = null;
-  if (payload.stock_item_id) {
-    const { data: stockItem, error: stockFindError } = await supabase
-      .from("stock_items")
-      .select("id, quantity")
-      .eq("id", payload.stock_item_id)
-      .eq("workspace_id", workspaceId)
-      .maybeSingle();
-
-    if (stockFindError) throw stockFindError;
-    if (!stockItem) throw new Error("Satılacak stok kaydı bulunamadı.");
-    if (Number(stockItem.quantity || 0) <= 0) throw new Error("Stok yok.");
-    stockItemToDecrease = stockItem;
-  }
-
-  const { data: sale, error } = await supabase
-    .from("sales")
-    .insert([salePayload])
-    .select()
-    .single();
-
-  if (error) throw error;
-
-  if (stockItemToDecrease) {
-    const currentQuantity = Number(stockItemToDecrease.quantity || 0);
-    const { error: stockUpdateError } = await supabase
-      .from("stock_items")
-      .update({
-        quantity: Math.max(currentQuantity - 1, 0),
-        updated_by: user?.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", stockItemToDecrease.id)
-      .eq("workspace_id", workspaceId);
-
-    if (stockUpdateError) throw stockUpdateError;
-  }
-
-  if (toDbNumber(payload.cash_amount) > 0) {
-    await createCashMovement({
-      movement_type: "Satış Nakit",
-      direction: "in",
-      amount: toDbNumber(payload.cash_amount),
-      related_table: "sales",
-      related_id: sale.id,
-      note: `${payload.product_name || "Satış"} nakit tahsilat`,
-    });
-  }
-
-  if (toDbNumber(salePayload.card_amount) > 0 && salePayload.bank_name) {
-    try {
-      await createBankMovement({
-        movement_type: "Bankaya Giden",
-        direction: "in",
-        bank_name: salePayload.bank_name,
-        amount: toDbNumber(salePayload.card_amount),
-        related_sale_id: sale.id,
-        related_table: "sales",
-        related_id: sale.id,
-        note: `${payload.product_name || "Satış"} kart/banka tahsilat`,
-      });
-    } catch (bankError) {
-      console.error("Satış kaydedildi ancak banka hareketi oluşturulamadı.", bankError);
-    }
-  }
-
-  if (toDbNumber(salePayload.remaining_amount) > 0 && (payload.cari_person || payload.customer_name)) {
-    await findOrCreateContact({
-      kind: "customer",
-      name: payload.cari_person || payload.customer_name,
-      phone: payload.customer_phone || "",
-      balance: toDbNumber(salePayload.remaining_amount),
-      balanceType: "receivable",
-      note: `${payload.product_name || "Satış"} satışından kalan alacak`,
-    });
-  }
-
-  return sale;
+  throw new Error("Satış merkezi transaction RPC sonucu uygulanmadı. Eski çoklu tablo akışı güvenlik nedeniyle çalıştırılmadı.");
 }
 
 export async function createExpense(payload) {
@@ -1238,62 +1023,14 @@ export async function createExpense(payload) {
     const expenseId = expenseTransaction.data?.reference_id || expenseTransaction.data?.referenceId || expenseTransaction.data?.expense_id || expenseTransaction.data?.expenseId;
     return await fetchWorkspaceRecord("expenses", expenseId, workspaceId) || expenseTransaction.data;
   }
-
-  const { data, error } = await supabase
-    .from("expenses")
-    .insert([{ ...payload, workspace_id: workspaceId, created_by: user?.id, updated_by: user?.id }])
-    .select()
-    .single();
-
-  if (error) throw error;
-  if (toDbNumber(payload.amount) > 0) {
-    await createCashMovement({
-      movement_type: "Gider",
-      direction: "out",
-      amount: toDbNumber(payload.amount),
-      related_table: "expenses",
-      related_id: data.id,
-      note: payload.note || payload.category || "Gider",
-    });
-  }
-  return data;
+  throw new Error("Gider merkezi transaction RPC sonucu uygulanmadı. Eski çoklu tablo akışı güvenlik nedeniyle çalıştırılmadı.");
 }
 
 export async function createBankWithdrawal(payload) {
-  const user = await getCurrentUser();
-  const workspaceId = await getCurrentWorkspaceId();
-
-  if (!payload.bank_name) {
-    throw new Error("Banka seçmek zorunludur.");
-  }
-
-  const { data, error } = await supabase
-    .from("bank_movements")
-    .insert([{
-      movement_type: "Bankadan Çekilen",
-      direction: "out",
-      status: "active",
-      bank_name: payload.bank_name,
-      amount: toDbNumber(payload.amount),
-      note: payload.note || `Bankadan Nakit Gelen - ${payload.bank_name}`,
-      workspace_id: workspaceId,
-      created_by: user?.id,
-    }])
-    .select()
-    .single();
-
-  if (error) throw error;
-  if (toDbNumber(payload.amount) > 0) {
-    await createCashMovement({
-      movement_type: "Bankadan Nakit Gelen",
-      direction: "in",
-      amount: toDbNumber(payload.amount),
-      related_table: "bank_movements",
-      related_id: data.id,
-      note: payload.note || `Bankadan Nakit Gelen - ${payload.bank_name}`,
-    });
-  }
-  return data;
+  await getCurrentUser();
+  await getCurrentWorkspaceId();
+  if (!payload.bank_name) throw new Error("Banka seçmek zorunludur.");
+  throw new Error("Bankadan kasaya aktarım merkezi RPC transaction'a bağlanmadan aktif değildir. Yarım banka/kasa hareketi oluşturmamak için işlem durduruldu.");
 }
 
 export async function updateSaleRecord(id, payload) {
@@ -1450,13 +1187,10 @@ export async function refundSaleWithEffects(id, reason = "Satış iadesi") {
       reason,
     });
 
-    const result = refundTransaction.applied
-      ? refundTransaction.data
-      : await callFinancialRpc("refund_sale_with_effects", {
-        p_sale_id: id,
-        p_workspace_id: workspaceId,
-        p_reason: reason,
-      }, "Satış iade transaction fonksiyonu kurulmamış. Supabase central_financial_rpc_phase1_20260528.sql dosyasını SQL Editor’da tekrar çalıştırın.");
+    if (!refundTransaction.applied) {
+      throw new Error("Satış iade merkezi transaction RPC sonucu uygulanmadı. Eski çoklu tablo akışı güvenlik nedeniyle çalıştırılmadı.");
+    }
+    const result = refundTransaction.data;
 
     const { data: saleAfterRefund, error: saleAfterError } = await supabase
       .from("sales")
@@ -1510,78 +1244,8 @@ export async function softDelete(tableName, id) {
     return cancelRecord(tableName, id, "Satış silme/iptal");
   }
 
-  const user = await getCurrentUser();
-  const workspaceId = await getCurrentWorkspaceId();
-  const { data: recordBeforeDelete, error: recordBeforeError } = await supabase
-    .from(tableName)
-    .select("*")
-    .eq("id", id)
-    .eq("workspace_id", workspaceId)
-    .maybeSingle();
-
-  if (recordBeforeError) console.warn("Silme audit eski kayıt okunamadı.", recordBeforeError);
-
-  const idempotency = await tryBeginIdempotency({
-    operationType: "soft_delete",
-    targetTable: tableName,
-    targetId: id,
-    operationKey: criticalOperationKey("soft_delete", tableName, id),
-    payload: { tableName, id },
-    workspaceId,
-  });
-
-  if (!idempotency.allowed) {
-    throw new Error("Bu silme işlemi daha önce işlenmiş. İkinci kez çalıştırılamaz.");
-  }
-
-  try {
-    const { data, error } = await supabase
-      .from(tableName)
-      .update({
-        status: "deleted",
-        updated_by: user?.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .eq("workspace_id", workspaceId)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    await createAuditLog({
-      tableName,
-      recordId: id,
-      action: "SOFT_DELETE",
-      eventType: `${tableName}_soft_delete`,
-      reason: "Kayıt silindi olarak işaretlendi",
-      oldData: recordBeforeDelete || null,
-      newData: data || null,
-      metadata: { tableName, idempotencyKey: idempotency.operationKey },
-      requestKey: idempotency.operationKey,
-      workspaceId,
-    });
-
-    if (!idempotency.missing) {
-      await completeIdempotency({
-        operationKey: idempotency.operationKey,
-        result: { tableName, id, status: data?.status || "deleted" },
-        workspaceId,
-      });
-    }
-
-    return data;
-  } catch (error) {
-    if (!idempotency.missing) {
-      await completeIdempotency({
-        operationKey: idempotency.operationKey,
-        status: "failed",
-        result: { tableName, id, message: error?.message || String(error) },
-        workspaceId,
-      });
-    }
-    throw error;
-  }
+  void id;
+  throw new Error(`${tableName} kaydı doğrudan silinemez. Kritik kayıtlar sadece ilgili merkezi iptal/iade transaction akışından kapatılabilir.`);
 }
 
 export async function cancelStockPurchase(id, reason = "Alım iptal edildi") {
@@ -1613,22 +1277,19 @@ export async function cancelStockPurchase(id, reason = "Alım iptal edildi") {
     throw new Error("Bu alım iptal işlemi daha önce işlenmiş. İkinci kez çalıştırılamaz.");
   }
 
-	  try {
-	    const cancelTransaction = await callBusinessTransactionRpc("ceplog_cancel_stock_purchase_transaction", {
-	      workspace_id: workspaceId,
-	      actor_id: null,
-	      idempotency_key: idempotency.operationKey,
-	      stock_id: id,
-	      reason,
-	    });
+  try {
+    const cancelTransaction = await callBusinessTransactionRpc("ceplog_cancel_stock_purchase_transaction", {
+      workspace_id: workspaceId,
+      actor_id: null,
+      idempotency_key: idempotency.operationKey,
+      stock_id: id,
+      reason,
+    });
 
-	    const result = cancelTransaction.applied
-	      ? cancelTransaction.data
-	      : await callFinancialRpc("cancel_stock_purchase_with_effects", {
-	        p_stock_id: id,
-	        p_workspace_id: workspaceId,
-	        p_reason: reason,
-	      }, "Alım iptal transaction fonksiyonu kurulmamış. Supabase central_financial_rpc_phase1_20260528.sql dosyasını SQL Editor’da tekrar çalıştırın.");
+    if (!cancelTransaction.applied) {
+      throw new Error("Alım iptal merkezi transaction RPC sonucu uygulanmadı. Eski çoklu tablo akışı güvenlik nedeniyle çalıştırılmadı.");
+    }
+    const result = cancelTransaction.data;
 
     const { data: stockAfterCancel, error: stockAfterError } = await supabase
       .from("stock_items")
@@ -1711,8 +1372,6 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
     if (stockBeforeError) throw stockBeforeError;
     if (!stockBefore) throw new Error("Satışa bağlı stok kaydı bulunamadı.");
 
-    const beforeQty = Number(stockBefore.quantity || 0);
-
     const idempotency = await tryBeginIdempotency({
       operationType: "cancel",
       targetTable: "sales",
@@ -1727,167 +1386,92 @@ export async function cancelRecord(tableName, id, reason = "Kayıt iptal edildi"
     }
 
     try {
-    const cancelTransaction = await callBusinessTransactionRpc("ceplog_cancel_sale_transaction", {
-      workspace_id: workspaceId,
-      actor_id: user?.id || null,
-      idempotency_key: idempotency.operationKey,
-      sale_id: id,
-      reason,
-    });
-
-    const result = cancelTransaction.applied
-      ? cancelTransaction.data
-      : await callFinancialRpc("cancel_sale_with_effects", {
-        p_sale_id: id,
-        p_workspace_id: workspaceId,
-        p_reason: reason,
-      }, "Finansal iptal fonksiyonu kurulmamış. Supabase financial_integrity SQL çalıştırılmalı.");
-
-    const { data: saleAfterCancel, error: saleAfterReadError } = await supabase
-      .from("sales")
-      .select("id, status")
-      .eq("id", id)
-      .eq("workspace_id", workspaceId)
-      .maybeSingle();
-
-    if (saleAfterReadError) throw saleAfterReadError;
-    if (!saleAfterCancel) throw new Error("İptal sonrası satış kaydı tekrar okunamadı.");
-
-    if (!["cancelled", "canceled", "iptal"].includes(String(saleAfterCancel.status || "").toLowerCase())) {
-      const { error: saleStatusError } = await supabase
-        .from("sales")
-        .update({
-          status: "cancelled",
-          updated_by: user?.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .eq("workspace_id", workspaceId);
-
-      if (saleStatusError) throw saleStatusError;
-    }
-
-    const { data: stockAfter, error: stockAfterReadError } = await supabase
-      .from("stock_items")
-      .select("id, quantity, status")
-      .eq("id", stockItemId)
-      .eq("workspace_id", workspaceId)
-      .maybeSingle();
-
-    if (stockAfterReadError) throw stockAfterReadError;
-    if (!stockAfter) throw new Error("İptal sonrası stok kaydı tekrar okunamadı.");
-
-    const afterQty = Number(stockAfter.quantity || 0);
-    const requiredQty = beforeQty + 1;
-    const stockStatus = String(stockAfter.status || "").toLocaleLowerCase("tr-TR");
-
-    if (afterQty < requiredQty || stockStatus !== "active") {
-      const { error: stockReturnError } = await supabase
-        .from("stock_items")
-        .update({
-          quantity: Math.max(afterQty, requiredQty),
-          status: "active",
-          updated_by: user?.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", stockItemId)
-        .eq("workspace_id", workspaceId);
-
-      if (stockReturnError) throw stockReturnError;
-    }
-
-    const movementCancelPayload = {
-      status: "cancelled",
-      updated_by: user?.id,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { error: cashRelatedSaleError } = await supabase
-      .from("cash_movements")
-      .update(movementCancelPayload)
-      .eq("workspace_id", workspaceId)
-      .eq("related_table", "sales")
-      .eq("related_id", id)
-      .or("status.is.null,status.neq.deleted");
-
-    if (cashRelatedSaleError) throw cashRelatedSaleError;
-
-    const { error: bankRelatedSaleError } = await supabase
-      .from("bank_movements")
-      .update(movementCancelPayload)
-      .eq("workspace_id", workspaceId)
-      .eq("related_sale_id", id)
-      .or("status.is.null,status.neq.deleted");
-
-    if (bankRelatedSaleError) throw bankRelatedSaleError;
-
-    const { error: bankRelatedIdError } = await supabase
-      .from("bank_movements")
-      .update(movementCancelPayload)
-      .eq("workspace_id", workspaceId)
-      .eq("related_table", "sales")
-      .eq("related_id", id)
-      .or("status.is.null,status.neq.deleted");
-
-    if (bankRelatedIdError) throw bankRelatedIdError;
-
-    const receivableNames = Array.from(new Set([
-      saleBeforeCancel.customer_name,
-      saleBeforeCancel.cari_person,
-    ]
-      .map((name) => String(name || "").trim())
-      .filter(Boolean)));
-
-    for (const customerName of receivableNames) {
-      await callFinancialRpc("rebuild_customer_receivable", {
-        p_workspace_id: workspaceId,
-        p_customer_name: customerName,
+      const cancelTransaction = await callBusinessTransactionRpc("ceplog_cancel_sale_transaction", {
+        workspace_id: workspaceId,
+        actor_id: user?.id || null,
+        idempotency_key: idempotency.operationKey,
+        sale_id: id,
+        reason,
       });
-    }
 
-    const { data: saleAfterAudit, error: saleAfterAuditError } = await supabase
-      .from("sales")
-      .select("*")
-      .eq("id", id)
-      .eq("workspace_id", workspaceId)
-      .maybeSingle();
+      if (!cancelTransaction.applied) {
+        throw new Error("Satış iptal merkezi transaction RPC sonucu uygulanmadı. Eski çoklu tablo akışı güvenlik nedeniyle çalıştırılmadı.");
+      }
+      const result = cancelTransaction.data;
 
-    if (saleAfterAuditError) console.warn("Satış iptal audit yeni kayıt okunamadı.", saleAfterAuditError);
+      const { data: saleAfterCancel, error: saleAfterReadError } = await supabase
+        .from("sales")
+        .select("id, status")
+        .eq("id", id)
+        .eq("workspace_id", workspaceId)
+        .maybeSingle();
 
-    await createAuditLog({
-      tableName: "sales",
-      recordId: id,
-      action: "CANCEL",
-      eventType: "sale_cancel_with_effects",
-      reason,
-      oldData: saleBeforeCancel || null,
-      newData: saleAfterAudit || saleAfterCancel || null,
-      metadata: {
-        stockItemId,
-        stockBefore,
-        stockAfter,
-        rpcResult: result || null,
-        receivableNames,
-        idempotencyKey: idempotency.operationKey,
-      },
-      requestKey: idempotency.operationKey,
-      workspaceId,
-    });
+      if (saleAfterReadError) throw saleAfterReadError;
+      if (!saleAfterCancel) throw new Error("İptal sonrası satış kaydı tekrar okunamadı.");
+      if (!["cancelled", "canceled", "iptal"].includes(String(saleAfterCancel.status || "").toLowerCase())) {
+        throw new Error("Satış iptal RPC satış durumunu iptal olarak işaretlemedi. Ek düzeltme yapılmadı; SQL RPC kontrol edilmeli.");
+      }
 
-    if (!idempotency.missing) {
-      await completeIdempotency({
-        operationKey: idempotency.operationKey,
-        result: {
-          tableName: "sales",
-          id,
-          status: saleAfterAudit?.status || saleAfterCancel?.status || "cancelled",
+      const { data: stockAfter, error: stockAfterReadError } = await supabase
+        .from("stock_items")
+        .select("id, quantity, status")
+        .eq("id", stockItemId)
+        .eq("workspace_id", workspaceId)
+        .maybeSingle();
+
+      if (stockAfterReadError) throw stockAfterReadError;
+      if (!stockAfter) throw new Error("İptal sonrası stok kaydı tekrar okunamadı.");
+
+      const receivableNames = Array.from(new Set([
+        saleBeforeCancel.customer_name,
+        saleBeforeCancel.cari_person,
+      ]
+        .map((name) => String(name || "").trim())
+        .filter(Boolean)));
+
+      const { data: saleAfterAudit, error: saleAfterAuditError } = await supabase
+        .from("sales")
+        .select("*")
+        .eq("id", id)
+        .eq("workspace_id", workspaceId)
+        .maybeSingle();
+
+      if (saleAfterAuditError) console.warn("Satış iptal audit yeni kayıt okunamadı.", saleAfterAuditError);
+
+      await createAuditLog({
+        tableName: "sales",
+        recordId: id,
+        action: "CANCEL",
+        eventType: "sale_cancel_with_effects",
+        reason,
+        oldData: saleBeforeCancel || null,
+        newData: saleAfterAudit || saleAfterCancel || null,
+        metadata: {
+          stockItemId,
+          stockBefore,
+          stockAfter,
           rpcResult: result || null,
+          receivableNames,
+          idempotencyKey: idempotency.operationKey,
         },
+        requestKey: idempotency.operationKey,
         workspaceId,
       });
-    }
 
-    return result;
+      if (!idempotency.missing) {
+        await completeIdempotency({
+          operationKey: idempotency.operationKey,
+          result: {
+            tableName: "sales",
+            id,
+            status: saleAfterAudit?.status || saleAfterCancel?.status || "cancelled",
+            rpcResult: result || null,
+          },
+          workspaceId,
+        });
+      }
+
+      return result;
     } catch (error) {
       if (!idempotency.missing) {
         await completeIdempotency({

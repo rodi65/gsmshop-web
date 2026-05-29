@@ -1,4 +1,4 @@
--- GSMSHOP kasa nakit hareketleri duzeltmesi
+-- CEPLOG kasa nakit hareketleri duzeltmesi
 -- Bu migration idempotenttir; mevcut tablo/constraint varsa guvenli sekilde gunceller.
 
 create table if not exists public.contacts (

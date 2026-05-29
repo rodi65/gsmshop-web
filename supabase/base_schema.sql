@@ -1,4 +1,4 @@
--- GSMSHOP V23 SUPABASE BACKEND SCHEMA
+-- CEPLOG V23 SUPABASE BACKEND SCHEMA
 -- Bu dosyayı Supabase SQL Editor içinde tek parça çalıştır.
 
 create extension if not exists pgcrypto;
