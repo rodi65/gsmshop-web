@@ -5807,11 +5807,13 @@ const isSameSalesListDay = (item, dateKey) => {
                     <span>Servis</span>
                   </div>
                 </div>
-                <div className="hero-banner-text">
-                  <strong>Satıştan kasaya, stoktan servise tek panel.</strong>
-                  <p>Gün sonu kontrolü, cari takibi ve hızlı satış akışı bir arada</p>
+                <div className="hero-banner-text hero-ad-card-copy">
+                  <span className="hero-ad-eyebrow">Mağaza yönetim kampüsü</span>
+                  <strong>CEPLOG ile tüm işlemler üst ekranda hazır.</strong>
+                  <p>Kasa, stok, satış ve teknik servis akışını tek reklam kartında net takip edin.</p>
                 </div>
-                <div className="hero-date-card" aria-label="Tarih ve saat">
+                <div className="hero-date-card hero-ad-status-card" aria-label="Tarih ve saat">
+                  <span>Canlı vardiya</span>
                   <b>{clockNow.toLocaleDateString("tr-TR")}</b>
                   <strong>{clockNow.toLocaleTimeString("tr-TR", { hour12: false })}</strong>
                 </div>
