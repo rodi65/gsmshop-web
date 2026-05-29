@@ -44,7 +44,7 @@ import {
   updateStockItem,
 } from "./services/dataService";
 
-import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText, Settings, Calculator, Printer, Globe, MessageCircle, Camera, Trash2, Tablet, Watch, Monitor, Bluetooth, ShoppingBag, Code2, Cpu, Tags, Cable } from "lucide-react";
+import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText, Settings, Calculator, Printer, Globe, MessageCircle, Camera, Trash2, Tablet, Watch, Monitor, Bluetooth, ShoppingBag, Code2, Cpu, Tags, Cable, ChevronRight } from "lucide-react";
 
 const parseMoneyInput = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, ""));
 const formatMoneyInput = (value) => {
@@ -5807,15 +5807,14 @@ const isSameSalesListDay = (item, dateKey) => {
                     <span>Servis</span>
                   </div>
                 </div>
-                <div className="hero-banner-text hero-ad-card-copy">
-                  <span className="hero-ad-eyebrow">Mağaza yönetim kampüsü</span>
-                  <strong>CEPLOG ile tüm işlemler üst ekranda hazır.</strong>
-                  <p>Kasa, stok, satış ve teknik servis akışını tek reklam kartında net takip edin.</p>
+                <div className="hero-banner-text">
+                  <strong>Satıştan kasaya, stoktan servise tek panel.</strong>
+                  <p>Gün sonu kontrolü, cari takibi ve hızlı satış akışı bir arada</p>
                 </div>
-                <div className="hero-date-card hero-ad-status-card" aria-label="Tarih ve saat">
-                  <span>Canlı vardiya</span>
+                <div className="hero-date-card" aria-label="Tarih ve saat">
                   <b>{clockNow.toLocaleDateString("tr-TR")}</b>
                   <strong>{clockNow.toLocaleTimeString("tr-TR", { hour12: false })}</strong>
+                  <span>{clockNow.toLocaleDateString("tr-TR", { weekday: "long" })}</span>
                 </div>
               </div>
             </div>
@@ -5839,17 +5838,10 @@ const isSameSalesListDay = (item, dateKey) => {
         <nav className="nav-grid premium-sidebar">
           <div className="premium-sidebar-brand premium-store-card" aria-label="Mağaza bilgisi">
             <div className="premium-store-card-content">
-              <div className="premium-store-icon" aria-hidden="true">
-                <Smartphone size={19} />
+              <div className="premium-store-copy ceplog-sidebar-brand-copy">
+                <strong><span>CEP</span><span>LOG</span></strong>
+                <small>İşini Yönet, Kazan!</small>
               </div>
-              <div className="premium-store-copy">
-                <strong>AHMET GSM</strong>
-                <span>Van Merkez Şube</span>
-                <small>Lisanslı Mağaza Paneli</small>
-              </div>
-            </div>
-            <div className="premium-store-phone" aria-hidden="true">
-              <span />
             </div>
           </div>
           <div className="sidebar-contact-links">
@@ -5954,6 +5946,11 @@ const isSameSalesListDay = (item, dateKey) => {
           >
             <Settings size={22} aria-hidden="true" />
             <span>YÖNETİM</span>
+          </button>
+
+          <button className="nav-btn sidebar-nav-item sidebar-collapse-preview" type="button" aria-label="Menüyü daralt">
+            <ChevronRight size={22} aria-hidden="true" />
+            <span>Menüyü Daralt</span>
           </button>
 
         </nav>
@@ -6421,6 +6418,13 @@ const isSameSalesListDay = (item, dateKey) => {
 
             {kasaTab === "yeniSatis" && (
               <div className="kasa-home-dashboard kasa-mockup-dashboard ceplog-kasa-ref">
+                <div className="kasa-main-tabs">
+                  <button className="choice active" type="button" onClick={() => setKasaTab("yeniSatis")}>YENİ SATIŞ</button>
+                  <button className="choice" type="button" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
+                  <button className="choice" type="button" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
+                  <button className="choice" type="button" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
+                  <button className="choice" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPATMA</button>
+                </div>
                 <div className="kasa-layout">
                   <div className="card pad kasa-sale-card">
                     <button className="kasa-sale-title-button" type="button" onClick={() => setSaleLineModalOpen(Boolean(selectedProduct) || isProgramSale)}>
@@ -6499,10 +6503,29 @@ const isSameSalesListDay = (item, dateKey) => {
                         </select>
                       </>
                     )}
-                    <div className="kasa-sale-hint">
-                      <span>Ürünü seçince detaylı satış penceresi açılır.</span>
-                      <b>{selectedProduct ? saleProductDisplayName : "Fiyat ve ödeme popup içinde tamamlanır."}</b>
-                    </div>
+                    <label className="kasa-ref-field">
+                      <span>Satış Fiyatı</span>
+                      <input inputMode="numeric" placeholder="0,00" value={saleForm.total} onFocus={() => setSaleForm({ ...saleForm, total: stripMoneyForEdit(saleForm.total) })} onChange={(event) => setSaleForm({ ...saleForm, total: cleanMoneyTyping(event.target.value) })} onBlur={() => setSaleForm({ ...saleForm, total: formatMoneyInput(saleForm.total) })} />
+                    </label>
+                    <label className="kasa-ref-field">
+                      <span>Nakit</span>
+                      <input inputMode="numeric" placeholder="0,00" value={saleForm.cash} onFocus={() => setSaleForm({ ...saleForm, cash: stripMoneyForEdit(saleForm.cash) })} onChange={(event) => setSaleForm({ ...saleForm, cash: cleanMoneyTyping(event.target.value) })} onBlur={() => setSaleForm({ ...saleForm, cash: formatMoneyInput(saleForm.cash) })} />
+                    </label>
+                    <label className="kasa-ref-field">
+                      <span>Kart / POS</span>
+                      <select value={saleForm.bank} onChange={(event) => handleBankSelect(event.target.value, (bank) => {
+                        setSaleForm({ ...saleForm, bank });
+                        setCartBankName(bank);
+                      })}>
+                        <option value="">Banka seçin...</option>
+                        {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+                        <option value="__add_bank__">+ Banka Ekle</option>
+                      </select>
+                    </label>
+                    <button className="primary kasa-send-cart-btn" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("continue")}>
+                      <Plus size={18} />
+                      Satışı Sepete Yolla
+                    </button>
                   </div>
 
                   <main className="kasa-mid">
@@ -6550,34 +6573,44 @@ const isSameSalesListDay = (item, dateKey) => {
                       <section className="card pad kasa-day">
                         <div className="kasa-day-head">
                           <div>
-                            <h2>Gün Özeti Raporu</h2>
+                            <h2>GÜN ÖZETİ RAPORU</h2>
                             <p>Bugünkü nakit, kart ve cari hareketler</p>
                           </div>
                           <span className="kasa-date">{dailyReportDate ? new Date(dailyReportDate).toLocaleDateString("tr-TR", { day: "2-digit", month: "long" }) : "Bugün"}</span>
                         </div>
-                        <div className="kasa-day-grid">
-                          <div className="summary-col">
-                            <h3>Nakit İşlemler</h3>
-                            <div className="srow"><span>Telefon Nakit</span><b>{money(phoneIncomeSummary.cash)}</b></div>
-                            <div className="srow"><span>Aksesuar Nakit</span><b>{money(accessoryIncomeSummary.cash)}</b></div>
-                            <div className="srow"><span>Diğerleri Nakit</span><b>{money(otherIncomeSummary.cash)}</b></div>
-                            <div className="srow"><span>Teknik Nakit</span><b>{money(technicalIncomeSummary.cash)}</b></div>
-                            <div className="srow danger"><span>Giderler</span><b>-{money(cashExpensePayments || 0)}</b></div>
-                            <div className="srow total"><span>Net Nakit</span><b>{money(cashWithBankIncoming)}</b></div>
-                          </div>
-                          <div className="summary-col">
-                            <h3>Kart / Cari İşlemler</h3>
-                            <div className="srow"><span>Telefon Kart</span><b>{money(phoneIncomeSummary.card)}</b></div>
-                            <div className="srow"><span>Aksesuar Kart</span><b>{money(accessoryIncomeSummary.card)}</b></div>
-                            <div className="srow"><span>Diğer Kart</span><b>{money(otherIncomeSummary.card)}</b></div>
-                            <div className="srow"><span>Teknik Kart</span><b>{money(technicalIncomeSummary.card)}</b></div>
-                            <div className="srow total"><span>Kart Toplamı</span><b>{money(phoneIncomeSummary.card + accessoryIncomeSummary.card + otherIncomeSummary.card + technicalIncomeSummary.card)}</b></div>
-                            <div className="srow"><span>Cari Kalan</span><b>{money(report.remaining || 0)}</b></div>
-                          </div>
+                        <div className="kasa-day-grid kasa-ref-summary-strip">
+                          <div className="summary-col"><h3>Nakit İşlemler</h3><b>{money(cashWithBankIncoming)}</b></div>
+                          <div className="summary-col"><h3>Kart / POS İşlemler</h3><b>{money(phoneIncomeSummary.card + accessoryIncomeSummary.card + otherIncomeSummary.card + technicalIncomeSummary.card)}</b></div>
+                          <div className="summary-col"><h3>Banka İşlemleri</h3><b>{money(bankReport.remainingInBank)}</b></div>
+                          <div className="summary-col"><h3>Cari İşlemler</h3><b>{money(report.remaining || 0)}</b></div>
+                          <div className="summary-col"><h3>Net Nakit</h3><b className={cashWithBankIncoming < 0 ? "negative" : ""}>{money(cashWithBankIncoming)}</b></div>
                         </div>
                       </section>
                     </div>
                   </main>
+
+                  <CartPanel
+                    title="ÖDEME"
+                    items={cartItems.map(rebuildCartItem)}
+                    summary={cartSummary}
+                    payments={cartPayments}
+                    customer={cartCustomer}
+                    bankName={cartBankName}
+                    bankOptions={bankOptions}
+                    note={cartNote}
+                    processing={cartProcessing}
+                    money={money}
+                    paymentGap={cartPaymentGap}
+                    onUpdateItem={updateCartItem}
+                    onRemoveItem={removeCartItem}
+                    onClear={clearCart}
+                    onPaymentChange={changeCartPayment}
+                    onCustomerChange={changeCartCustomer}
+                    onBankChange={(value) => handleBankSelect(value, setCartBankName)}
+                    onNoteChange={setCartNote}
+                    onSetFullPayment={setFullCartPayment}
+                    onCheckout={completeCartSale}
+                  />
                 </div>
 
                 {showSaleReadyModal && (

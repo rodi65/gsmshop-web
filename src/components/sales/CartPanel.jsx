@@ -129,6 +129,7 @@ export function CartPaymentBox({
 }
 
 export default function CartPanel({
+  title = "Satış Sepeti",
   items,
   summary,
   payments,
@@ -152,7 +153,7 @@ export default function CartPanel({
   return (
     <aside className="card pad kasa-cart cart-panel">
       <div className="top-line cart-top-line">
-        <h2>Satış Sepeti</h2>
+        <h2>{title}</h2>
         <button type="button" className="cart-clear-btn" disabled={!items.length || processing} onClick={onClear}>Temizle</button>
       </div>
 
