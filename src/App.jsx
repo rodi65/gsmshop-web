@@ -1364,6 +1364,11 @@ export default function App() {
   const [dbReady, setDbReady] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
   const [activeWorkspaceId, setActiveWorkspaceId] = useState("");
+  const [dashboardTheme, setDashboardTheme] = useState(() => {
+    if (typeof window === "undefined") return "1";
+    const savedTheme = window.localStorage.getItem("ceplog_dashboard_theme");
+    return ["1", "2", "3"].includes(savedTheme) ? savedTheme : "1";
+  });
   const [cashMovements, setCashMovements] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [businessTransactions, setBusinessTransactions] = useState([]);
@@ -5896,6 +5901,11 @@ const isSameSalesListDay = (item, dateKey) => {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("ceplog_dashboard_theme", dashboardTheme);
+  }, [dashboardTheme]);
+
+  useEffect(() => {
     if (!searchModalOpen && !technicalSearchModalOpen && !technicalServiceDetailModalOpen && !technicalServiceFormModalOpen) return undefined;
     const closeOnEscape = (event) => {
       if (event.key !== "Escape") return;
@@ -5938,7 +5948,7 @@ const isSameSalesListDay = (item, dateKey) => {
   }
 
   return (
-    <div className="app premium-dashboard">
+    <div className={`app premium-dashboard ceplog-theme-${dashboardTheme}`}>
       <div className="shell app-shell">
         <header className="hero hero-banner">
           <div className="hero-banner-copy">
@@ -6461,6 +6471,24 @@ const isSameSalesListDay = (item, dateKey) => {
                 {systemCheckFindings.length > 50 && (
                   <p>İlk 50 bulgu gösteriliyor. Detaylı liste için sonraki adımda dışa aktarma eklenebilir.</p>
                 )}
+              </div>
+
+              <div className="card management-card compact-tool-card theme-control-card">
+                <h2>Tema</h2>
+                <p>Uygulama görünümünü seç. 1 mevcut tema, 2 ve 3 yeni profesyonel kompakt temalardır.</p>
+                <div className="theme-option-stack" aria-label="Tema seçimi">
+                  {["1", "2", "3"].map((themeNo) => (
+                    <button
+                      key={themeNo}
+                      type="button"
+                      className={dashboardTheme === themeNo ? "theme-option-btn active" : "theme-option-btn"}
+                      onClick={() => setDashboardTheme(themeNo)}
+                    >
+                      <span>{themeNo}</span>
+                      <b>{themeNo === "1" ? "Mevcut" : themeNo === "2" ? "Premium Açık" : "Neon Mavi"}</b>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="card management-card management-screenshot-card compact-tool-card">

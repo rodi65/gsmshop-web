@@ -15044,3 +15044,188 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   height: 22px !important;
   flex: 0 0 auto !important;
 }
+
+/* Yönetim tema seçimi ve 3 profesyonel dashboard teması. */
+.premium-dashboard .theme-control-card {
+  gap: 10px !important;
+}
+
+.premium-dashboard .theme-control-card p {
+  margin: 0 !important;
+  color: #64748b !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  line-height: 1.35 !important;
+}
+
+.premium-dashboard .theme-option-stack {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+.premium-dashboard .theme-option-btn {
+  min-height: 42px !important;
+  border: 1px solid rgba(148, 163, 184, .28) !important;
+  border-radius: 13px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  padding: 0 12px !important;
+  color: #0f172a !important;
+  background: linear-gradient(180deg, #fff 0%, #f8fbff 100%) !important;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, .06) !important;
+  cursor: pointer !important;
+}
+
+.premium-dashboard .theme-option-btn span {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 9px !important;
+  color: #fff !important;
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%) !important;
+  font-size: 13px !important;
+  font-weight: 1000 !important;
+}
+
+.premium-dashboard .theme-option-btn b {
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+}
+
+.premium-dashboard .theme-option-btn.active {
+  border-color: rgba(37, 99, 235, .46) !important;
+  box-shadow: 0 14px 30px rgba(37, 99, 235, .16) !important;
+}
+
+.premium-dashboard.ceplog-theme-2 {
+  background: radial-gradient(circle at 14% 8%, rgba(124, 58, 237, .10), transparent 32%), linear-gradient(135deg, #f7f9ff 0%, #eef3ff 100%) !important;
+  color: #071047 !important;
+}
+
+.premium-dashboard.ceplog-theme-2 .premium-sidebar,
+.premium-dashboard.ceplog-theme-2 .hero-banner,
+.premium-dashboard.ceplog-theme-2 .card,
+.premium-dashboard.ceplog-theme-2 .kasa-sale-card,
+.premium-dashboard.ceplog-theme-2 .kasa-quick,
+.premium-dashboard.ceplog-theme-2 .kasa-day {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .94) 0%, rgba(246, 249, 255, .90) 100%) !important;
+  border: 1px solid rgba(205, 216, 238, .82) !important;
+  box-shadow: 0 18px 44px rgba(50, 70, 120, .10) !important;
+}
+
+.premium-dashboard.ceplog-theme-2 .hero-banner {
+  color: #070f3f !important;
+}
+
+.premium-dashboard.ceplog-theme-2 .brand-logo,
+.premium-dashboard.ceplog-theme-2 .hero-title,
+.premium-dashboard.ceplog-theme-2 .kasa-sorgula-copy strong,
+.premium-dashboard.ceplog-theme-2 .summary-col h3 {
+  color: #071047 !important;
+  text-shadow: none !important;
+}
+
+.premium-dashboard.ceplog-theme-2 .hero-banner .pill,
+.premium-dashboard.ceplog-theme-2 .quick-action-btn,
+.premium-dashboard.ceplog-theme-2 .cart-open-chip,
+.premium-dashboard.ceplog-theme-2 .kasa-sorgula-launch,
+.premium-dashboard.ceplog-theme-2 .nav-btn.active {
+  background: linear-gradient(135deg, #5b5cff 0%, #7c3aed 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 16px 34px rgba(99, 102, 241, .24) !important;
+}
+
+.premium-dashboard.ceplog-theme-2 .nav-btn,
+.premium-dashboard.ceplog-theme-2 .qitem,
+.premium-dashboard.ceplog-theme-2 .summary-col,
+.premium-dashboard.ceplog-theme-2 .theme-option-btn {
+  background: linear-gradient(180deg, #fff 0%, #f6f8ff 100%) !important;
+  border-color: rgba(203, 213, 225, .86) !important;
+  color: #071047 !important;
+}
+
+.premium-dashboard.ceplog-theme-2 .qicon,
+.premium-dashboard.ceplog-theme-2 .qitem svg,
+.premium-dashboard.ceplog-theme-2 .nav-btn svg {
+  color: #5b5cff !important;
+}
+
+.premium-dashboard.ceplog-theme-3 {
+  background: linear-gradient(135deg, #eef7ff 0%, #f9fcff 46%, #ecf6ff 100%) !important;
+  color: #020a2f !important;
+}
+
+.premium-dashboard.ceplog-theme-3 .premium-sidebar,
+.premium-dashboard.ceplog-theme-3 .hero-banner,
+.premium-dashboard.ceplog-theme-3 .card,
+.premium-dashboard.ceplog-theme-3 .kasa-sale-card,
+.premium-dashboard.ceplog-theme-3 .kasa-quick,
+.premium-dashboard.ceplog-theme-3 .kasa-day {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .98) 0%, rgba(239, 248, 255, .92) 100%) !important;
+  border: 1px solid rgba(190, 215, 244, .90) !important;
+  box-shadow: 0 20px 46px rgba(14, 86, 170, .13) !important;
+}
+
+.premium-dashboard.ceplog-theme-3 .hero-banner {
+  color: #020a2f !important;
+}
+
+.premium-dashboard.ceplog-theme-3 .brand-logo,
+.premium-dashboard.ceplog-theme-3 .hero-title,
+.premium-dashboard.ceplog-theme-3 .kasa-sorgula-copy strong,
+.premium-dashboard.ceplog-theme-3 .summary-col h3 {
+  color: #020a2f !important;
+  text-shadow: none !important;
+}
+
+.premium-dashboard.ceplog-theme-3 .hero-banner .pill,
+.premium-dashboard.ceplog-theme-3 .quick-action-btn,
+.premium-dashboard.ceplog-theme-3 .cart-open-chip,
+.premium-dashboard.ceplog-theme-3 .kasa-sorgula-launch,
+.premium-dashboard.ceplog-theme-3 .nav-btn.active {
+  background: linear-gradient(135deg, #0ea5e9 0%, #155eef 62%, #1d4ed8 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 18px 36px rgba(21, 94, 239, .24) !important;
+}
+
+.premium-dashboard.ceplog-theme-3 .quick-action-btn:nth-child(2),
+.premium-dashboard.ceplog-theme-3 .qitem:nth-child(6n + 2) .qicon,
+.premium-dashboard.ceplog-theme-3 .summary-col:nth-child(2) h3 {
+  color: #7c3aed !important;
+}
+
+.premium-dashboard.ceplog-theme-3 .quick-action-btn:nth-child(3),
+.premium-dashboard.ceplog-theme-3 .qitem:nth-child(6n + 3) .qicon {
+  color: #0891b2 !important;
+}
+
+.premium-dashboard.ceplog-theme-3 .quick-action-btn:nth-child(4),
+.premium-dashboard.ceplog-theme-3 .qitem:nth-child(6n + 4) .qicon {
+  color: #db2777 !important;
+}
+
+.premium-dashboard.ceplog-theme-3 .nav-btn,
+.premium-dashboard.ceplog-theme-3 .qitem,
+.premium-dashboard.ceplog-theme-3 .summary-col,
+.premium-dashboard.ceplog-theme-3 .theme-option-btn {
+  background: linear-gradient(180deg, #ffffff 0%, #f4faff 100%) !important;
+  border-color: rgba(195, 217, 242, .92) !important;
+  color: #020a2f !important;
+}
+
+.premium-dashboard.ceplog-theme-3 .qicon,
+.premium-dashboard.ceplog-theme-3 .qitem svg,
+.premium-dashboard.ceplog-theme-3 .nav-btn svg {
+  color: #155eef !important;
+}
+
+.premium-dashboard.ceplog-theme-3 .quick-action-btn,
+.premium-dashboard.ceplog-theme-3 .cart-open-chip {
+  color: #fff !important;
+}
