@@ -6468,17 +6468,6 @@ const isSameSalesListDay = (item, dateKey) => {
                       ))}
                     </div>
 
-                    {!isAccessorySale && (
-                      <input
-                        placeholder="Müşteri adı soyadı / telefon"
-                        value={saleForm.customer}
-                        onChange={(e) => {
-                          const customerName = e.target.value;
-                          setSaleForm({ ...saleForm, customer: customerName, cariPerson: customerName });
-                          changeCartCustomer(customerName);
-                        }}
-                      />
-                    )}
 
                     {isProgramSale ? (
                       <input placeholder="Teknik servis / işçilik / program kalemi" value={saleForm.search} onChange={(e) => setSaleForm({ ...saleForm, search: e.target.value })} />
