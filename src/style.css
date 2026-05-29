@@ -14245,3 +14245,71 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     margin-top: 6px !important;
   }
 }
+
+/* Final okuma düzeni: hızlı işlem butonları yatay ve tek satır okunur. */
+@media (min-width: 921px) {
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head {
+    grid-template-columns: minmax(0, 1fr) 92px !important;
+    gap: 6px !important;
+    align-items: center !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-tabs,
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head .quick-action-tabs {
+    display: grid !important;
+    grid-template-columns: minmax(104px, 1.12fr) minmax(78px, .78fr) minmax(102px, 1.04fr) minmax(104px, 1.06fr) !important;
+    gap: 6px !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-btn {
+    height: 42px !important;
+    min-height: 42px !important;
+    padding: 0 8px !important;
+    font-size: clamp(9px, .70vw, 12px) !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
+    word-break: keep-all !important;
+    overflow-wrap: normal !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-open-chip {
+    display: inline-flex !important;
+    width: 92px !important;
+    max-width: 92px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    padding: 0 6px !important;
+    font-size: 10px !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-open-chip b {
+    flex: 0 0 18px !important;
+    min-width: 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+    font-size: 10px !important;
+  }
+}
+
+@media (min-width: 921px) and (max-width: 1180px) {
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-tabs,
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head .quick-action-tabs {
+    grid-template-columns: minmax(98px, 1.12fr) minmax(72px, .78fr) minmax(96px, 1.04fr) minmax(98px, 1.06fr) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-open-chip {
+    width: 92px !important;
+    max-width: 92px !important;
+    margin-top: 6px !important;
+    justify-self: end !important;
+  }
+}
