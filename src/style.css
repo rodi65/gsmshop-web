@@ -14024,3 +14024,150 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     animation: none !important;
   }
 }
+
+/* Final kısayol/özet dengesi: üst alan dar, 20 kısayol sığar; özet kartları daha yüksek ve okunur. */
+@media (min-width: 921px) {
+  .premium-dashboard .ceplog-kasa-ref .kasa-mid {
+    grid-template-rows: 300px minmax(230px, auto) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick {
+    min-height: 300px !important;
+    max-height: 300px !important;
+    padding: 10px !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head {
+    grid-template-columns: minmax(0, 1fr) 112px !important;
+    gap: 6px !important;
+    min-height: 34px !important;
+    height: 34px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-tabs,
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head .quick-action-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    min-width: 0 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-btn,
+  .premium-dashboard .ceplog-kasa-ref .cart-open-chip {
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 5px !important;
+    border-radius: 10px !important;
+    font-size: clamp(8.5px, .62vw, 11px) !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    overflow-wrap: normal !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-open-chip {
+    display: inline-flex !important;
+    width: 112px !important;
+    max-width: 112px !important;
+    margin: 0 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-open-chip b {
+    min-width: 19px !important;
+    width: 19px !important;
+    height: 19px !important;
+    font-size: 10px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    grid-template-rows: repeat(4, 48px) !important;
+    grid-auto-rows: 48px !important;
+    gap: 7px !important;
+    margin-top: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .qitem {
+    height: 48px !important;
+    min-height: 48px !important;
+    padding: 6px 8px !important;
+    border-radius: 10px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .qitem .qicon {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .qitem .qtext strong {
+    font-size: 11px !important;
+    line-height: 1.05 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .qitem .qtext small {
+    font-size: 10px !important;
+    line-height: 1 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-lower-band {
+    min-height: 230px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-day {
+    min-height: 230px !important;
+    padding: 14px 16px !important;
+    overflow: visible !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-day-grid {
+    height: 100% !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-day-grid > .summary-col {
+    min-height: 200px !important;
+    padding: 12px !important;
+    gap: 6px !important;
+    border-radius: 12px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .summary-col h3 {
+    font-size: 15px !important;
+    line-height: 1.1 !important;
+    margin: 0 0 7px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .summary-col .srow {
+    min-height: 25px !important;
+    padding: 4px 8px !important;
+    border-radius: 8px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .summary-col .srow span,
+  .premium-dashboard .ceplog-kasa-ref .summary-col .srow b {
+    font-size: 13px !important;
+    line-height: 1.1 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .summary-col .srow.total span,
+  .premium-dashboard .ceplog-kasa-ref .summary-col .srow.total b {
+    font-size: 15px !important;
+  }
+}
+
+@media (min-width: 921px) and (max-width: 1180px) {
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head {
+    grid-template-columns: minmax(0, 1fr) 112px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-tabs,
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head .quick-action-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
