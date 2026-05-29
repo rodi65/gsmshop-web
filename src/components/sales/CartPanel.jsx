@@ -173,7 +173,7 @@ export default function CartPanel({
                   <div className="cart-empty-state">
                     <ShoppingCart size={26} />
                     <strong>Sepet boş.</strong>
-                    <span>Ürün ara veya hızlı satıştan sepete ekle.</span>
+                    <span>Ürün ara veya hızlı satıştan ekle.</span>
                   </div>
                 </td>
               </tr>

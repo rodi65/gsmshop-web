@@ -6679,7 +6679,7 @@ const isSameSalesListDay = (item, dateKey) => {
             )}
 
             {kasaTab === "yeniSatis" && (
-              <div className="kasa-home-dashboard kasa-mockup-dashboard">
+              <div className="kasa-home-dashboard kasa-mockup-dashboard ceplog-kasa-ref">
                 <div className="kasa-subtabs kasa-main-tabs">
                   <button className="choice active" type="button">YENİ SATIŞ</button>
                   <button className="choice" type="button" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
