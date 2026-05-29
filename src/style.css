@@ -11711,3 +11711,165 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     white-space: nowrap !important;
   }
 }
+
+/* Kasa okunurluk ve oran ayarı: hızlı satış -4px, alt kartlar -2px, sepet +4px. */
+@media (min-width: 921px) {
+  .premium-dashboard .ceplog-kasa-ref,
+  .premium-dashboard .ceplog-kasa-ref button,
+  .premium-dashboard .ceplog-kasa-ref input,
+  .premium-dashboard .ceplog-kasa-ref select,
+  .premium-dashboard .ceplog-kasa-ref textarea,
+  .premium-dashboard .ceplog-kasa-ref label,
+  .premium-dashboard .ceplog-kasa-ref span,
+  .premium-dashboard .ceplog-kasa-ref small,
+  .premium-dashboard .ceplog-kasa-ref strong,
+  .premium-dashboard .ceplog-kasa-ref b,
+  .premium-dashboard .ceplog-kasa-ref h2,
+  .premium-dashboard .ceplog-kasa-ref h3 {
+    letter-spacing: 0 !important;
+    text-rendering: geometricPrecision !important;
+    -webkit-font-smoothing: antialiased !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref button,
+  .premium-dashboard .ceplog-kasa-ref strong,
+  .premium-dashboard .ceplog-kasa-ref b,
+  .premium-dashboard .ceplog-kasa-ref h2,
+  .premium-dashboard .ceplog-kasa-ref h3 {
+    font-weight: 950 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref input,
+  .premium-dashboard .ceplog-kasa-ref select,
+  .premium-dashboard .ceplog-kasa-ref textarea,
+  .premium-dashboard .ceplog-kasa-ref label,
+  .premium-dashboard .ceplog-kasa-ref span,
+  .premium-dashboard .ceplog-kasa-ref small {
+    font-weight: 900 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref input::placeholder,
+  .premium-dashboard .ceplog-kasa-ref textarea::placeholder {
+    color: #64748b !important;
+    font-weight: 900 !important;
+    opacity: 1 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-layout {
+    grid-template-columns: 382px minmax(0, 1fr) 324px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-day-grid {
+    gap: 12px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-category-grid .big-sale-btn {
+    font-size: 10.5px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-card input,
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-card select {
+    color: #172033 !important;
+    font-size: 12.5px !important;
+    font-weight: 920 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-ready-card {
+    animation: kasaReadyIn .16s ease-out both !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-ready-head b {
+    font-size: 15px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-ready-head small,
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-ready-lines span,
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-ready-lines b {
+    font-size: 11.5px !important;
+    font-weight: 930 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-ready-actions .primary {
+    font-size: 13px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-title-btn {
+    font-size: 16px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-search input,
+  .premium-dashboard .ceplog-kasa-ref .quick-search button,
+  .premium-dashboard .ceplog-kasa-ref .quick-sub span,
+  .premium-dashboard .ceplog-kasa-ref .quick-sub b {
+    font-size: 12.5px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .qtext strong {
+    color: #0f172a !important;
+    font-size: 10px !important;
+    font-weight: 950 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .qtext small {
+    color: #46566f !important;
+    font-size: 8.6px !important;
+    font-weight: 920 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .summary-col h3 {
+    font-size: 12px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .summary-col .srow {
+    font-size: 10.8px !important;
+    font-weight: 920 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-top-line h2 {
+    font-size: 21px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-clear-btn,
+  .premium-dashboard .ceplog-kasa-ref .cart-payment-actions button {
+    font-size: 12px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-table-wrap th {
+    color: #4b5b73 !important;
+    font-size: 10.4px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-table-product strong,
+  .premium-dashboard .ceplog-kasa-ref .cart-table-amount b {
+    font-size: 10.8px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-table-product small,
+  .premium-dashboard .ceplog-kasa-ref .cart-table-amount span {
+    font-size: 8.8px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-total span,
+  .premium-dashboard .ceplog-kasa-ref .payment-box label {
+    font-size: 12.5px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-total b {
+    font-size: 20px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-checkout-btn {
+    font-size: 13px !important;
+  }
+}
+
+@keyframes kasaReadyIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

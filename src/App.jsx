@@ -2889,6 +2889,17 @@ const isSameSalesListDay = (item, dateKey) => {
   const saleCash = parseMoneyInput(saleForm.cash || 0);
   const saleCard = parseMoneyInput(saleForm.card || 0);
   const saleRemaining = isAccessorySale ? 0 : Math.max(saleTotal - saleCash - saleCard, 0);
+  const saleReadyRemaining = Math.max(saleTotal - saleCash - saleCard, 0);
+  const saleFormHasProduct = isProgramSale ? Boolean(saleForm.search.trim()) : Boolean(selectedProduct);
+  const saleFormNeedsBank = saleCard > 0;
+  const saleFormNeedsCari = saleReadyRemaining > 0;
+  const saleFormCariText = isAccessorySale ? "" : String(saleForm.cariPerson || saleForm.customer || "");
+  const saleFormReadyForCart =
+    saleTotal > 0 &&
+    saleFormHasProduct &&
+    saleCash + saleCard <= saleTotal &&
+    (!saleFormNeedsBank || Boolean(saleForm.bank || cartBankName)) &&
+    (!saleFormNeedsCari || Boolean(saleFormCariText.trim()));
   const findCartCustomer = (name) => {
     const clean = String(name || "").trim().toLocaleLowerCase("tr-TR");
     if (!clean) return null;
@@ -6793,13 +6804,13 @@ const isSameSalesListDay = (item, dateKey) => {
                       </div>
                     )}
 
-                    {Number(saleTotal || 0) > 0 && (isProgramSale ? saleForm.search.trim() : selectedProduct) ? (
+                    {saleFormReadyForCart && (
                       <div className="kasa-sale-ready-card">
                         <div className="kasa-sale-ready-head">
                           <span>✓</span>
                           <div>
                             <b>Satış bilgileri tamamlandı</b>
-                            <small>Ürün sepete gönderilmeye hazır.</small>
+                            <small>Sepete gönderilmeye hazır.</small>
                           </div>
                         </div>
                         <div className="kasa-sale-ready-lines">
@@ -6807,18 +6818,16 @@ const isSameSalesListDay = (item, dateKey) => {
                           <div><span>Fiyat</span><b>{money(saleTotal)}</b></div>
                           <div><span>Nakit</span><b>{money(normalizeMoney(saleForm.cash))}</b></div>
                           <div><span>Kart</span><b>{money(normalizeMoney(saleForm.card))}</b></div>
-                          <div><span>Cari</span><b>{money(saleRemaining)}</b></div>
+                          <div><span>Cari</span><b>{money(saleReadyRemaining)}</b></div>
                         </div>
                         <div className="kasa-sale-ready-actions">
                           <button type="button" className="choice" onClick={openCalculator}>
                             <Calculator size={15} />
                             Düzenle
                           </button>
-                          <button className="primary" type="button" onClick={addCurrentSaleFormToCart}>Satışı Sepete Yolla</button>
+                          <button className="primary" type="button" onClick={addCurrentSaleFormToCart}>Sepete Yolla</button>
                         </div>
                       </div>
-                    ) : (
-                      <button className="primary" type="button" onClick={addCurrentSaleFormToCart}><Plus size={16} /> Satışı Sepete Yolla</button>
                     )}
                   </div>
 
