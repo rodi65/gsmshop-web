@@ -12,6 +12,7 @@
 <script>
   (function () {
     const STORAGE_KEY = "ceplog_screen_zoom";
+    const POSITION_STORAGE_KEY = "ceplog_zoom_control_position";
     const MIN_ZOOM = 0.75;
     const MAX_ZOOM = 1.25;
     const STEP = 0.05;
@@ -40,6 +41,36 @@
 
       const label = document.getElementById("ceplogZoomLabel");
       if (label) label.textContent = Math.round(zoom * 100) + "%";
+    }
+
+
+    function clampPosition(position) {
+      const margin = 8;
+      const control = document.getElementById("ceplogZoomControl");
+      const width = control?.offsetWidth || 150;
+      const height = control?.offsetHeight || 48;
+      const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+      const maxTop = Math.max(margin, window.innerHeight - height - margin);
+      return {
+        left: Math.min(maxLeft, Math.max(margin, Number(position?.left) || 14)),
+        top: Math.min(maxTop, Math.max(margin, Number(position?.top) || 14)),
+      };
+    }
+
+    function getSavedPosition() {
+      try {
+        return JSON.parse(localStorage.getItem(POSITION_STORAGE_KEY) || "null");
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function applyZoomControlPosition(position, save) {
+      const next = clampPosition(position || getSavedPosition() || { left: window.innerWidth - 170, top: 98 });
+      document.documentElement.style.setProperty("--ceplog-zoom-left", next.left + "px");
+      document.documentElement.style.setProperty("--ceplog-zoom-top", next.top + "px");
+      if (save) localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify(next));
+      return next;
     }
 
     function makeButton(text, title, onClick) {
@@ -79,6 +110,54 @@
       wrap.style.border = "1px solid #dbe3ef";
       wrap.style.boxShadow = "0 14px 35px rgba(15,23,42,.18)";
       wrap.style.backdropFilter = "blur(12px)";
+      wrap.style.userSelect = "none";
+
+      const dragHandle = makeButton("↕", "Zoom tuşunun konumunu taşı", function () {});
+      dragHandle.setAttribute("aria-label", "Zoom konumunu taşı");
+      dragHandle.style.cursor = "grab";
+      dragHandle.style.background = "#1d4ed8";
+
+      let dragState = null;
+      dragHandle.addEventListener("pointerdown", function (event) {
+        event.preventDefault();
+        const current = applyZoomControlPosition();
+        dragState = {
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          startLeft: current.left,
+          startTop: current.top,
+        };
+        dragHandle.setPointerCapture?.(event.pointerId);
+        dragHandle.style.cursor = "grabbing";
+      });
+
+      dragHandle.addEventListener("pointermove", function (event) {
+        if (!dragState || dragState.pointerId !== event.pointerId) return;
+        applyZoomControlPosition({
+          left: dragState.startLeft + event.clientX - dragState.startX,
+          top: dragState.startTop + event.clientY - dragState.startY,
+        });
+      });
+
+      function stopDrag(event) {
+        if (!dragState || dragState.pointerId !== event.pointerId) return;
+        const current = applyZoomControlPosition({
+          left: dragState.startLeft + event.clientX - dragState.startX,
+          top: dragState.startTop + event.clientY - dragState.startY,
+        }, true);
+        dragState = null;
+        dragHandle.style.cursor = "grab";
+        dragHandle.releasePointerCapture?.(event.pointerId);
+        applyZoomControlPosition(current, true);
+      }
+
+      dragHandle.addEventListener("pointerup", stopDrag);
+      dragHandle.addEventListener("pointercancel", stopDrag);
+
+      window.addEventListener("resize", function () {
+        applyZoomControlPosition(getSavedPosition(), true);
+      });
 
       const minus = makeButton("−", "Ekranı küçült", function () {
         applyZoom(getZoom() - STEP);
@@ -106,11 +185,13 @@
         applyZoom(getZoom() + STEP);
       });
 
+      wrap.appendChild(dragHandle);
       wrap.appendChild(minus);
       wrap.appendChild(label);
       wrap.appendChild(plus);
       document.body.appendChild(wrap);
 
+      applyZoomControlPosition(getSavedPosition(), Boolean(getSavedPosition()));
       applyZoom(getZoom());
     }
 
