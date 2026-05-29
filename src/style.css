@@ -13573,3 +13573,39 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     display: none !important;
   }
 }
+
+/* Kasa hızlı işlem butonları: yazılar kesilmeden yan yana okunur kalsın. */
+@media (min-width: 921px) {
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-tabs {
+    grid-template-columns: repeat(4, minmax(118px, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-btn {
+    height: 42px !important;
+    min-height: 42px !important;
+    padding: 0 10px !important;
+    border-radius: 11px !important;
+    font-size: clamp(11px, .82vw, 13px) !important;
+    line-height: 1.08 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    text-align: center !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-open-chip {
+    display: none !important;
+  }
+}
+
+@media (min-width: 921px) and (max-width: 1180px) {
+  .premium-dashboard .ceplog-kasa-ref .quick-action-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
