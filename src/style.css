@@ -12958,17 +12958,17 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 /* Sidebar fit refinement: keep every navigation item visible on one desktop screen */
 @media (min-width: 921px) {
   .premium-dashboard .premium-sidebar {
-    padding: clamp(10px, .72vw, 12px) !important;
-    gap: 6px !important;
+    padding: clamp(9px, .66vw, 11px) clamp(10px, .72vw, 12px) clamp(15px, 1.08vw, 18px) !important;
+    gap: 5px !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
   }
 
   .premium-dashboard .premium-store-card,
   .premium-sidebar .premium-store-card {
-    min-height: 64px !important;
-    height: 64px !important;
-    margin: 0 0 3px !important;
+    min-height: 62px !important;
+    height: 62px !important;
+    margin: 0 0 2px !important;
     padding: 8px 9px !important;
     gap: 7px !important;
     border-radius: 13px !important;
@@ -13051,13 +13051,13 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   }
 
   .premium-dashboard .sidebar-contact-links {
-    gap: 3px !important;
-    margin: 0 0 5px !important;
+    gap: 2px !important;
+    margin: 0 0 3px !important;
   }
 
   .premium-dashboard .sidebar-contact-links a {
-    min-height: 26px !important;
-    height: 26px !important;
+    min-height: 25px !important;
+    height: 25px !important;
     padding: 0 8px !important;
     border-radius: 8px !important;
     gap: 5px !important;
@@ -13073,8 +13073,8 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   .premium-dashboard .premium-sidebar .sidebar-nav-item,
   .premium-dashboard .premium-sidebar .nav-mini-y,
   .premium-dashboard .premium-sidebar .nav-mini-y.active {
-    min-height: clamp(40px, 4.7vh, 46px) !important;
-    height: clamp(40px, 4.7vh, 46px) !important;
+    min-height: clamp(40px, 4.55vh, 45px) !important;
+    height: clamp(40px, 4.55vh, 45px) !important;
     padding: 0 12px !important;
     border-radius: 10px !important;
     gap: 9px !important;
