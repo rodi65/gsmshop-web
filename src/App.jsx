@@ -5970,14 +5970,6 @@ const isSameSalesListDay = (item, dateKey) => {
           </button>
 
           <button
-            className={searchModalOpen ? "nav-btn sidebar-nav-item active" : "nav-btn sidebar-nav-item"}
-            onClick={() => setSearchModalOpen(true)}
-          >
-            <Search size={22} />
-            <span>SORGULA</span>
-          </button>
-
-          <button
             className={active === "stok" ? "nav-btn sidebar-nav-item active" : "nav-btn sidebar-nav-item"}
             onClick={() => setActive("stok")}
           >
@@ -6481,14 +6473,10 @@ const isSameSalesListDay = (item, dateKey) => {
                     <button className="kasa-sorgula-launch" type="button" onClick={openKasaSearchModal}>
                       <span className="kasa-sorgula-icon"><Search size={34} strokeWidth={2.8} /></span>
                       <span className="kasa-sorgula-copy">
-                        <strong>SORGULA</strong>
+                        <strong>SOR SAT</strong>
                         <small>IMEI, barkod, ürün adı veya model ile ürünü bul; mevcut satış popup akışıyla devam et.</small>
                       </span>
                     </button>
-                    <div className="kasa-sorgula-note">
-                      <b>Satış başlangıcı artık SORGULA üzerinden yapılır.</b>
-                      <span>Telefon, aksesuar, teknik ve diğer ürünler tek pencerede gruplanır.</span>
-                    </div>
                   </div>
 
                   <main className="kasa-mid">
@@ -6556,11 +6544,11 @@ const isSameSalesListDay = (item, dateKey) => {
                 {kasaSearchModalOpen && (
                   <div className="kasa-search-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="kasa-search-modal-title">
                     <div className="kasa-search-modal-window">
-                      <button type="button" className="kasa-search-close" onClick={closeKasaSearchModal} aria-label="Sorgula penceresini kapat">×</button>
+                      <button type="button" className="kasa-search-close" onClick={closeKasaSearchModal} aria-label="SOR SAT penceresini kapat">×</button>
                       <div className="kasa-search-modal-head">
                         <span><Search size={24} strokeWidth={2.8} /></span>
                         <div>
-                          <b id="kasa-search-modal-title">SORGULA</b>
+                          <b id="kasa-search-modal-title">SOR SAT</b>
                           <small>Ürünü bul, seç ve mevcut detaylı satış / ödeme popup akışıyla devam et.</small>
                         </div>
                       </div>

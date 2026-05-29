@@ -14971,3 +14971,26 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     min-height: 220px;
   }
 }
+
+/* SOR SAT kompakt revizyon: açıklama kaldırıldı, buton yüksekliği yaklaşık %30 azaltıldı. */
+.kasa-sorgula-launch {
+  min-height: 182px !important;
+}
+
+@media (min-width: 921px) {
+  .premium-dashboard .ceplog-kasa-ref .kasa-sorgula-card {
+    align-self: start !important;
+    min-height: 204px !important;
+    height: auto !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-sorgula-launch {
+    min-height: 160px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .kasa-sorgula-launch {
+    min-height: 154px !important;
+  }
+}
