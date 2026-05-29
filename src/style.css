@@ -13126,835 +13126,114 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   }
 }
 
-/* Üst reklam kartı: CEPLOG ana mesajını daha okunur ve kompakt göster. */
-.premium-dashboard .hero-banner {
-  background:
-    radial-gradient(circle at 82% 18%, rgba(34, 211, 238, .34), transparent 24%),
-    radial-gradient(circle at 8% 95%, rgba(129, 140, 248, .32), transparent 28%),
-    linear-gradient(112deg, #061226 0%, #12356f 47%, #5b21b6 100%) !important;
-}
-
-.premium-dashboard .hero-banner::after {
-  content: "";
-  position: absolute;
-  inset: 10px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, .13);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.premium-dashboard .hero-ad-card-copy {
-  position: relative !important;
-  display: grid !important;
-  justify-items: start !important;
-  text-align: left !important;
-  gap: 6px !important;
-  padding: 14px 18px !important;
-  border-radius: 18px !important;
-  background: rgba(255, 255, 255, .10) !important;
-  border: 1px solid rgba(255, 255, 255, .16) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18) !important;
-}
-
-.premium-dashboard .hero-ad-eyebrow {
-  width: max-content;
-  max-width: 100%;
-  min-height: 22px;
-  padding: 0 10px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  background: rgba(187, 247, 208, .16);
-  border: 1px solid rgba(187, 247, 208, .26);
-  color: #bbf7d0;
-  font-size: 10px;
-  font-weight: 1000;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.premium-dashboard .hero-banner .hero-ad-card-copy strong {
-  font-size: clamp(22px, 2.65vw, 30px) !important;
-  letter-spacing: -.9px !important;
-  white-space: normal !important;
-}
-
-.premium-dashboard .hero-banner .hero-ad-card-copy p {
-  margin: 0 !important;
-  color: rgba(219, 234, 254, .92) !important;
-  white-space: normal !important;
-}
-
-.premium-dashboard .hero-ad-status-card {
-  position: relative !important;
-  overflow: hidden !important;
-}
-
-.premium-dashboard .hero-ad-status-card::before {
-  content: "";
-  position: absolute;
-  width: 90px;
-  height: 90px;
-  right: -42px;
-  top: -48px;
-  border-radius: 999px;
-  background: rgba(34, 211, 238, .26);
-}
-
-.premium-dashboard .hero-ad-status-card span {
-  position: relative;
-  z-index: 1;
-  color: #bfdbfe;
-  font-size: 11px;
-  font-weight: 950;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-}
-
+/* Ana ekran sade düzen: tek ödeme akışı, net sekmeler ve iki kolonlu kasa çalışma alanı. */
 @media (min-width: 921px) {
-  .premium-dashboard .hero-mockup-grid {
-    grid-template-columns: 220px minmax(260px, 1fr) 260px !important;
-    gap: 16px !important;
+  .premium-dashboard .app-shell > .section.kasa-home-section {
+    padding: 14px 16px 18px !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f6f8fc 100%) !important;
   }
 
-  .premium-dashboard .hero-date-card,
-  .premium-dashboard .hero-ad-status-card {
-    width: 230px !important;
-    min-width: 230px !important;
-    max-width: 230px !important;
-    margin-right: 0 !important;
-    justify-self: end !important;
-  }
-}
-
-@media (max-width: 920px) {
-  .premium-dashboard .hero-ad-card-copy {
-    padding: 12px !important;
+  .premium-dashboard .ceplog-kasa-ref {
+    grid-template-rows: 42px minmax(0, 1fr) !important;
+    gap: 14px !important;
+    height: 100% !important;
+    overflow: hidden !important;
   }
 
-  .premium-dashboard .hero-ad-eyebrow {
-    font-size: 9px;
-  }
-}
-
-/* Üst reklam kartı hareket efekti: yumuşak neon akış, parıltı ve canlı durum animasyonu. */
-.premium-dashboard .hero-banner {
-  background-size: 180% 180%, 160% 160%, 100% 100% !important;
-  animation: heroAdAurora 8s ease-in-out infinite alternate;
-}
-
-.premium-dashboard .hero-banner::before {
-  background:
-    linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, .04) 32%, rgba(255, 255, 255, .26) 48%, rgba(34, 211, 238, .12) 58%, transparent 74%) !important;
-  transform: translateX(-62%);
-  animation: heroAdShine 4.8s ease-in-out infinite;
-  z-index: 1 !important;
-}
-
-.premium-dashboard .hero-banner-copy,
-.premium-dashboard .hero-banner-visual,
-.premium-dashboard .hero-banner .status-pill {
-  z-index: 2 !important;
-}
-
-.premium-dashboard .hero-brand-block h1 {
-  animation: heroLogoFloat 4.6s ease-in-out infinite;
-}
-
-.premium-dashboard .hero-banner .brand-log {
-  text-shadow: 0 0 18px rgba(147, 197, 253, .72), 0 0 38px rgba(34, 211, 238, .36) !important;
-}
-
-.premium-dashboard .hero-module-chips span {
-  animation: heroChipFloat 3.4s ease-in-out infinite;
-}
-
-.premium-dashboard .hero-module-chips span:nth-child(2) {
-  animation-delay: .18s;
-}
-
-.premium-dashboard .hero-module-chips span:nth-child(3) {
-  animation-delay: .36s;
-}
-
-.premium-dashboard .hero-module-chips span:nth-child(4) {
-  animation-delay: .54s;
-}
-
-.premium-dashboard .hero-ad-card-copy {
-  animation: heroAdCardPulse 5.6s ease-in-out infinite;
-}
-
-.premium-dashboard .hero-ad-eyebrow {
-  animation: heroEyebrowGlow 2.8s ease-in-out infinite;
-}
-
-.premium-dashboard .hero-ad-status-card::after {
-  content: "";
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  right: 16px;
-  top: 16px;
-  border-radius: 999px;
-  background: #22c55e;
-  box-shadow: 0 0 0 0 rgba(34, 197, 94, .6);
-  animation: heroLivePulse 1.8s ease-out infinite;
-}
-
-.premium-dashboard .hero-ad-status-card strong {
-  animation: heroClockGlow 2.4s ease-in-out infinite;
-}
-
-@keyframes heroAdAurora {
-  0% {
-    background-position: 0% 40%, 100% 80%, center;
-    box-shadow: 0 22px 64px rgba(30, 41, 59, .20), 0 0 0 rgba(34, 211, 238, 0);
+  .premium-dashboard .ceplog-kasa-ref > .clean-kasa-tabs {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin: 0 !important;
+    overflow-x: auto !important;
+    scrollbar-width: thin !important;
   }
 
-  100% {
-    background-position: 100% 18%, 0% 40%, center;
-    box-shadow: 0 24px 72px rgba(30, 41, 59, .24), 0 0 32px rgba(34, 211, 238, .16);
-  }
-}
-
-@keyframes heroAdShine {
-  0%, 34% {
-    transform: translateX(-68%);
-    opacity: 0;
-  }
-
-  46% {
-    opacity: 1;
-  }
-
-  72%, 100% {
-    transform: translateX(74%);
-    opacity: 0;
-  }
-}
-
-@keyframes heroLogoFloat {
-  0%, 100% {
-    transform: translateY(0);
+  .premium-dashboard .ceplog-kasa-ref > .clean-kasa-tabs .choice {
+    flex: 0 0 auto !important;
+    min-width: 120px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 18px !important;
+    border-radius: 10px !important;
+    border: 1px solid #dbe5f3 !important;
+    background: #fff !important;
+    color: #14213d !important;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, .05) !important;
+    font-size: 12px !important;
+    font-weight: 1000 !important;
+    white-space: nowrap !important;
   }
 
-  50% {
-    transform: translateY(-2px);
-  }
-}
-
-@keyframes heroChipFloat {
-  0%, 100% {
-    transform: translateY(0);
+  .premium-dashboard .ceplog-kasa-ref > .clean-kasa-tabs .choice.active {
+    color: #fff !important;
+    border-color: transparent !important;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, .22) !important;
   }
 
-  50% {
-    transform: translateY(-3px);
-  }
-}
-
-@keyframes heroAdCardPulse {
-  0%, 100% {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 0 0 rgba(34, 211, 238, 0) !important;
-  }
-
-  50% {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .24), 0 18px 48px rgba(34, 211, 238, .16) !important;
-  }
-}
-
-@keyframes heroEyebrowGlow {
-  0%, 100% {
-    filter: drop-shadow(0 0 0 rgba(187, 247, 208, 0));
-  }
-
-  50% {
-    filter: drop-shadow(0 0 10px rgba(187, 247, 208, .42));
-  }
-}
-
-@keyframes heroLivePulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, .62);
-  }
-
-  70%, 100% {
-    box-shadow: 0 0 0 12px rgba(34, 197, 94, 0);
-  }
-}
-
-@keyframes heroClockGlow {
-  0%, 100% {
-    text-shadow: 0 0 0 rgba(187, 247, 208, 0);
-  }
-
-  50% {
-    text-shadow: 0 0 18px rgba(187, 247, 208, .42);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .premium-dashboard .hero-banner,
-  .premium-dashboard .hero-banner::before,
-  .premium-dashboard .hero-brand-block h1,
-  .premium-dashboard .hero-module-chips span,
-  .premium-dashboard .hero-ad-card-copy,
-  .premium-dashboard .hero-ad-eyebrow,
-  .premium-dashboard .hero-ad-status-card::after,
-  .premium-dashboard .hero-ad-status-card strong {
-    animation: none !important;
-  }
-}
-
-/* Referans ana ekran uyumu: sol menü, üst bant, satış alanı ve ödeme paneli. */
-.premium-dashboard {
-  padding: 0 !important;
-  background: #eef3fa !important;
-}
-
-.premium-dashboard .shell.app-shell {
-  width: 100vw !important;
-  height: 100vh !important;
-  grid-template-columns: 232px minmax(0, 1fr) !important;
-  grid-template-rows: 108px minmax(0, 1fr) !important;
-  gap: 0 !important;
-  background: #eef3fa !important;
-}
-
-.premium-dashboard .premium-sidebar {
-  width: 232px !important;
-  min-width: 232px !important;
-  max-width: 232px !important;
-  grid-row: 1 / span 2 !important;
-  padding: 18px 14px 28px !important;
-  gap: 8px !important;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(37, 99, 235, .18), transparent 34%),
-    linear-gradient(180deg, #071226 0%, #081a33 54%, #06142a 100%) !important;
-  border-right: 1px solid rgba(148, 163, 184, .18) !important;
-  border-radius: 0 0 18px 0 !important;
-  box-shadow: 18px 0 46px rgba(15, 23, 42, .12) !important;
-}
-
-.premium-dashboard .premium-store-card,
-.premium-sidebar .premium-store-card {
-  height: 100px !important;
-  min-height: 100px !important;
-  padding: 16px 0 18px !important;
-  background: transparent !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  border-bottom: 1px solid rgba(148, 163, 184, .18) !important;
-}
-
-.premium-dashboard .premium-store-card::before,
-.premium-dashboard .premium-store-card::after,
-.premium-sidebar .premium-store-card::before,
-.premium-sidebar .premium-store-card::after {
-  display: none !important;
-}
-
-.premium-dashboard .ceplog-sidebar-brand-copy {
-  gap: 12px !important;
-  align-items: flex-start !important;
-}
-
-.premium-dashboard .ceplog-sidebar-brand-copy strong {
-  display: flex !important;
-  gap: 0 !important;
-  font-size: 34px !important;
-  line-height: .9 !important;
-  font-weight: 1000 !important;
-  color: #fff !important;
-  letter-spacing: -1.4px !important;
-}
-
-.premium-dashboard .ceplog-sidebar-brand-copy strong span:last-child {
-  color: #2f73ff !important;
-}
-
-.premium-dashboard .ceplog-sidebar-brand-copy small {
-  color: #fff !important;
-  font-size: 14px !important;
-  font-weight: 950 !important;
-}
-
-.premium-dashboard .sidebar-contact-links {
-  gap: 0 !important;
-  margin: 0 0 4px !important;
-  padding-bottom: 6px !important;
-  border-bottom: 1px solid rgba(148, 163, 184, .14) !important;
-}
-
-.premium-dashboard .sidebar-contact-links a {
-  height: 44px !important;
-  min-height: 44px !important;
-  padding: 0 16px !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  border: 0 !important;
-  border-bottom: 1px solid rgba(148, 163, 184, .12) !important;
-  color: rgba(255, 255, 255, .94) !important;
-  font-size: 13px !important;
-  font-weight: 950 !important;
-  justify-content: flex-start !important;
-}
-
-.premium-dashboard .premium-sidebar .sidebar-nav-item,
-.premium-dashboard .premium-sidebar .nav-mini-y,
-.premium-dashboard .premium-sidebar .nav-mini-y.active {
-  min-height: 48px !important;
-  height: 48px !important;
-  padding: 0 16px !important;
-  border-radius: 10px !important;
-  background: rgba(255, 255, 255, .065) !important;
-  border: 1px solid rgba(148, 163, 184, .13) !important;
-  color: #f8fafc !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .055) !important;
-}
-
-.premium-dashboard .premium-sidebar .sidebar-nav-item.active,
-.premium-dashboard .premium-sidebar .nav-mini-y.active {
-  background: linear-gradient(135deg, #1d4ed8 0%, #8b1fe8 100%) !important;
-  border-color: transparent !important;
-  box-shadow: 0 12px 26px rgba(91, 33, 182, .34) !important;
-}
-
-.premium-dashboard .premium-sidebar .sidebar-nav-item span {
-  font-size: 14px !important;
-  font-weight: 1000 !important;
-}
-
-.premium-dashboard .sidebar-collapse-preview {
-  margin-top: auto !important;
-}
-
-.premium-dashboard .app-shell > .hero-banner,
-.premium-dashboard .hero-banner {
-  height: 108px !important;
-  min-height: 108px !important;
-  max-height: 108px !important;
-  padding: 18px 38px 16px 52px !important;
-  border-radius: 0 !important;
-  border: 0 !important;
-  background: linear-gradient(105deg, #09235a 0%, #0c2f71 38%, #3524ac 72%, #8a2bd9 100%) !important;
-  box-shadow: none !important;
-  animation: none !important;
-}
-
-.premium-dashboard .hero-banner::before,
-.premium-dashboard .hero-banner::after {
-  display: none !important;
-  animation: none !important;
-}
-
-.premium-dashboard .hero-mockup-grid {
-  grid-template-columns: 166px minmax(0, 1fr) 208px !important;
-  gap: 28px !important;
-}
-
-.premium-dashboard .hero-brand-block {
-  min-height: 68px !important;
-  gap: 8px !important;
-  padding-right: 0 !important;
-  border-right: 0 !important;
-}
-
-.premium-dashboard .hero-banner .hero-brand-block h1,
-.premium-dashboard .hero-banner h1 {
-  font-size: 32px !important;
-  line-height: .9 !important;
-  animation: none !important;
-}
-
-.premium-dashboard .hero-module-chips {
-  gap: 6px !important;
-}
-
-.premium-dashboard .hero-module-chips span {
-  min-width: 0 !important;
-  height: 23px !important;
-  padding: 0 10px !important;
-  font-size: 11px !important;
-  background: rgba(255, 255, 255, .22) !important;
-  animation: none !important;
-}
-
-.premium-dashboard .hero-banner .hero-banner-text {
-  padding: 0 !important;
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  text-align: center !important;
-  align-self: center !important;
-  animation: none !important;
-}
-
-.premium-dashboard .hero-banner .hero-banner-text strong {
-  font-size: 29px !important;
-  line-height: 1.05 !important;
-  letter-spacing: -1.2px !important;
-  white-space: nowrap !important;
-}
-
-.premium-dashboard .hero-banner .hero-banner-text p {
-  margin-top: 8px !important;
-  font-size: 16px !important;
-  font-weight: 750 !important;
-  color: #fff !important;
-}
-
-.premium-dashboard .hero-date-card {
-  width: 208px !important;
-  min-width: 208px !important;
-  max-width: 208px !important;
-  min-height: 82px !important;
-  margin: 0 !important;
-  padding: 10px 18px !important;
-  border-radius: 15px !important;
-  background: rgba(255, 255, 255, .12) !important;
-  border: 1px solid rgba(255, 255, 255, .22) !important;
-  justify-self: end !important;
-}
-
-.premium-dashboard .hero-date-card b,
-.premium-dashboard .hero-date-card span {
-  color: #fff !important;
-  font-size: 15px !important;
-  font-weight: 950 !important;
-  text-transform: none !important;
-  letter-spacing: 0 !important;
-  animation: none !important;
-}
-
-.premium-dashboard .hero-date-card strong {
-  color: #fff !important;
-  font-size: 24px !important;
-  line-height: .95 !important;
-  animation: none !important;
-}
-
-.premium-dashboard .hero-banner-visual {
-  display: none !important;
-}
-
-.premium-dashboard .app-shell > .section.kasa-home-section {
-  padding: 14px 16px 22px !important;
-  background: linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%) !important;
-  overflow: hidden !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref {
-  grid-template-rows: 38px minmax(0, 1fr) !important;
-  gap: 14px !important;
-  height: 100% !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref > .kasa-main-tabs {
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-  height: 38px !important;
-  overflow: visible !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref > .kasa-main-tabs .choice {
-  width: auto !important;
-  min-width: 104px !important;
-  height: 38px !important;
-  min-height: 38px !important;
-  padding: 0 18px !important;
-  border-radius: 8px !important;
-  background: #fff !important;
-  border: 1px solid #e1e8f2 !important;
-  color: #17233b !important;
-  box-shadow: 0 5px 14px rgba(15, 23, 42, .04) !important;
-  font-size: 12px !important;
-  font-weight: 1000 !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref > .kasa-main-tabs .choice.active {
-  color: #fff !important;
-  border-color: transparent !important;
-  background: linear-gradient(135deg, #2f7df6, #1d4ed8) !important;
-  box-shadow: 0 10px 22px rgba(37, 99, 235, .28) !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-layout {
-  grid-template-columns: 304px minmax(0, 1fr) 362px !important;
-  gap: 20px !important;
-  overflow: hidden !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-sale-card,
-.premium-dashboard .ceplog-kasa-ref .kasa-quick,
-.premium-dashboard .ceplog-kasa-ref .kasa-day,
-.premium-dashboard .ceplog-kasa-ref .kasa-cart {
-  border-radius: 12px !important;
-  border: 1px solid #e1e8f2 !important;
-  background: #fff !important;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, .08) !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-sale-card {
-  padding: 14px !important;
-  gap: 10px !important;
-  overflow: hidden !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-sale-title-button {
-  height: auto !important;
-  min-height: 28px !important;
-  justify-content: flex-start !important;
-  padding: 0 !important;
-  background: transparent !important;
-  color: #111827 !important;
-  box-shadow: none !important;
-  font-size: 16px !important;
-  border-radius: 0 !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-sale-title-button svg {
-  display: none !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-category-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: 8px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-category-grid .big-sale-btn {
-  height: 34px !important;
-  min-height: 34px !important;
-  border-radius: 8px !important;
-  font-size: 10px !important;
-  background: #fff !important;
-  border-color: #e1e8f2 !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-category-grid .big-sale-btn.active {
-  background: #061a3d !important;
-  box-shadow: 0 10px 22px rgba(2, 6, 23, .20) !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-ref-field {
-  display: grid !important;
-  gap: 6px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-ref-field span {
-  color: #475569 !important;
-  font-size: 11px !important;
-  font-weight: 950 !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-sale-card input,
-.premium-dashboard .ceplog-kasa-ref .kasa-sale-card select {
-  height: 33px !important;
-  min-height: 33px !important;
-  border-radius: 8px !important;
-  background: #fff !important;
-  border-color: #e1e8f2 !important;
-  font-size: 12px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-send-cart-btn {
-  height: 36px !important;
-  min-height: 36px !important;
-  border-radius: 8px !important;
-  gap: 8px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-mid {
-  grid-template-rows: minmax(0, 1fr) 148px !important;
-  gap: 20px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-quick {
-  padding: 14px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .quick-head.quick-head-shortcuts {
-  height: 26px !important;
-  min-height: 26px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .quick-title-btn {
-  height: 26px !important;
-  min-height: 26px !important;
-  padding: 0 !important;
-  background: transparent !important;
-  color: #111827 !important;
-  box-shadow: none !important;
-  font-size: 16px !important;
-  justify-content: flex-start !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .quick-sub {
-  display: none !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .quick-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-  grid-auto-rows: 58px !important;
-  gap: 10px !important;
-  margin-top: 10px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .qitem {
-  height: 58px !important;
-  min-height: 58px !important;
-  border-radius: 8px !important;
-  background: #fff !important;
-  border-color: #e1e8f2 !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-lower-band {
-  display: block !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions {
-  display: none !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-day {
-  height: 100% !important;
-  padding: 14px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-day-head h2 {
-  font-size: 15px !important;
-  letter-spacing: 0 !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-day-head p {
-  font-size: 12px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-ref-summary-strip {
-  display: grid !important;
-  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-  gap: 14px !important;
-  margin-top: 12px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-ref-summary-strip > .summary-col {
-  min-height: 66px !important;
-  display: grid !important;
-  place-items: center !important;
-  align-content: center !important;
-  gap: 8px !important;
-  padding: 10px !important;
-  border-radius: 8px !important;
-  border: 1px solid #e1e8f2 !important;
-  background: #fff !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-ref-summary-strip h3 {
-  margin: 0 !important;
-  color: #64748b !important;
-  font-size: 11px !important;
-  font-weight: 950 !important;
-  text-align: center !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-ref-summary-strip b {
-  color: #16a34a !important;
-  font-size: 16px !important;
-  font-weight: 1000 !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-ref-summary-strip b.negative {
-  color: #dc2626 !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .kasa-cart.cart-panel {
-  height: 100% !important;
-  min-height: 0 !important;
-  padding: 14px !important;
-  overflow: hidden !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .cart-top-line h2 {
-  font-size: 16px !important;
-  color: #111827 !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .cart-table-wrap {
-  min-height: 118px !important;
-  max-height: 168px !important;
-  overflow: auto !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .cart-total {
-  min-height: 40px !important;
-  border-radius: 8px !important;
-  background: #f8fafc !important;
-  border: 1px solid #e1e8f2 !important;
-  padding: 8px 12px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .cart-total b {
-  font-size: 18px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .cart-payment-actions {
-  display: none !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .cart-payment-box .payment-box {
-  display: grid !important;
-  gap: 8px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .cart-payment-box label {
-  display: grid !important;
-  grid-template-columns: 82px minmax(0, 1fr) !important;
-  align-items: center !important;
-  gap: 8px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .cart-payment-box label span {
-  color: #334155 !important;
-  font-size: 12px !important;
-  font-weight: 950 !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .cart-payment-box input,
-.premium-dashboard .ceplog-kasa-ref .cart-payment-box select,
-.premium-dashboard .ceplog-kasa-ref .cart-note {
-  min-height: 30px !important;
-  height: 30px !important;
-  border-radius: 8px !important;
-  border-color: #e1e8f2 !important;
-  background: #fff !important;
-  font-size: 12px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .cart-note {
-  min-height: 44px !important;
-  height: 44px !important;
-}
-
-.premium-dashboard .ceplog-kasa-ref .cart-checkout-btn {
-  height: 38px !important;
-  min-height: 38px !important;
-  border-radius: 8px !important;
-  background: linear-gradient(135deg, #16a34a, #059669) !important;
-  box-shadow: 0 12px 24px rgba(22, 163, 74, .20) !important;
-}
-
-@media (max-width: 1180px) {
   .premium-dashboard .ceplog-kasa-ref .kasa-layout {
-    grid-template-columns: 285px minmax(0, 1fr) 320px !important;
-    gap: 12px !important;
+    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr) !important;
+    gap: 14px !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-card,
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick,
+  .premium-dashboard .ceplog-kasa-ref .kasa-day,
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions {
+    border-radius: 16px !important;
+    border: 1px solid #e1e8f2 !important;
+    background: #fff !important;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, .07) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-card {
+    padding: 14px !important;
+    gap: 10px !important;
+    overflow-y: auto !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-mid {
+    grid-template-rows: minmax(0, 1fr) 178px !important;
+    gap: 14px !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick,
+  .premium-dashboard .ceplog-kasa-ref .kasa-day {
+    padding: 14px !important;
   }
 
   .premium-dashboard .ceplog-kasa-ref .quick-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-lower-band {
+    grid-template-columns: 220px minmax(0, 1fr) !important;
+    gap: 14px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions {
+    padding: 12px !important;
+    gap: 8px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions .big-sale-btn {
+    min-height: 34px !important;
+    border-radius: 10px !important;
+    background: #fff !important;
+    color: #14213d !important;
+    border: 1px solid #dbe5f3 !important;
+    box-shadow: none !important;
+    font-size: 11px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-day-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
   }
 }
