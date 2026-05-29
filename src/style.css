@@ -13237,3 +13237,180 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     gap: 10px !important;
   }
 }
+
+/* Sürüm 2 reklam banner final düzeltme: tek düzen, saat en sağda, dashboard kartları sayfayla aksın. */
+@media (min-width: 921px) {
+  body {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .premium-dashboard {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow: visible !important;
+  }
+
+  .premium-dashboard .shell.app-shell {
+    height: auto !important;
+    min-height: calc(100vh - 32px) !important;
+    overflow: visible !important;
+    grid-template-rows: 112px auto !important;
+  }
+
+  .premium-dashboard .premium-sidebar {
+    height: auto !important;
+    min-height: calc(100vh - 32px) !important;
+    align-self: stretch !important;
+  }
+
+  .premium-dashboard .app-shell > .section {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .premium-dashboard .app-shell > .hero-banner,
+  .premium-dashboard .hero-banner {
+    height: 112px !important;
+    min-height: 112px !important;
+    max-height: 112px !important;
+    padding: 12px 22px !important;
+    border-radius: 16px !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: center !important;
+    overflow: hidden !important;
+    background:
+      radial-gradient(circle at 94% 18%, rgba(147, 51, 234, .40), transparent 30%),
+      linear-gradient(110deg, #08245a 0%, #14377a 48%, #6d28d9 100%) !important;
+  }
+
+  .premium-dashboard .hero-banner-copy,
+  .premium-dashboard .brand-title-row,
+  .premium-dashboard .hero-mockup-grid {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    height: 100% !important;
+  }
+
+  .premium-dashboard .hero-mockup-grid {
+    display: grid !important;
+    grid-template-columns: 210px minmax(0, 1fr) max-content !important;
+    gap: 22px !important;
+    align-items: center !important;
+  }
+
+  .premium-dashboard .hero-brand-block {
+    min-width: 0 !important;
+    min-height: 72px !important;
+    padding-right: 18px !important;
+    border-right: 1px solid rgba(255, 255, 255, .18) !important;
+  }
+
+  .premium-dashboard .hero-banner .hero-brand-block h1,
+  .premium-dashboard .hero-banner h1 {
+    font-size: 36px !important;
+    line-height: .95 !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-dashboard .hero-module-chips {
+    gap: 6px !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .premium-dashboard .hero-module-chips span {
+    min-width: 0 !important;
+    height: 22px !important;
+    padding: 0 10px !important;
+    font-size: 10px !important;
+  }
+
+  .premium-dashboard .hero-banner .hero-banner-text {
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    text-align: center !important;
+  }
+
+  .premium-dashboard .hero-banner .hero-banner-text strong {
+    display: block !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    font-size: clamp(22px, 2.2vw, 30px) !important;
+    line-height: 1.08 !important;
+    letter-spacing: -.7px !important;
+  }
+
+  .premium-dashboard .hero-banner .hero-banner-text p {
+    display: block !important;
+    max-width: 100% !important;
+    margin: 6px 0 0 !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+  }
+
+  .premium-dashboard .hero-date-card {
+    width: 218px !important;
+    min-width: 218px !important;
+    max-width: 218px !important;
+    min-height: 76px !important;
+    justify-self: end !important;
+    margin: 0 !important;
+    padding: 12px 18px !important;
+    border-radius: 16px !important;
+  }
+
+  .premium-dashboard .hero-date-card b {
+    font-size: 14px !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-dashboard .hero-date-card strong {
+    font-size: 24px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-dashboard .hero-banner-visual {
+    display: none !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref,
+  .premium-dashboard .ceplog-kasa-ref .kasa-layout,
+  .premium-dashboard .ceplog-kasa-ref .kasa-mid {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-card,
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick,
+  .premium-dashboard .ceplog-kasa-ref .kasa-day,
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions {
+    position: static !important;
+  }
+}
+
+@media (min-width: 921px) and (max-width: 1180px) {
+  .premium-dashboard .hero-mockup-grid {
+    grid-template-columns: 180px minmax(0, 1fr) max-content !important;
+    gap: 14px !important;
+  }
+
+  .premium-dashboard .hero-date-card {
+    width: 190px !important;
+    min-width: 190px !important;
+    max-width: 190px !important;
+  }
+
+  .premium-dashboard .hero-banner .hero-banner-text strong {
+    font-size: 22px !important;
+  }
+}
