@@ -67,6 +67,10 @@ export function CartPaymentBox({
   onBankChange,
   onSetFullPayment,
 }) {
+  const paymentNumber = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, "")) || 0;
+  const hasCardPayment = paymentNumber(payments.cardAmount) + paymentNumber(payments.bankAmount) > 0;
+  const hasCariPayment = paymentNumber(payments.cariAmount) > 0;
+
   return (
     <div className="cart-payment-box">
       <div className="cart-payment-actions">
@@ -85,32 +89,34 @@ export function CartPaymentBox({
           <input inputMode="numeric" value={payments.cardAmount} onChange={(event) => onPaymentChange("cardAmount", event.target.value)} />
         </label>
         <label>
-          <span>Banka</span>
-          <input inputMode="numeric" value={payments.bankAmount} onChange={(event) => onPaymentChange("bankAmount", event.target.value)} />
-        </label>
-        <label>
           <span>Cari</span>
           <input inputMode="numeric" value={payments.cariAmount} onChange={(event) => onPaymentChange("cariAmount", event.target.value)} />
         </label>
       </div>
 
-      <select value={bankName} onChange={(event) => onBankChange(event.target.value)}>
-        <option value="">Banka / POS seç</option>
-        {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
-        <option value="__add_bank__">+ Banka Ekle</option>
-      </select>
+      {hasCardPayment && (
+        <select value={bankName} onChange={(event) => onBankChange(event.target.value)}>
+          <option value="">Banka / POS seç</option>
+          {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+          <option value="__add_bank__">+ Banka Ekle</option>
+        </select>
+      )}
 
-      <input
-        list="cart-customer-list"
-        placeholder="Müşteri / cari kişi"
-        value={customer.customerName}
-        onChange={(event) => onCustomerChange(event.target.value)}
-      />
+      {hasCariPayment && (
+        <input
+          list="cart-customer-list"
+          placeholder="Müşteri / cari kişi"
+          value={customer.customerName}
+          onChange={(event) => onCustomerChange(event.target.value)}
+        />
+      )}
 
-      <div className={paymentGap === 0 ? "cart-payment-gap ok" : "cart-payment-gap"}>
-        <span>Ödeme farkı</span>
-        <b>{money(paymentGap)}</b>
-      </div>
+      {paymentGap !== 0 && (
+        <div className="cart-payment-gap">
+          <span>Ödeme farkı</span>
+          <b>{money(paymentGap)}</b>
+        </div>
+      )}
     </div>
   );
 }
