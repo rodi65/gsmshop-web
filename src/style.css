@@ -14994,3 +14994,53 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     min-height: 154px !important;
   }
 }
+
+/* Yönetim: fotoğraf ve kısayol ekle aksiyonları seçenekli akışa uygun dikdörtgen butonlar. */
+.premium-dashboard .management-screenshot-card .management-round-actions {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  width: 100% !important;
+}
+
+.premium-dashboard .management-screenshot-card .screenshot-round-btn,
+.premium-dashboard .management-screenshot-card .shortcut-add-round-btn {
+  width: 100% !important;
+  min-height: 48px !important;
+  aspect-ratio: auto !important;
+  border-radius: 14px !important;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 0 16px !important;
+  font-size: 13px !important;
+}
+
+.premium-dashboard .management-screenshot-card .screenshot-round-btn {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 54%, #38bdf8 100%) !important;
+  box-shadow: 0 16px 30px rgba(37, 99, 235, .24) !important;
+}
+
+.premium-dashboard .management-screenshot-card .shortcut-add-round-btn {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 52%, #991b1b 100%) !important;
+  box-shadow: 0 16px 30px rgba(220, 38, 38, .24) !important;
+}
+
+.premium-dashboard .management-screenshot-card .screenshot-round-btn span,
+.premium-dashboard .management-screenshot-card .shortcut-add-round-btn span {
+  max-width: none !important;
+  font-size: 13px !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+}
+
+.premium-dashboard .management-screenshot-card .screenshot-round-btn svg,
+.premium-dashboard .management-screenshot-card .shortcut-add-round-btn svg {
+  width: 22px !important;
+  height: 22px !important;
+  flex: 0 0 auto !important;
+}

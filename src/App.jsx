@@ -5746,33 +5746,41 @@ const isSameSalesListDay = (item, dateKey) => {
   function addUniversalShortcutFromManagement() {
     if (visibleAccessoryShortcuts.length >= accessoryShortcutLimit) return alert("En fazla 20 kısayol eklenebilir. Yeni kısayol için önce Kısayol Sil ile ana ekrandan yer aç.");
 
-    const queryInput = window.prompt("Kısayol yapılacak ürünü ara (IMEI, barkod, ürün adı, model). Manuel/hizmet için boş bırak.", "");
-    if (queryInput === null) return;
+    const modeInput = window.prompt("Kısayol ekleme türünü seç:\n1) Stok ürününden ekle\n2) Manuel / hizmet kısayolu ekle", "1");
+    if (modeInput === null) return;
+    const mode = String(modeInput || "").trim();
 
-    const queryText = String(queryInput || "").trim().toLocaleLowerCase("tr-TR");
-    const productMatches = inStockItems
-      .filter((product) => !queryText || stockSearchHaystack(product).includes(queryText))
-      .slice(0, 20);
+    if (mode === "1") {
+      const queryInput = window.prompt("Kısayol yapılacak ürünü ara (IMEI, barkod, ürün adı, model). Boş bırakırsan ilk 20 stok ürünü listelenir.", "");
+      if (queryInput === null) return;
 
-    if (productMatches.length) {
+      const queryText = String(queryInput || "").trim().toLocaleLowerCase("tr-TR");
+      const productMatches = inStockItems
+        .filter((product) => !queryText || stockSearchHaystack(product).includes(queryText))
+        .slice(0, 20);
+
+      if (!productMatches.length) return alert("Bu aramayla eşleşen stok ürünü bulunamadı.");
+
       const listText = productMatches.map((product, index) => {
         const group = displayStockGroup(stockSearchGroup(product));
         const price = formatMoneyInput(product.sell || product.sellPrice || product.sell_price || 0) || "Fiyat yok";
         return `${index + 1}) [${group}] ${productTitle(product) || product.name || "Ürün"} — ${product.imei || product.barcode || "kod yok"} — ${price}`;
       }).join("\n");
-      const selectedInput = window.prompt(`Kısayol için ürün seç:\n${listText}\n\nManuel/hizmet kısayolu için 0 yaz.`, "1");
+      const selectedInput = window.prompt(`Kısayol için ürün seç:\n${listText}`, "1");
       if (selectedInput === null) return;
       const selectedIndex = Number(selectedInput) - 1;
-      if (Number(selectedInput) !== 0 && productMatches[selectedIndex]) {
-        const nextShortcut = makeShortcutFromStockProduct(productMatches[selectedIndex]);
-        const exists = [...visibleAccessoryShortcuts, ...accessoryShortcuts].some((item) => shortcutIdentity(item) === shortcutIdentity(nextShortcut));
-        if (exists) return alert("Bu ürün ana ekranda zaten kısayol olarak var.");
-        setHiddenShortcutIds((current) => current.filter((id) => String(id) !== String(nextShortcut.id)));
-        setAccessoryShortcuts((current) => [...current, nextShortcut].slice(0, accessoryShortcutLimit));
-        setSyncMessage("Ürün kısayolu ana ekrana eklendi.");
-        return;
-      }
+      if (!productMatches[selectedIndex]) return alert("Geçerli bir ürün numarası seç.");
+
+      const nextShortcut = makeShortcutFromStockProduct(productMatches[selectedIndex]);
+      const exists = [...visibleAccessoryShortcuts, ...accessoryShortcuts].some((item) => shortcutIdentity(item) === shortcutIdentity(nextShortcut));
+      if (exists) return alert("Bu ürün ana ekranda zaten kısayol olarak var.");
+      setHiddenShortcutIds((current) => current.filter((id) => String(id) !== String(nextShortcut.id)));
+      setAccessoryShortcuts((current) => [...current, nextShortcut].slice(0, accessoryShortcutLimit));
+      setSyncMessage("Ürün kısayolu ana ekrana eklendi.");
+      return;
     }
+
+    if (mode !== "2") return alert("Geçerli bir seçim yap: 1 veya 2.");
 
     const groupInput = window.prompt(`Manuel kısayol grubu yaz:\n${shortcutGroupOptions.join(", ")}`, "Aksesuar");
     if (groupInput === null) return;
@@ -6459,7 +6467,7 @@ const isSameSalesListDay = (item, dateKey) => {
                 <h2>Ana Ekran SS</h2>
                 <div className="management-round-actions">
                   <button className="screenshot-round-btn" type="button" onClick={captureHomeScreenshot}>
-                    <span>Ana ekran fotoğrafı</span>
+                    <span>Ana ekran fotoğrafı çek</span>
                     <Camera size={24} />
                   </button>
                   <button className="screenshot-round-btn shortcut-add-round-btn" type="button" onClick={addUniversalShortcutFromManagement}>
