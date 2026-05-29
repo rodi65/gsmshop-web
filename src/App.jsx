@@ -6520,10 +6520,6 @@ const isSameSalesListDay = (item, dateKey) => {
                         </button>
                       </div>
 
-                      <div className="quick-sub">
-                        <span>Aksesuar • Program • Telefon • Tablet • Saat • PC • Bluetooth • Elektronik • Diğer</span>
-                        <b>{visibleAccessoryShortcuts.length} ürün</b>
-                      </div>
 
                       <div className="quick-grid">
                         {visibleAccessoryShortcuts.map((shortcut) => {
@@ -6556,9 +6552,7 @@ const isSameSalesListDay = (item, dateKey) => {
                         <div className="kasa-day-head">
                           <div>
                             <h2>Gün Özeti Raporu</h2>
-                            <p>Bugünkü nakit, kart ve cari hareketler</p>
                           </div>
-                          <span className="kasa-date">{dailyReportDate ? new Date(dailyReportDate).toLocaleDateString("tr-TR", { day: "2-digit", month: "long" }) : "Bugün"}</span>
                         </div>
                         <div className="kasa-day-grid">
                           <div className="summary-col">
