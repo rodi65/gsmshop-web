@@ -13,3 +13,17 @@ dist/
 index.before*
 gsmshop_*/
 gsmshop_*.zip
+
+# Secrets and local environment
+.env
+.env.local
+.env.production
+.env.preview
+.env.development
+.vercel
+
+# Dependencies and build outputs
+node_modules
+dist
+build
+.next
