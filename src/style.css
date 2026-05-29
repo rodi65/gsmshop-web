@@ -15229,3 +15229,51 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   background: transparent !important;
   color: #071044 !important;
 }
+
+/* Taşma güvenliği: ürün/kısayol butonları satır arttığında kırpılmasın, kendi alanında scroll olsun. */
+.premium-dashboard .ceplog-kasa-ref .quick-grid,
+.premium-dashboard .quick-grid,
+.premium-dashboard .accessory-user-shortcuts.compact-shortcuts,
+.premium-dashboard .shortcut-delete-list,
+.premium-dashboard .kasa-search-result-list {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(37, 99, 235, .45) rgba(226, 232, 240, .62) !important;
+}
+
+.premium-dashboard .ceplog-kasa-ref .quick-grid,
+.premium-dashboard .quick-grid {
+  align-content: start !important;
+  grid-template-rows: none !important;
+  grid-auto-rows: 48px !important;
+  padding-right: 5px !important;
+  max-height: calc(100% - 52px) !important;
+}
+
+.premium-dashboard .ceplog-kasa-ref .quick-grid::-webkit-scrollbar,
+.premium-dashboard .quick-grid::-webkit-scrollbar,
+.premium-dashboard .accessory-user-shortcuts.compact-shortcuts::-webkit-scrollbar,
+.premium-dashboard .shortcut-delete-list::-webkit-scrollbar,
+.premium-dashboard .kasa-search-result-list::-webkit-scrollbar {
+  width: 7px;
+}
+
+.premium-dashboard .ceplog-kasa-ref .quick-grid::-webkit-scrollbar-track,
+.premium-dashboard .quick-grid::-webkit-scrollbar-track,
+.premium-dashboard .accessory-user-shortcuts.compact-shortcuts::-webkit-scrollbar-track,
+.premium-dashboard .shortcut-delete-list::-webkit-scrollbar-track,
+.premium-dashboard .kasa-search-result-list::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, .62);
+  border-radius: 999px;
+}
+
+.premium-dashboard .ceplog-kasa-ref .quick-grid::-webkit-scrollbar-thumb,
+.premium-dashboard .quick-grid::-webkit-scrollbar-thumb,
+.premium-dashboard .accessory-user-shortcuts.compact-shortcuts::-webkit-scrollbar-thumb,
+.premium-dashboard .shortcut-delete-list::-webkit-scrollbar-thumb,
+.premium-dashboard .kasa-search-result-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(37, 99, 235, .72), rgba(124, 58, 237, .62));
+  border-radius: 999px;
+}
