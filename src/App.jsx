@@ -6487,8 +6487,13 @@ const isSameSalesListDay = (item, dateKey) => {
 
                   <main className="kasa-mid">
                     <section className="card pad kasa-quick">
-                      <div className="quick-head quick-head-shortcuts">
-                        <button type="button" className="quick-title-btn">KISAYOLLAR</button>
+                      <div className="quick-head quick-head-shortcuts quick-action-head">
+                        <div className="quick-action-tabs" aria-label="Kasa hızlı işlemleri">
+                          <button className="quick-action-btn" type="button" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
+                          <button className="quick-action-btn" type="button" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
+                          <button className="quick-action-btn" type="button" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
+                          <button className="quick-action-btn" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPATMA</button>
+                        </div>
                         <button type="button" className="cart-open-chip" disabled={!cartItems.length} onClick={() => setCartPaymentModalOpen(true)}>
                           Sepeti Aç
                           <b>{cartSummary.totalQuantity}</b>
@@ -6516,13 +6521,6 @@ const isSameSalesListDay = (item, dateKey) => {
                     </section>
 
                     <div className="kasa-lower-band">
-                      <div className="card pad kasa-bottom-actions" aria-label="Kasa hızlı geçişleri">
-                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
-                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
-                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
-                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPATMA</button>
-                      </div>
-
                       <section className="card pad kasa-day">
                         <div className="kasa-day-head">
                           <div>

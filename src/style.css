@@ -13479,3 +13479,97 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     display: none !important;
   }
 }
+
+/* Kasa üst hizalama: banner altındaki kart barını sıfırla, Kısayollar başlığı yerine işlem butonları. */
+@media (min-width: 921px) {
+  .premium-dashboard .shell.app-shell {
+    row-gap: 0 !important;
+  }
+
+  .premium-dashboard .app-shell > .hero-banner,
+  .premium-dashboard .hero-banner {
+    margin-bottom: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+  }
+
+  .premium-dashboard .app-shell > .section.kasa-home-section {
+    padding-top: 0 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref,
+  .premium-dashboard .ceplog-kasa-ref .kasa-layout,
+  .premium-dashboard .ceplog-kasa-ref .kasa-mid,
+  .premium-dashboard .ceplog-kasa-ref .kasa-lower-band {
+    gap: 0 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-card,
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick,
+  .premium-dashboard .ceplog-kasa-ref .kasa-day,
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions {
+    border-radius: 0 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-lower-band {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 38px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-tabs {
+    min-width: 0 !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 8px !important;
+    border: 0 !important;
+    border-radius: 12px !important;
+    background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+    color: #fff !important;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, .22) !important;
+    font-size: clamp(9px, .72vw, 12px) !important;
+    font-weight: 1000 !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-btn:hover,
+  .premium-dashboard .ceplog-kasa-ref .quick-action-btn:focus-visible {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 16px 30px rgba(37, 99, 235, .28) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-open-chip {
+    flex: 0 0 auto !important;
+    max-width: 126px !important;
+    white-space: nowrap !important;
+  }
+}
+
+@media (max-width: 1240px) and (min-width: 921px) {
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-open-chip {
+    display: none !important;
+  }
+}
