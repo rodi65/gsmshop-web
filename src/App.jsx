@@ -5824,13 +5824,6 @@ const isSameSalesListDay = (item, dateKey) => {
           </div>
         )}
           </div>
-          <div className="hero-banner-visual" aria-hidden="true">
-            <div className="mockup-window">
-              <span>Canlı Dashboard</span>
-              <b>CEPLOG PRO</b>
-              <small>Akıllı GSM yönetimi</small>
-            </div>
-          </div>
           {isLocalhostRuntime() && <div className="status-pill">WEB TEST</div>}
         </header>
 
@@ -6461,17 +6454,6 @@ const isSameSalesListDay = (item, dateKey) => {
                       ))}
                     </div>
 
-                    {!isAccessorySale && (
-                      <input
-                        placeholder="Müşteri adı soyadı / telefon"
-                        value={saleForm.customer}
-                        onChange={(e) => {
-                          const customerName = e.target.value;
-                          setSaleForm({ ...saleForm, customer: customerName, cariPerson: customerName });
-                          changeCartCustomer(customerName);
-                        }}
-                      />
-                    )}
 
                     {isProgramSale ? (
                       <input placeholder="Teknik servis / işçilik / program kalemi" value={saleForm.search} onChange={(e) => setSaleForm({ ...saleForm, search: e.target.value })} />
@@ -6505,18 +6487,19 @@ const isSameSalesListDay = (item, dateKey) => {
 
                   <main className="kasa-mid">
                     <section className="card pad kasa-quick">
-                      <div className="quick-head quick-head-shortcuts">
-                        <button type="button" className="quick-title-btn">KISAYOLLAR</button>
+                      <div className="quick-head quick-head-shortcuts quick-action-head">
+                        <div className="quick-action-tabs" aria-label="Kasa hızlı işlemleri">
+                          <button className="quick-action-btn" type="button" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
+                          <button className="quick-action-btn" type="button" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
+                          <button className="quick-action-btn" type="button" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
+                          <button className="quick-action-btn" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPATMA</button>
+                        </div>
                         <button type="button" className="cart-open-chip" disabled={!cartItems.length} onClick={() => setCartPaymentModalOpen(true)}>
                           Sepeti Aç
                           <b>{cartSummary.totalQuantity}</b>
                         </button>
                       </div>
 
-                      <div className="quick-sub">
-                        <span>Aksesuar • Program • Telefon • Tablet • Saat • PC • Bluetooth • Elektronik • Diğer</span>
-                        <b>{visibleAccessoryShortcuts.length} ürün</b>
-                      </div>
 
                       <div className="quick-grid">
                         {visibleAccessoryShortcuts.map((shortcut) => {
@@ -6538,21 +6521,7 @@ const isSameSalesListDay = (item, dateKey) => {
                     </section>
 
                     <div className="kasa-lower-band">
-                      <div className="card pad kasa-bottom-actions" aria-label="Kasa hızlı geçişleri">
-                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
-                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
-                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
-                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPATMA</button>
-                      </div>
-
                       <section className="card pad kasa-day">
-                        <div className="kasa-day-head">
-                          <div>
-                            <h2>Gün Özeti Raporu</h2>
-                            <p>Bugünkü nakit, kart ve cari hareketler</p>
-                          </div>
-                          <span className="kasa-date">{dailyReportDate ? new Date(dailyReportDate).toLocaleDateString("tr-TR", { day: "2-digit", month: "long" }) : "Bugün"}</span>
-                        </div>
                         <div className="kasa-day-grid">
                           <div className="summary-col">
                             <h3>Nakit İşlemler</h3>
