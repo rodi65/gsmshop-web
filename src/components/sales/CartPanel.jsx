@@ -10,34 +10,36 @@ export function CartItemRow({ item, money, onUpdate, onRemove }) {
     <tr className="cart-item-row">
       <td>
         <div className="cart-table-product">
-          <strong>{item.productName}</strong>
+          <div className="cart-product-head">
+            <strong>{item.productName}</strong>
+            <div className="cart-row-controls">
+              <div className="cart-qty-control" aria-label="Adet">
+                <button type="button" className="cart-icon-btn" disabled={!canDecrease} onClick={() => onUpdate(item.cartItemId, { quantity: Math.max(Number(item.quantity || 1) - 1, 1) })}>
+                  <Minus size={14} />
+                </button>
+                <input
+                  type="number"
+                  min="1"
+                  max={item.productType === "service" ? undefined : maxQuantity}
+                  value={item.quantity}
+                  onChange={(event) => onUpdate(item.cartItemId, { quantity: Number(event.target.value || 1) })}
+                />
+                <button type="button" className="cart-icon-btn" disabled={!canIncrease} onClick={() => onUpdate(item.cartItemId, { quantity: Number(item.quantity || 1) + 1 })}>
+                  <Plus size={14} />
+                </button>
+              </div>
+              <button type="button" className="cart-icon-btn danger" onClick={() => onRemove(item.cartItemId)} aria-label="Sepetten sil">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
           <small>{item.productTypeLabel}{item.imei ? ` • IMEI: ${item.imei}` : ""}</small>
-        </div>
-      </td>
-      <td>
-        <div className="cart-qty-control">
-          <button type="button" className="cart-icon-btn" disabled={!canDecrease} onClick={() => onUpdate(item.cartItemId, { quantity: Math.max(Number(item.quantity || 1) - 1, 1) })}>
-            <Minus size={14} />
-          </button>
-          <input
-            type="number"
-            min="1"
-            max={item.productType === "service" ? undefined : maxQuantity}
-            value={item.quantity}
-            onChange={(event) => onUpdate(item.cartItemId, { quantity: Number(event.target.value || 1) })}
-          />
-          <button type="button" className="cart-icon-btn" disabled={!canIncrease} onClick={() => onUpdate(item.cartItemId, { quantity: Number(item.quantity || 1) + 1 })}>
-            <Plus size={14} />
-          </button>
         </div>
       </td>
       <td>
         <div className="cart-table-amount">
           <b>{money(item.lineTotal)}</b>
           <span className={Number(item.lineProfit || 0) < 0 ? "loss" : "profit"}>{money(item.lineProfit)}</span>
-          <button type="button" className="cart-icon-btn danger" onClick={() => onRemove(item.cartItemId)} aria-label="Sepetten sil">
-            <Trash2 size={14} />
-          </button>
         </div>
       </td>
     </tr>
@@ -159,7 +161,6 @@ export default function CartPanel({
           <thead>
             <tr>
               <th>Ürün</th>
-              <th>Adet</th>
               <th>Tutar</th>
             </tr>
           </thead>
@@ -174,7 +175,7 @@ export default function CartPanel({
               />
             )) : (
               <tr>
-                <td colSpan="3">
+                <td colSpan="2">
                   <div className="cart-empty-state">
                     <ShoppingCart size={26} />
                     <strong>Sepet boş.</strong>

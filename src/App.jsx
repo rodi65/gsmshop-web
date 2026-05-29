@@ -2693,7 +2693,6 @@ const isSameSalesListDay = (item, dateKey) => {
   const saleCustomerRequired = !isAccessorySale || saleReadyRemaining > 0;
   const saleFormCustomerReady = !saleCustomerRequired || Boolean(saleFormCariText.trim());
   const saleProductDisplayName = isProgramSale ? (saleForm.search || "Program / Hizmet") : (productTitle(selectedProduct) || "Ürün seçilmedi");
-  const selectedProductImage = selectedProduct?.image_url || selectedProduct?.imageUrl || selectedProduct?.image || selectedProduct?.photo_url || selectedProduct?.photo || "";
   const saleFormReadyForCart =
     saleTotal > 0 &&
     saleFormHasProduct &&
@@ -6616,23 +6615,13 @@ const isSameSalesListDay = (item, dateKey) => {
                           )}
                         </div>
                       )}
-                      <div className="sale-product-showcase">
-                        <div className="sale-product-visual">
-                          {selectedProductImage ? (
-                            <img src={selectedProductImage} alt={saleProductDisplayName} />
-                          ) : (
-                            <Smartphone size={58} strokeWidth={2.2} />
-                          )}
-                        </div>
-                        <div className="sale-product-copy">
-                          <span>Seçilen ürün</span>
-                          <b>{saleProductDisplayName}</b>
-                          <small>{selectedProduct?.imei || selectedProduct?.barcode ? `IMEI / Barkod: ${selectedProduct?.imei || selectedProduct?.barcode}` : "Satış bilgilerini eksiksiz tamamla."}</small>
-                        </div>
-                        <div className="sale-product-total">
-                          <span>Satış</span>
-                          <b>{money(saleTotal)}</b>
-                        </div>
+                      <div className="kasa-sale-ready-actions sale-ready-modal-actions sale-ready-modal-actions-top">
+                        <button type="button" className="choice" onClick={closeSaleReadyModal}>
+                          <Calculator size={16} />
+                          Düzenle
+                        </button>
+                        <button className="primary" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("continue")}>Sepete Yolla + Devam Et</button>
+                        <button className="primary finish" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("finish")}>Sepete Yolla + Bitir</button>
                       </div>
                       <div className="sale-line-editor-grid">
                         <label>
@@ -6692,14 +6681,6 @@ const isSameSalesListDay = (item, dateKey) => {
                         <div><span>Cari</span><b>{money(saleReadyRemaining)}</b></div>
                         <div><span>Kâr</span><b className={saleLineProfit < 0 ? "negative" : ""}>{money(saleLineProfit)}</b></div>
                         {saleReadyRemaining > 0 && <div><span>Cari Kişi</span><b>{saleFormCariText || "-"}</b></div>}
-                      </div>
-                      <div className="kasa-sale-ready-actions sale-ready-modal-actions">
-                        <button type="button" className="choice" onClick={closeSaleReadyModal}>
-                          <Calculator size={15} />
-                          Düzenle
-                        </button>
-                        <button className="primary" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("continue")}>Sepete Yolla + Devam Et</button>
-                        <button className="primary finish" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("finish")}>Sepete Yolla + Bitir</button>
                       </div>
                     </div>
                   </div>
