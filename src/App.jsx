@@ -6522,11 +6522,6 @@ const isSameSalesListDay = (item, dateKey) => {
 
                     <div className="kasa-lower-band">
                       <section className="card pad kasa-day">
-                        <div className="kasa-day-head">
-                          <div>
-                            <h2>Gün Özeti Raporu</h2>
-                          </div>
-                        </div>
                         <div className="kasa-day-grid">
                           <div className="summary-col">
                             <h3>Nakit İşlemler</h3>
