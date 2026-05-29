@@ -44,7 +44,7 @@ import {
   updateStockItem,
 } from "./services/dataService";
 
-import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText, Settings, Calculator, Printer, Globe, MessageCircle, Camera, Trash2 } from "lucide-react";
+import { Wallet, Smartphone, Headphones, Package, Search, Wrench, TrendingUp, Plus, Pencil, Save, X, ShieldCheck, ReceiptText, Settings, Calculator, Printer, Globe, MessageCircle, Camera, Trash2, Tablet, Watch, Monitor, Bluetooth, ShoppingBag, Code2, Cpu, Tags, Cable } from "lucide-react";
 
 const parseMoneyInput = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, ""));
 const formatMoneyInput = (value) => {
@@ -328,7 +328,7 @@ const securityPasswordFields = [
   { key: "cancelPassword", actionType: "cancel", label: "İptal Şifresi" },
   { key: "deletePassword", actionType: "delete", label: "Silme Şifresi" },
 ];
-const mainSaleGroups = ["Telefon", "Aksesuar", "Program", "Saat", "Tablet", "Elektronik", "Bluetooth", "X"];
+const mainSaleGroups = ["Aksesuar", "Program", "Telefon", "Tablet", "Saat", "PC", "Bluetooth", "Elektronik", "X"];
 const otherSaleTypes = ["Program Satışı", "Saat Satışı", "Tablet Satışı", "PC Satışı", "Elektronik Satışı", "Bluetooth Satışı", "Diğerleri Satışı"];
 const purchasePaymentMovementTypes = [
   "Alım Ödemesi",
@@ -361,7 +361,37 @@ const defaultAccessoryShortcuts = Object.entries(quickAccessoryGroups).flatMap((
     isDefault: true,
   }))
 );
-const accessoryShortcutLimit = 30;
+const accessoryShortcutLimit = 20;
+const shortcutCategoryIconMap = {
+  aksesuar: Headphones,
+  program: Code2,
+  telefon: Smartphone,
+  tablet: Tablet,
+  saat: Watch,
+  pc: Monitor,
+  bluetooth: Bluetooth,
+  elektronik: Cpu,
+  diger: Package,
+  digerleri: Package,
+  x: Package,
+};
+const getShortcutIconComponent = (shortcut) => {
+  const key = normalizeCashEntryText(shortcut?.group || shortcut?.saleGroup || shortcut?.saleType || shortcut?.label || "");
+  if (key.includes("kilif")) return Smartphone;
+  if (key.includes("ekran") || key.includes("cam") || key.includes("koruyucu")) return ShieldCheck;
+  if (key.includes("usb") || key.includes("sarj") || key.includes("kablo") || key.includes("typc")) return Cable;
+  if (key.includes("kulak")) return Headphones;
+  if (key.includes("aksesuar")) return Headphones;
+  if (key.includes("program") || key.includes("yazilim")) return Code2;
+  if (key.includes("telefon") || key.includes("iphone") || key.includes("samsung")) return Smartphone;
+  if (key.includes("tablet")) return Tablet;
+  if (key.includes("saat")) return Watch;
+  if (key.includes("pc") || key.includes("bilgisayar")) return Monitor;
+  if (key.includes("bluetooth")) return Bluetooth;
+  if (key.includes("elektronik")) return Cpu;
+  if (key.includes("sim") || key.includes("etiket")) return Tags;
+  return shortcutCategoryIconMap[key] || ShoppingBag;
+};
 const technicalServiceStatuses = ["Beklemede", "İşlemde", "Hazır", "Teslim Edildi", "İptal"];
 const technicalServiceFilterOptions = ["TÜMÜ", ...technicalServiceStatuses];
 const technicalServiceIncomeTypes = ["Teknik Servis Geliri", "Teknik Servis Kaparo", "Teknik Servis Tahsilat", "Teknik Servis Tahsilatı"];
@@ -2484,6 +2514,8 @@ const isSameSalesListDay = (item, dateKey) => {
   const [cartNote, setCartNote] = useState("");
   const [cartProductQuery, setCartProductQuery] = useState("");
   const [cartProcessing, setCartProcessing] = useState(false);
+  const [cartPaymentModalOpen, setCartPaymentModalOpen] = useState(false);
+  const [saleLineModalOpen, setSaleLineModalOpen] = useState(false);
   const [saleReadyModalDismissedKey, setSaleReadyModalDismissedKey] = useState("");
   const bankList = useMemo(() => getBankList(banks), [banks]);
   const bankOptions = useMemo(() => {
@@ -2541,7 +2573,7 @@ const isSameSalesListDay = (item, dateKey) => {
 
   const shortcutGroupOptions = useMemo(() => {
     const stockGroups = activeStock.map((product) => displayStockGroup(stockSearchGroup(product)));
-    return Array.from(new Set(["Aksesuar", "Program", "Telefon", "Saat", "Tablet", "PC", "Elektronik", "Bluetooth", "X", ...stockGroups]));
+    return Array.from(new Set(["Aksesuar", "Program", "Telefon", "Tablet", "Saat", "PC", "Bluetooth", "Elektronik", "Diğer", ...stockGroups]));
   }, [activeStock]);
 
   const supplierOptions = useMemo(() => {
@@ -2651,18 +2683,23 @@ const isSameSalesListDay = (item, dateKey) => {
   const saleTotal = parseMoneyInput(saleForm.total || 0);
   const saleCash = parseMoneyInput(saleForm.cash || 0);
   const saleCard = parseMoneyInput(saleForm.card || 0);
-  const saleRemaining = isAccessorySale ? 0 : Math.max(saleTotal - saleCash - saleCard, 0);
+  const saleRemaining = Math.max(saleTotal - saleCash - saleCard, 0);
   const saleReadyRemaining = Math.max(saleTotal - saleCash - saleCard, 0);
   const saleFormHasProduct = isProgramSale ? Boolean(saleForm.search.trim()) : Boolean(selectedProduct);
   const saleFormNeedsBank = saleCard > 0;
   const saleFormNeedsCari = saleReadyRemaining > 0;
-  const saleFormCariText = isAccessorySale ? "" : String(saleForm.cariPerson || saleForm.customer || "");
+  const saleFormCariText = String(saleForm.cariPerson || saleForm.customer || "");
+  const saleCustomerRequired = !isAccessorySale || saleReadyRemaining > 0;
+  const saleFormCustomerReady = !saleCustomerRequired || Boolean(saleFormCariText.trim());
+  const saleProductDisplayName = isProgramSale ? (saleForm.search || "Program / Hizmet") : (productTitle(selectedProduct) || "Ürün seçilmedi");
+  const selectedProductImage = selectedProduct?.image_url || selectedProduct?.imageUrl || selectedProduct?.image || selectedProduct?.photo_url || selectedProduct?.photo || "";
   const saleFormReadyForCart =
     saleTotal > 0 &&
     saleFormHasProduct &&
     saleCash + saleCard <= saleTotal &&
     (!saleFormNeedsBank || Boolean(saleForm.bank || cartBankName)) &&
-    (!saleFormNeedsCari || Boolean(saleFormCariText.trim()));
+    (!saleFormNeedsCari || Boolean(saleFormCariText.trim())) &&
+    saleFormCustomerReady;
   const saleReadyModalKey = [
     saleForm.type,
     saleForm.productId,
@@ -2673,11 +2710,19 @@ const isSameSalesListDay = (item, dateKey) => {
     saleForm.bank || cartBankName,
     saleFormCariText,
   ].map((value) => String(value || "").trim()).join("|");
-  const showSaleReadyModal = saleFormReadyForCart && saleReadyModalDismissedKey !== saleReadyModalKey;
-  const closeSaleReadyModal = () => setSaleReadyModalDismissedKey(saleReadyModalKey);
-  const confirmSaleReadyToCart = () => {
+  const saleLineUnitCost = isProgramSale ? 0 : parseMoneyInput(selectedProduct?.buy || selectedProduct?.buyPrice || selectedProduct?.buy_price || 0);
+  const saleLineProfit = saleTotal - saleLineUnitCost;
+  const showSaleReadyModal = saleLineModalOpen;
+  const closeSaleReadyModal = () => {
     setSaleReadyModalDismissedKey(saleReadyModalKey);
-    addCurrentSaleFormToCart();
+    setSaleLineModalOpen(false);
+  };
+  const confirmSaleReadyToCart = (mode = "continue") => {
+    setSaleReadyModalDismissedKey(saleReadyModalKey);
+    const added = addCurrentSaleFormToCart();
+    if (!added) return;
+    setSaleLineModalOpen(false);
+    if (mode === "finish") setCartPaymentModalOpen(true);
   };
   const findCartCustomer = (name) => {
     const clean = String(name || "").trim().toLocaleLowerCase("tr-TR");
@@ -2790,11 +2835,26 @@ const isSameSalesListDay = (item, dateKey) => {
 
   function addCartItem(nextItem) {
     const item = rebuildCartItem(nextItem);
-    if (!item.productName) return alert("Ürün adı bulunamadı.");
-    if (Number(item.unitPriceAtSale || 0) <= 0) return alert("Satış fiyatı yazılmalıdır.");
-    if (item.productType !== "service" && Number(item.stockAvailable || 0) <= 0) return alert("Stok yok.");
-    if (item.isImeiRequired && !item.imei) return alert("IMEI zorunlu.");
-    if (item.imei && cartItems.some((row) => String(row.imei || "") === String(item.imei || ""))) return alert("Bu IMEI zaten sepette.");
+    if (!item.productName) {
+      alert("Ürün adı bulunamadı.");
+      return false;
+    }
+    if (Number(item.unitPriceAtSale || 0) <= 0) {
+      alert("Satış fiyatı yazılmalıdır.");
+      return false;
+    }
+    if (item.productType !== "service" && Number(item.stockAvailable || 0) <= 0) {
+      alert("Stok yok.");
+      return false;
+    }
+    if (item.isImeiRequired && !item.imei) {
+      alert("IMEI zorunlu.");
+      return false;
+    }
+    if (item.imei && cartItems.some((row) => String(row.imei || "") === String(item.imei || ""))) {
+      alert("Bu IMEI zaten sepette.");
+      return false;
+    }
     if (item.productType !== "service" && Number(item.unitCostAtSale || 0) <= 0) {
       alert("Bu ürünün alış fiyatı eksik. Kar hesabı doğru çıkmayabilir.");
     }
@@ -2811,38 +2871,58 @@ const isSameSalesListDay = (item, dateKey) => {
       return [...current, item];
     });
     setSyncMessage(`${item.productName} sepete eklendi.`);
+    return true;
   }
 
   function addProductToCart(product, overrides = {}) {
-    addCartItem(makeCartItemFromProduct(product, overrides));
+    return addCartItem(makeCartItemFromProduct(product, overrides));
   }
 
   function addShortcutToCart(shortcut) {
     const label = shortcut.label || accessoryShortcutLabel(shortcut.group, shortcut.sub);
     const price = shortcut.price || accessoryShortcutForm.price || "";
-    if (!parseMoneyInput(price)) return alert("Kısayol için satış fiyatı yok.");
-    addCartItem(makeServiceCartItem({ name: label, amount: price, note: "Aksesuar hızlı satış kısayolu", category: "Aksesuar Hızlı Satış" }));
+    if (!parseMoneyInput(price)) {
+      alert("Kısayol için satış fiyatı yok.");
+      return false;
+    }
+    const added = addCartItem(makeServiceCartItem({ name: label, amount: price, note: "Kısayol satış kalemi", category: shortcut.saleGroup || shortcut.group || "Kısayol" }));
+    if (!added) return false;
     setCartPayments((current) => ({ ...current, cashAmount: current.cashAmount || formatMoneyInput(price) }));
+    return true;
   }
 
   function addCurrentSaleFormToCart() {
     if (!String(saleForm.total || "").trim() || parseMoneyInput(saleForm.total) <= 0) {
-      return alert(isProgramSale ? "Ne kadar olduğunu yaz" : "Satış fiyatını yaz");
+      alert(isProgramSale ? "Ne kadar olduğunu yaz" : "Satış fiyatını yaz");
+      return false;
     }
-    if (saleCard + parseMoneyInput(cartPayments.cardAmount) > 0 && !saleForm.bank && !cartBankName) return alert("Kart ödeme varsa banka seç");
+    if (saleCustomerRequired && !saleFormCariText.trim()) {
+      alert(isAccessorySale ? "Cari/kalan varsa müşteri adı zorunludur." : "Müşteri adı soyadı / telefon yaz");
+      return false;
+    }
+    if (saleCard + parseMoneyInput(cartPayments.cardAmount) > 0 && !saleForm.bank && !cartBankName) {
+      alert("Kart ödeme varsa banka seç");
+      return false;
+    }
     if (!alertFinancialValidation(validatePaymentDistribution({
       totalAmount: saleTotal,
       cashAmount: saleCash,
       cardAmount: saleCard,
       messages: { overpaid: "Nakit + kart toplamı satış fiyatını aşamaz." },
-    }))) return;
+    }))) return false;
 
     if (isProgramSale) {
-      if (!saleForm.search.trim()) return alert("Ne programı olduğunu yaz");
-      addCartItem(makeServiceCartItem({ name: saleForm.search.trim(), amount: saleForm.total, category: "Program / Hizmet" }));
+      if (!saleForm.search.trim()) {
+        alert("Ne programı olduğunu yaz");
+        return false;
+      }
+      if (!addCartItem(makeServiceCartItem({ name: saleForm.search.trim(), amount: saleForm.total, category: "Program / Hizmet" }))) return false;
     } else {
-      if (!selectedProduct) return alert("Ürün seç");
-      addProductToCart(selectedProduct, { unitPriceAtSale: saleForm.total, quantity: 1 });
+      if (!selectedProduct) {
+        alert("Ürün seç");
+        return false;
+      }
+      if (!addProductToCart(selectedProduct, { unitPriceAtSale: saleForm.total, quantity: 1 })) return false;
     }
 
     if (saleForm.customer.trim()) setCartCustomer({ customerId: findCartCustomer(saleForm.customer)?.id || "", customerName: saleForm.customer.trim() });
@@ -2854,6 +2934,7 @@ const isSameSalesListDay = (item, dateKey) => {
       cariAmount: saleRemaining ? formatMoneyInput(saleRemaining) : current.cariAmount,
     }));
     setSaleForm({ ...saleForm, search: "", productId: "", total: "", cash: "", card: "" });
+    return true;
   }
 
   function updateCartItem(cartItemIdValue, patch) {
@@ -2910,7 +2991,13 @@ const isSameSalesListDay = (item, dateKey) => {
     if (cartSummary.netTotal <= 0) return alert("Net toplam 0’dan büyük olmalıdır.");
     if (cartPaymentGap !== 0) return alert("Nakit + kart/banka + cari toplamı satış tutarına eşit olmalıdır.");
     if ((parseMoneyInput(cartPayments.cardAmount) + parseMoneyInput(cartPayments.bankAmount)) > 0 && !cartBankName) return alert("Kart/Banka ödeme varsa banka seç.");
-    if (parseMoneyInput(cartPayments.cariAmount) > 0 && !cartCustomer.customerId) return alert("Cari satış için müşteri seçmelisin.");
+    const cartCariAmount = parseMoneyInput(cartPayments.cariAmount);
+    const cartCustomerName = String(cartCustomer.customerName || saleForm.customer || "").trim();
+    const isOnlyAccessoryCart = rows.every((item) => {
+      const marker = normalizeCashEntryText([item.productType, item.productTypeLabel, item.category, item.note].join(" "));
+      return marker.includes("accessory") || marker.includes("aksesuar");
+    });
+    if ((!isOnlyAccessoryCart || cartCariAmount > 0) && !cartCustomerName) return alert("Müşteri adı soyadı / telefon yaz");
     const invalidStock = rows.find((item) => item.productType !== "service" && Number(item.quantity || 0) > Number(item.stockAvailable || 0));
     if (invalidStock) return alert(`Stok yetersiz: ${invalidStock.productName}`);
     const duplicateImei = rows.find((item, index) => item.imei && rows.findIndex((row) => row.imei === item.imei) !== index);
@@ -2927,8 +3014,8 @@ const isSameSalesListDay = (item, dateKey) => {
         actorId: currentUser?.id || currentUser?.email || null,
         idempotencyKey,
         customerId: cartCustomer.customerId || null,
-        customer_name: cartCustomer.customerName || saleForm.customer || "",
-        cari_person: cartCustomer.customerName || saleForm.cariPerson || "",
+        customer_name: cartCustomerName,
+        cari_person: cartCustomerName || saleForm.cariPerson || "",
         sale_group: "Sepet",
         sale_type: "Sepet Satışı",
         bank_name: cartBankName || "",
@@ -2953,7 +3040,7 @@ const isSameSalesListDay = (item, dateKey) => {
           cashAmount: parseMoneyInput(cartPayments.cashAmount),
           cardAmount: parseMoneyInput(cartPayments.cardAmount),
           bankAmount: parseMoneyInput(cartPayments.bankAmount),
-          cariAmount: parseMoneyInput(cartPayments.cariAmount),
+          cariAmount: cartCariAmount,
         },
         note: cartNote,
         metadata: { source: "cart", screen: "main_sales", itemCount: rows.length },
@@ -2971,6 +3058,7 @@ const isSameSalesListDay = (item, dateKey) => {
       setCartCustomer({ customerId: "", customerName: "" });
       setCartBankName("");
       setCartNote("");
+      setCartPaymentModalOpen(false);
       setSyncMessage("Satış başarıyla tamamlandı.");
       alert("Satış başarıyla tamamlandı.");
     } catch (error) {
@@ -4763,16 +4851,14 @@ const isSameSalesListDay = (item, dateKey) => {
       cardAmount: saleCard,
       messages: { overpaid: "Nakit + kart toplamı satış fiyatını aşamaz." },
     }))) return;
-    if (isAccessorySale && saleCash + saleCard !== saleTotal) {
-      return alert("Aksesuar satışında kalan bakiye kabul edilmez. Nakit + Kart/Banka toplamı satış fiyatına eşit olmalıdır.");
-    }
+    if (isAccessorySale && saleRemaining > 0 && !saleForm.cariPerson.trim() && !saleForm.customer.trim()) return alert("Cari/kalan varsa müşteri adı zorunludur.");
     if (saleCard > 0 && !saleForm.bank) return alert("Kart ödeme varsa banka seç");
 
     const sale = calcSale({
       id: Date.now(),
       type: saleForm.type,
-      customer: isAccessorySale ? "" : saleForm.customer.trim(),
-      cariPerson: isAccessorySale ? "" : (saleForm.cariPerson.trim() || saleForm.customer.trim()),
+      customer: saleForm.customer.trim(),
+      cariPerson: saleForm.cariPerson.trim() || saleForm.customer.trim(),
       bank: saleForm.bank,
       productName: isProgramSale ? saleForm.search.trim() : (selectedProduct ? productTitle(selectedProduct) : saleForm.search.trim()),
       productId: isProgramSale || !selectedProduct ? null : selectedProduct.id,
@@ -5483,7 +5569,7 @@ const isSameSalesListDay = (item, dateKey) => {
 
     if (!group) return alert("Grup seç");
     if (!sub) return alert("Alt seçenek seç");
-    if (accessoryShortcuts.length >= accessoryShortcutLimit) return alert("En fazla 30 kısayol eklenebilir.");
+    if (accessoryShortcuts.length >= accessoryShortcutLimit) return alert("En fazla 20 kısayol eklenebilir.");
 
     const label = `${group} - ${sub}`;
     const exists = accessoryShortcuts.some((item) => item.label.toLocaleLowerCase("tr-TR") === label.toLocaleLowerCase("tr-TR"));
@@ -5510,14 +5596,14 @@ const isSameSalesListDay = (item, dateKey) => {
     if (cleanGroup === "telefon") return { saleGroup: "Telefon", saleType: "Telefon Satışı", group: "Telefon" };
     if (cleanGroup === "saat") return { saleGroup: "Saat", saleType: "Saat Satışı", group: "Saat" };
     if (cleanGroup === "tablet") return { saleGroup: "Tablet", saleType: "Tablet Satışı", group: "Tablet" };
-    if (cleanGroup === "pc") return { saleGroup: "Elektronik", saleType: "PC Satışı", group: "PC" };
+    if (cleanGroup === "pc") return { saleGroup: "PC", saleType: "PC Satışı", group: "PC" };
     if (cleanGroup === "elektronik") return { saleGroup: "Elektronik", saleType: "Elektronik Satışı", group: "Elektronik" };
     if (cleanGroup === "bluetooth") return { saleGroup: "Bluetooth", saleType: "Bluetooth Satışı", group: "Bluetooth" };
     return { saleGroup: "X", saleType: "Diğerleri Satışı", group: "X" };
   }
 
   function addUniversalShortcutFromManagement() {
-    if (accessoryShortcuts.length >= accessoryShortcutLimit) return alert("En fazla 30 kısayol eklenebilir.");
+    if (accessoryShortcuts.length >= accessoryShortcutLimit) return alert("En fazla 20 kısayol eklenebilir.");
 
     const groupInput = window.prompt(`Kısayol grubu yaz:\n${shortcutGroupOptions.join(", ")}`, "Aksesuar");
     if (groupInput === null) return;
@@ -6293,16 +6379,13 @@ const isSameSalesListDay = (item, dateKey) => {
 
             {kasaTab === "yeniSatis" && (
               <div className="kasa-home-dashboard kasa-mockup-dashboard ceplog-kasa-ref">
-                <div className="kasa-subtabs kasa-main-tabs">
-                  <button className="choice active" type="button">YENİ SATIŞ</button>
-                  <button className="choice" type="button" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
-                  <button className="choice" type="button" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
-                  <button className="choice" type="button" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
-                  <button className="choice" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPATMA</button>
-                </div>
-
                 <div className="kasa-layout">
                   <div className="card pad kasa-sale-card">
+                    <button className="kasa-sale-title-button" type="button" onClick={() => setSaleLineModalOpen(Boolean(selectedProduct) || isProgramSale)}>
+                      <ShoppingBag size={22} />
+                      YENİ SATIŞ
+                    </button>
+
                     <div className="kasa-category-grid">
                       {mainSaleGroups.map((group) => (
                         <button
@@ -6314,13 +6397,14 @@ const isSameSalesListDay = (item, dateKey) => {
                             setSaleForm({
                               ...saleForm,
                               type:
-                                group === "Telefon" ? "Telefon Satışı" :
                                 group === "Aksesuar" ? "Aksesuar Satışı" :
                                 group === "Program" ? "Program Satışı" :
-                                group === "Saat" ? "Saat Satışı" :
+                                group === "Telefon" ? "Telefon Satışı" :
                                 group === "Tablet" ? "Tablet Satışı" :
-                                group === "Elektronik" ? "Elektronik Satışı" :
+                                group === "Saat" ? "Saat Satışı" :
+                                group === "PC" ? "PC Satışı" :
                                 group === "Bluetooth" ? "Bluetooth Satışı" :
+                                group === "Elektronik" ? "Elektronik Satışı" :
                                 group === "X" ? "Diğerleri Satışı" :
                                 "Telefon Satışı",
                               productId: "",
@@ -6329,19 +6413,13 @@ const isSameSalesListDay = (item, dateKey) => {
                               cash: "",
                               card: "",
                             });
+                            setSaleLineModalOpen(false);
                           }}
                         >
                           {group === "X" ? "Diğer" : group}
                         </button>
                       ))}
                     </div>
-
-                    {saleGroup === "Elektronik" && (
-                      <div className="electronics-sub-tabs">
-                        <button type="button" className={saleForm.type === "PC Satışı" ? "choice active" : "choice"} onClick={() => setSaleForm({ ...saleForm, type: "PC Satışı", productId: "", search: "", total: "", cash: "", card: "" })}>PC</button>
-                        <button type="button" className={saleForm.type === "Elektronik Satışı" ? "choice active" : "choice"} onClick={() => setSaleForm({ ...saleForm, type: "Elektronik Satışı", productId: "", search: "", total: "", cash: "", card: "" })}>Diğer Elektronik</button>
-                      </div>
-                    )}
 
                     {!isAccessorySale && (
                       <input
@@ -6370,6 +6448,7 @@ const isSameSalesListDay = (item, dateKey) => {
                             cash: "",
                             card: "",
                           });
+                          if (product) setSaleLineModalOpen(true);
                         }}>
                           <option value="">Ürün seç</option>
                           {saleProducts.map((product) => (
@@ -6378,136 +6457,85 @@ const isSameSalesListDay = (item, dateKey) => {
                         </select>
                       </>
                     )}
-
-                    <input type="text" inputMode="numeric" placeholder={isProgramSale ? "Tutar" : "Satış fiyatı"} value={saleForm.total} onFocus={() => setSaleForm({ ...saleForm, total: stripMoneyForEdit(saleForm.total) })} onChange={(e) => setSaleForm({ ...saleForm, total: cleanMoneyTyping(e.target.value) })} onBlur={() => setSaleForm({ ...saleForm, total: formatMoneyInput(saleForm.total) })} />
-                    <input type="text" inputMode="numeric" placeholder="Nakit" value={saleForm.cash} onFocus={() => setSaleForm({ ...saleForm, cash: stripMoneyForEdit(saleForm.cash) })} onChange={(e) => setSaleForm({ ...saleForm, cash: cleanMoneyTyping(e.target.value) })} onBlur={() => setSaleForm({ ...saleForm, cash: formatMoneyInput(saleForm.cash) })} />
-
-                    <div className="two">
-                      <input type="text" inputMode="numeric" placeholder="Kart / POS" value={saleForm.card} onFocus={() => setSaleForm({ ...saleForm, card: stripMoneyForEdit(saleForm.card) })} onChange={(e) => setSaleForm({ ...saleForm, card: cleanMoneyTyping(e.target.value) })} onBlur={() => setSaleForm({ ...saleForm, card: formatMoneyInput(saleForm.card) })} />
-                      <div className="remaining-box"><span>Kalan</span><b>{money(saleRemaining)}</b></div>
+                    <div className="kasa-sale-hint">
+                      <span>Ürünü seçince detaylı satış penceresi açılır.</span>
+                      <b>{selectedProduct ? saleProductDisplayName : "Fiyat ve ödeme popup içinde tamamlanır."}</b>
                     </div>
-
-                    <select value={saleForm.bank} onChange={(e) => handleBankSelect(e.target.value, (bank) => {
-                      setSaleForm({ ...saleForm, bank });
-                      setCartBankName(bank);
-                    })}>
-                      <option value="">Banka seç</option>
-                      {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
-                      <option value="__add_bank__">+ Banka Ekle</option>
-                    </select>
-
-                    {!isAccessorySale && saleRemaining > 0 && (
-                      <div className="warning">
-                        <b>Kalan / Cari</b>
-                        <input list="cart-customer-list" placeholder="Cari kişi seç veya yaz" value={saleForm.cariPerson} onChange={(e) => {
-                          setSaleForm({ ...saleForm, cariPerson: e.target.value });
-                          changeCartCustomer(e.target.value);
-                        }} />
-                      </div>
-                    )}
-
                   </div>
 
                   <main className="kasa-mid">
                     <section className="card pad kasa-quick">
-                      <div className="quick-head">
-                        <button type="button" className="quick-title-btn">HIZLI SATIŞ</button>
-                        <div className="quick-search">
-                          <input
-                            placeholder="Ürün ara..."
-                            value={cartProductQuery}
-                            onChange={(event) => setCartProductQuery(event.target.value)}
-                          />
-                          <button type="button">ARA</button>
-                        </div>
+                      <div className="quick-head quick-head-shortcuts">
+                        <button type="button" className="quick-title-btn">KISAYOLLAR</button>
+                        <button type="button" className="cart-open-chip" disabled={!cartItems.length} onClick={() => setCartPaymentModalOpen(true)}>
+                          Sepeti Aç
+                          <b>{cartSummary.totalQuantity}</b>
+                        </button>
                       </div>
 
-                      {cartProductQuery.trim() && (
-                        <div className="cart-product-results kasa-search-results">
-                          {cartSearchResults.map((product) => (
-                            <button key={product.id} type="button" className="cart-product-result" onClick={() => addProductToCart(product)}>
-                              <strong>{productTitle(product)}</strong>
-                              <small>{getLastSixBarcode(product)}</small>
-                              <b>{money(product.sell || product.price || 0)}</b>
-                            </button>
-                          ))}
-                          {!cartSearchResults.length && <div className="cart-product-empty">Sonuç bulunamadı.</div>}
-                        </div>
-                      )}
-
                       <div className="quick-sub">
-                        <span>KISAYOLLAR</span>
+                        <span>Aksesuar • Program • Telefon • Tablet • Saat • PC • Bluetooth • Elektronik • Diğer</span>
                         <b>{visibleAccessoryShortcuts.length} ürün</b>
                       </div>
 
                       <div className="quick-grid">
-                        {visibleAccessoryShortcuts.map((shortcut) => (
-                          <button key={shortcut.id} type="button" className="qitem" onClick={() => addShortcutToCart(shortcut)}>
-                            <span className="qicon">▣</span>
-                            <span className="qtext">
-                              <strong>{shortcut.label}</strong>
-                              {shortcut.price && <small>{shortcut.price}</small>}
-                            </span>
-                          </button>
-                        ))}
+                        {visibleAccessoryShortcuts.map((shortcut) => {
+                          const ShortcutIcon = getShortcutIconComponent(shortcut);
+                          return (
+                            <button key={shortcut.id} type="button" className="qitem" onClick={() => addShortcutToCart(shortcut)}>
+                              <span className="qicon"><ShortcutIcon size={13} strokeWidth={2.6} /></span>
+                              <span className="qtext">
+                                <strong>{shortcut.label}</strong>
+                                {shortcut.price && <small>{shortcut.price}</small>}
+                              </span>
+                            </button>
+                          );
+                        })}
                         {!visibleAccessoryShortcuts.length && (
                           <div className="cart-product-empty">Henüz kısayol eklenmedi.</div>
                         )}
                       </div>
                     </section>
 
-                    <section className="card pad kasa-day">
-                      <div className="kasa-day-head">
-                        <div>
-                          <h2>Gün Özeti Raporu</h2>
-                          <p>Bugünkü nakit, kart ve cari hareketler</p>
-                        </div>
-                        <span className="kasa-date">{dailyReportDate ? new Date(dailyReportDate).toLocaleDateString("tr-TR", { day: "2-digit", month: "long" }) : "Bugün"}</span>
+                    <div className="kasa-lower-band">
+                      <div className="card pad kasa-bottom-actions" aria-label="Kasa hızlı geçişleri">
+                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
+                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
+                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
+                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPATMA</button>
                       </div>
-                      <div className="kasa-day-grid">
-                        <div className="summary-col">
-                          <h3>Nakit İşlemler</h3>
-                          <div className="srow"><span>Telefon Nakit</span><b>{money(phoneIncomeSummary.cash)}</b></div>
-                          <div className="srow"><span>Aksesuar Nakit</span><b>{money(accessoryIncomeSummary.cash)}</b></div>
-                          <div className="srow"><span>Diğerleri Nakit</span><b>{money(otherIncomeSummary.cash)}</b></div>
-                          <div className="srow"><span>Teknik Nakit</span><b>{money(technicalIncomeSummary.cash)}</b></div>
-                          <div className="srow danger"><span>Giderler</span><b>-{money(cashExpensePayments || 0)}</b></div>
-                          <div className="srow total"><span>Net Nakit</span><b>{money(cashWithBankIncoming)}</b></div>
-                        </div>
-                        <div className="summary-col">
-                          <h3>Kart / Cari İşlemler</h3>
-                          <div className="srow"><span>Telefon Kart</span><b>{money(phoneIncomeSummary.card)}</b></div>
-                          <div className="srow"><span>Aksesuar Kart</span><b>{money(accessoryIncomeSummary.card)}</b></div>
-                          <div className="srow"><span>Diğer Kart</span><b>{money(otherIncomeSummary.card)}</b></div>
-                          <div className="srow"><span>Teknik Kart</span><b>{money(technicalIncomeSummary.card)}</b></div>
-                          <div className="srow total"><span>Kart Toplamı</span><b>{money(phoneIncomeSummary.card + accessoryIncomeSummary.card + otherIncomeSummary.card + technicalIncomeSummary.card)}</b></div>
-                          <div className="srow"><span>Cari Kalan</span><b>{money(report.remaining || 0)}</b></div>
-                        </div>
-                      </div>
-                    </section>
-                  </main>
 
-                  <CartPanel
-                    items={cartItems.map(rebuildCartItem)}
-                    summary={cartSummary}
-                    payments={cartPayments}
-                    customer={cartCustomer}
-                    bankName={cartBankName}
-                    bankOptions={bankOptions}
-                    note={cartNote}
-                    processing={cartProcessing}
-                    money={money}
-                    paymentGap={cartPaymentGap}
-                    onUpdateItem={updateCartItem}
-                    onRemoveItem={removeCartItem}
-                    onClear={clearCart}
-                    onPaymentChange={changeCartPayment}
-                    onCustomerChange={changeCartCustomer}
-                    onBankChange={(value) => handleBankSelect(value, setCartBankName)}
-                    onNoteChange={setCartNote}
-                    onSetFullPayment={setFullCartPayment}
-                    onCheckout={completeCartSale}
-                  />
+                      <section className="card pad kasa-day">
+                        <div className="kasa-day-head">
+                          <div>
+                            <h2>Gün Özeti Raporu</h2>
+                            <p>Bugünkü nakit, kart ve cari hareketler</p>
+                          </div>
+                          <span className="kasa-date">{dailyReportDate ? new Date(dailyReportDate).toLocaleDateString("tr-TR", { day: "2-digit", month: "long" }) : "Bugün"}</span>
+                        </div>
+                        <div className="kasa-day-grid">
+                          <div className="summary-col">
+                            <h3>Nakit İşlemler</h3>
+                            <div className="srow"><span>Telefon Nakit</span><b>{money(phoneIncomeSummary.cash)}</b></div>
+                            <div className="srow"><span>Aksesuar Nakit</span><b>{money(accessoryIncomeSummary.cash)}</b></div>
+                            <div className="srow"><span>Diğerleri Nakit</span><b>{money(otherIncomeSummary.cash)}</b></div>
+                            <div className="srow"><span>Teknik Nakit</span><b>{money(technicalIncomeSummary.cash)}</b></div>
+                            <div className="srow danger"><span>Giderler</span><b>-{money(cashExpensePayments || 0)}</b></div>
+                            <div className="srow total"><span>Net Nakit</span><b>{money(cashWithBankIncoming)}</b></div>
+                          </div>
+                          <div className="summary-col">
+                            <h3>Kart / Cari İşlemler</h3>
+                            <div className="srow"><span>Telefon Kart</span><b>{money(phoneIncomeSummary.card)}</b></div>
+                            <div className="srow"><span>Aksesuar Kart</span><b>{money(accessoryIncomeSummary.card)}</b></div>
+                            <div className="srow"><span>Diğer Kart</span><b>{money(otherIncomeSummary.card)}</b></div>
+                            <div className="srow"><span>Teknik Kart</span><b>{money(technicalIncomeSummary.card)}</b></div>
+                            <div className="srow total"><span>Kart Toplamı</span><b>{money(phoneIncomeSummary.card + accessoryIncomeSummary.card + otherIncomeSummary.card + technicalIncomeSummary.card)}</b></div>
+                            <div className="srow"><span>Cari Kalan</span><b>{money(report.remaining || 0)}</b></div>
+                          </div>
+                        </div>
+                      </section>
+                    </div>
+                  </main>
                 </div>
 
                 {showSaleReadyModal && (
@@ -6517,8 +6545,77 @@ const isSameSalesListDay = (item, dateKey) => {
                       <div className="kasa-sale-ready-head sale-ready-modal-head">
                         <span>✓</span>
                         <div>
-                          <b id="sale-ready-modal-title">Satış bilgileri tamamlandı</b>
-                          <small>Ürün sepete gönderilmeye hazır.</small>
+                          <b id="sale-ready-modal-title">Ürün Satırını Tamamla</b>
+                          <small>Fiyat, ödeme ve cari bilgisini netleştir; sonra sepete gönder.</small>
+                        </div>
+                      </div>
+                      <div className="sale-product-showcase">
+                        <div className="sale-product-visual">
+                          {selectedProductImage ? (
+                            <img src={selectedProductImage} alt={saleProductDisplayName} />
+                          ) : (
+                            <Smartphone size={58} strokeWidth={2.2} />
+                          )}
+                        </div>
+                        <div className="sale-product-copy">
+                          <span>Seçilen ürün</span>
+                          <b>{saleProductDisplayName}</b>
+                          <small>{selectedProduct?.imei || selectedProduct?.barcode ? `IMEI / Barkod: ${selectedProduct?.imei || selectedProduct?.barcode}` : "Satış bilgilerini eksiksiz tamamla."}</small>
+                        </div>
+                        <div className="sale-product-total">
+                          <span>Satış</span>
+                          <b>{money(saleTotal)}</b>
+                        </div>
+                      </div>
+                      <div className="sale-line-editor-grid">
+                        <label>
+                          <span>Ürün</span>
+                          <input value={saleProductDisplayName} onChange={(event) => setSaleForm({ ...saleForm, search: event.target.value })} disabled={!isProgramSale} />
+                        </label>
+                        {!isAccessorySale && (
+                          <label>
+                            <span>Müşteri</span>
+                            <input list="cart-customer-list" value={saleForm.customer} onChange={(event) => {
+                              const customerName = event.target.value;
+                              setSaleForm({ ...saleForm, customer: customerName, cariPerson: saleForm.cariPerson || customerName });
+                              changeCartCustomer(customerName);
+                            }} placeholder="Müşteri adı soyadı / telefon" />
+                          </label>
+                        )}
+                        <label>
+                          <span>Satış Fiyatı</span>
+                          <input inputMode="numeric" value={saleForm.total} onFocus={() => setSaleForm({ ...saleForm, total: stripMoneyForEdit(saleForm.total) })} onChange={(event) => setSaleForm({ ...saleForm, total: cleanMoneyTyping(event.target.value) })} onBlur={() => setSaleForm({ ...saleForm, total: formatMoneyInput(saleForm.total) })} />
+                        </label>
+                        <label>
+                          <span>Nakit</span>
+                          <input inputMode="numeric" value={saleForm.cash} onFocus={() => setSaleForm({ ...saleForm, cash: stripMoneyForEdit(saleForm.cash) })} onChange={(event) => setSaleForm({ ...saleForm, cash: cleanMoneyTyping(event.target.value) })} onBlur={() => setSaleForm({ ...saleForm, cash: formatMoneyInput(saleForm.cash) })} />
+                        </label>
+                        <label>
+                          <span>Kart / POS</span>
+                          <input inputMode="numeric" value={saleForm.card} onFocus={() => setSaleForm({ ...saleForm, card: stripMoneyForEdit(saleForm.card) })} onChange={(event) => setSaleForm({ ...saleForm, card: cleanMoneyTyping(event.target.value) })} onBlur={() => setSaleForm({ ...saleForm, card: formatMoneyInput(saleForm.card) })} />
+                        </label>
+                        <label>
+                          <span>Banka</span>
+                          <select value={saleForm.bank} onChange={(event) => handleBankSelect(event.target.value, (bank) => {
+                            setSaleForm({ ...saleForm, bank });
+                            setCartBankName(bank);
+                          })}>
+                            <option value="">Banka seç</option>
+                            {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+                            <option value="__add_bank__">+ Banka Ekle</option>
+                          </select>
+                        </label>
+                        <label className="sale-line-cari-field">
+                          <span>Kalan / Cari</span>
+                          <input list="cart-customer-list" value={saleForm.cariPerson} onChange={(event) => {
+                            setSaleForm({ ...saleForm, cariPerson: event.target.value });
+                            changeCartCustomer(event.target.value);
+                          }} placeholder={saleReadyRemaining > 0 ? "Cari kişi" : "Kalan yok"} />
+                        </label>
+                        <div className="sale-line-profit-peek" tabIndex={0}>
+                          <span>Kâr</span>
+                          <b>Kârı göster</b>
+                          <strong className={saleLineProfit < 0 ? "negative" : ""}>{money(saleLineProfit)}</strong>
                         </div>
                       </div>
                       <div className="kasa-sale-ready-lines sale-ready-modal-lines">
@@ -6535,8 +6632,38 @@ const isSameSalesListDay = (item, dateKey) => {
                           <Calculator size={15} />
                           Düzenle
                         </button>
-                        <button className="primary" type="button" onClick={confirmSaleReadyToCart}>Sepete Yolla</button>
+                        <button className="primary" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("continue")}>Sepete Yolla + Devam Et</button>
+                        <button className="primary finish" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("finish")}>Sepete Yolla + Bitir</button>
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {cartPaymentModalOpen && (
+                  <div className="cart-flow-modal-backdrop" role="dialog" aria-modal="true" aria-label="Satış ödeme ekranı">
+                    <div className="cart-flow-modal-window">
+                      <button type="button" className="sale-ready-modal-close" onClick={() => setCartPaymentModalOpen(false)} aria-label="Sepet penceresini kapat">×</button>
+                      <CartPanel
+                        items={cartItems.map(rebuildCartItem)}
+                        summary={cartSummary}
+                        payments={cartPayments}
+                        customer={cartCustomer}
+                        bankName={cartBankName}
+                        bankOptions={bankOptions}
+                        note={cartNote}
+                        processing={cartProcessing}
+                        money={money}
+                        paymentGap={cartPaymentGap}
+                        onUpdateItem={updateCartItem}
+                        onRemoveItem={removeCartItem}
+                        onClear={clearCart}
+                        onPaymentChange={changeCartPayment}
+                        onCustomerChange={changeCartCustomer}
+                        onBankChange={(value) => handleBankSelect(value, setCartBankName)}
+                        onNoteChange={setCartNote}
+                        onSetFullPayment={setFullCartPayment}
+                        onCheckout={completeCartSale}
+                      />
                     </div>
                   </div>
                 )}
