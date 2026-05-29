@@ -14171,3 +14171,77 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   }
 }
+
+/* Final: 4 hızlı işlem butonu eski KISAYOLLAR butonu gibi koyu lacivert ve yan yana. */
+@media (min-width: 921px) {
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head {
+    grid-template-columns: minmax(0, 1fr) 118px !important;
+    gap: 8px !important;
+    min-height: 46px !important;
+    height: 46px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-tabs,
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head .quick-action-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-btn,
+  .premium-dashboard .ceplog-kasa-ref .cart-open-chip {
+    height: 46px !important;
+    min-height: 46px !important;
+    padding: 0 10px !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(255, 255, 255, .10) !important;
+    background: linear-gradient(135deg, #0f2a4d 0%, #102848 100%) !important;
+    color: #fff !important;
+    box-shadow: 0 12px 26px rgba(15, 23, 42, .18) !important;
+    font-size: clamp(10px, .76vw, 13px) !important;
+    font-weight: 1000 !important;
+    line-height: 1.05 !important;
+    letter-spacing: .01em !important;
+    text-align: center !important;
+    white-space: normal !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
+    overflow-wrap: normal !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-btn:hover,
+  .premium-dashboard .ceplog-kasa-ref .quick-action-btn:focus-visible,
+  .premium-dashboard .ceplog-kasa-ref .cart-open-chip:hover,
+  .premium-dashboard .ceplog-kasa-ref .cart-open-chip:focus-visible {
+    background: linear-gradient(135deg, #123765 0%, #102848 100%) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 16px 32px rgba(15, 23, 42, .24) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-open-chip {
+    display: inline-flex !important;
+    width: 118px !important;
+    max-width: 118px !important;
+    margin: 0 !important;
+  }
+}
+
+@media (min-width: 921px) and (max-width: 1180px) {
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head {
+    grid-template-columns: minmax(0, 1fr) !important;
+    height: auto !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-tabs,
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head .quick-action-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .cart-open-chip {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: 6px !important;
+  }
+}
