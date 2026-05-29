@@ -12,6 +12,7 @@
 <script>
   (function () {
     const STORAGE_KEY = "ceplog_screen_zoom";
+    const POSITION_STORAGE_KEY = "ceplog_zoom_control_position";
     const MIN_ZOOM = 0.75;
     const MAX_ZOOM = 1.25;
     const STEP = 0.05;
@@ -40,6 +41,72 @@
 
       const label = document.getElementById("ceplogZoomLabel");
       if (label) label.textContent = Math.round(zoom * 100) + "%";
+    }
+
+    function getSavedZoomPosition() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(POSITION_STORAGE_KEY) || "null");
+        if (!parsed || !Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return null;
+        return parsed;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function keepZoomControlInViewport(x, y, element) {
+      const width = element?.offsetWidth || 150;
+      const height = element?.offsetHeight || 48;
+      const margin = 8;
+      return {
+        x: Math.min(Math.max(margin, x), Math.max(margin, window.innerWidth - width - margin)),
+        y: Math.min(Math.max(margin, y), Math.max(margin, window.innerHeight - height - margin)),
+      };
+    }
+
+    function placeZoomControl(element, x, y, save = true) {
+      if (!element) return;
+      const next = keepZoomControlInViewport(x, y, element);
+      element.classList.add("ceplog-zoom-dragged");
+      element.style.setProperty("left", next.x + "px", "important");
+      element.style.setProperty("top", next.y + "px", "important");
+      element.style.setProperty("right", "auto", "important");
+      element.style.setProperty("bottom", "auto", "important");
+      if (save) localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify(next));
+    }
+
+    function enableZoomControlDrag(element, handle) {
+      if (!element || !handle) return;
+      let dragState = null;
+
+      handle.addEventListener("pointerdown", function (event) {
+        event.preventDefault();
+        const rect = element.getBoundingClientRect();
+        dragState = {
+          offsetX: event.clientX - rect.left,
+          offsetY: event.clientY - rect.top,
+        };
+        element.classList.add("ceplog-zoom-dragging");
+        handle.setPointerCapture?.(event.pointerId);
+      });
+
+      handle.addEventListener("pointermove", function (event) {
+        if (!dragState) return;
+        placeZoomControl(element, event.clientX - dragState.offsetX, event.clientY - dragState.offsetY);
+      });
+
+      function stopDrag(event) {
+        if (!dragState) return;
+        dragState = null;
+        element.classList.remove("ceplog-zoom-dragging");
+        handle.releasePointerCapture?.(event.pointerId);
+      }
+
+      handle.addEventListener("pointerup", stopDrag);
+      handle.addEventListener("pointercancel", stopDrag);
+      window.addEventListener("resize", function () {
+        const saved = getSavedZoomPosition();
+        if (saved) placeZoomControl(element, saved.x, saved.y);
+      });
     }
 
     function makeButton(text, title, onClick) {
@@ -80,6 +147,22 @@
       wrap.style.boxShadow = "0 14px 35px rgba(15,23,42,.18)";
       wrap.style.backdropFilter = "blur(12px)";
 
+      const dragHandle = document.createElement("button");
+      dragHandle.type = "button";
+      dragHandle.textContent = "↕";
+      dragHandle.title = "Zoom tuşunu taşımak için sürükle";
+      dragHandle.setAttribute("aria-label", "Zoom tuşunu taşı");
+      dragHandle.style.border = "0";
+      dragHandle.style.borderRadius = "10px";
+      dragHandle.style.background = "#e2e8f0";
+      dragHandle.style.color = "#102848";
+      dragHandle.style.fontWeight = "1000";
+      dragHandle.style.fontSize = "15px";
+      dragHandle.style.height = "34px";
+      dragHandle.style.minWidth = "28px";
+      dragHandle.style.cursor = "grab";
+      dragHandle.style.touchAction = "none";
+
       const minus = makeButton("−", "Ekranı küçült", function () {
         applyZoom(getZoom() - STEP);
       });
@@ -106,11 +189,15 @@
         applyZoom(getZoom() + STEP);
       });
 
+      wrap.appendChild(dragHandle);
       wrap.appendChild(minus);
       wrap.appendChild(label);
       wrap.appendChild(plus);
       document.body.appendChild(wrap);
 
+      const savedPosition = getSavedZoomPosition();
+      if (savedPosition) placeZoomControl(wrap, savedPosition.x, savedPosition.y, false);
+      enableZoomControlDrag(wrap, dragHandle);
       applyZoom(getZoom());
     }
 
