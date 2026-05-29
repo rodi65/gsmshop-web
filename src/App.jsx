@@ -2722,6 +2722,7 @@ const isSameSalesListDay = (item, dateKey) => {
   const [cartNote, setCartNote] = useState("");
   const [cartProductQuery, setCartProductQuery] = useState("");
   const [cartProcessing, setCartProcessing] = useState(false);
+  const [saleReadyModalDismissedKey, setSaleReadyModalDismissedKey] = useState("");
   const bankList = useMemo(() => getBankList(banks), [banks]);
   const bankOptions = useMemo(() => {
     const names = [];
@@ -2900,6 +2901,22 @@ const isSameSalesListDay = (item, dateKey) => {
     saleCash + saleCard <= saleTotal &&
     (!saleFormNeedsBank || Boolean(saleForm.bank || cartBankName)) &&
     (!saleFormNeedsCari || Boolean(saleFormCariText.trim()));
+  const saleReadyModalKey = [
+    saleForm.type,
+    saleForm.productId,
+    saleForm.search,
+    saleForm.total,
+    saleForm.cash,
+    saleForm.card,
+    saleForm.bank || cartBankName,
+    saleFormCariText,
+  ].map((value) => String(value || "").trim()).join("|");
+  const showSaleReadyModal = saleFormReadyForCart && saleReadyModalDismissedKey !== saleReadyModalKey;
+  const closeSaleReadyModal = () => setSaleReadyModalDismissedKey(saleReadyModalKey);
+  const confirmSaleReadyToCart = () => {
+    setSaleReadyModalDismissedKey(saleReadyModalKey);
+    addCurrentSaleFormToCart();
+  };
   const findCartCustomer = (name) => {
     const clean = String(name || "").trim().toLocaleLowerCase("tr-TR");
     if (!clean) return null;
@@ -6804,31 +6821,6 @@ const isSameSalesListDay = (item, dateKey) => {
                       </div>
                     )}
 
-                    {saleFormReadyForCart && (
-                      <div className="kasa-sale-ready-card">
-                        <div className="kasa-sale-ready-head">
-                          <span>✓</span>
-                          <div>
-                            <b>Satış bilgileri tamamlandı</b>
-                            <small>Sepete gönderilmeye hazır.</small>
-                          </div>
-                        </div>
-                        <div className="kasa-sale-ready-lines">
-                          <div><span>Ürün</span><b>{isProgramSale ? saleForm.search : productTitle(selectedProduct)}</b></div>
-                          <div><span>Fiyat</span><b>{money(saleTotal)}</b></div>
-                          <div><span>Nakit</span><b>{money(normalizeMoney(saleForm.cash))}</b></div>
-                          <div><span>Kart</span><b>{money(normalizeMoney(saleForm.card))}</b></div>
-                          <div><span>Cari</span><b>{money(saleReadyRemaining)}</b></div>
-                        </div>
-                        <div className="kasa-sale-ready-actions">
-                          <button type="button" className="choice" onClick={openCalculator}>
-                            <Calculator size={15} />
-                            Düzenle
-                          </button>
-                          <button className="primary" type="button" onClick={addCurrentSaleFormToCart}>Sepete Yolla</button>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   <main className="kasa-mid">
@@ -6932,6 +6924,37 @@ const isSameSalesListDay = (item, dateKey) => {
                     onCheckout={completeCartSale}
                   />
                 </div>
+
+                {showSaleReadyModal && (
+                  <div className="sale-ready-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="sale-ready-modal-title">
+                    <div className="sale-ready-modal-window">
+                      <button type="button" className="sale-ready-modal-close" onClick={closeSaleReadyModal} aria-label="Pencereyi kapat">×</button>
+                      <div className="kasa-sale-ready-head sale-ready-modal-head">
+                        <span>✓</span>
+                        <div>
+                          <b id="sale-ready-modal-title">Satış bilgileri tamamlandı</b>
+                          <small>Ürün sepete gönderilmeye hazır.</small>
+                        </div>
+                      </div>
+                      <div className="kasa-sale-ready-lines sale-ready-modal-lines">
+                        <div><span>Ürün</span><b>{isProgramSale ? saleForm.search : productTitle(selectedProduct)}</b></div>
+                        <div><span>Fiyat</span><b>{money(saleTotal)}</b></div>
+                        <div><span>Nakit</span><b>{money(saleCash)}</b></div>
+                        <div><span>Kart</span><b>{money(saleCard)}</b></div>
+                        <div><span>Banka</span><b>{saleForm.bank || cartBankName || "-"}</b></div>
+                        <div><span>Cari</span><b>{money(saleReadyRemaining)}</b></div>
+                        {saleReadyRemaining > 0 && <div><span>Cari Kişi</span><b>{saleFormCariText || "-"}</b></div>}
+                      </div>
+                      <div className="kasa-sale-ready-actions sale-ready-modal-actions">
+                        <button type="button" className="choice" onClick={closeSaleReadyModal}>
+                          <Calculator size={15} />
+                          Düzenle
+                        </button>
+                        <button className="primary" type="button" onClick={confirmSaleReadyToCart}>Sepete Yolla</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <datalist id="cart-customer-list">
                   {activeContacts.map((contact) => <option key={contact.id} value={contact.name} />)}
