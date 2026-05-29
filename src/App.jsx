@@ -2515,6 +2515,8 @@ const isSameSalesListDay = (item, dateKey) => {
   const [cartProductQuery, setCartProductQuery] = useState("");
   const [cartProcessing, setCartProcessing] = useState(false);
   const [cartPaymentModalOpen, setCartPaymentModalOpen] = useState(false);
+  const [saleSearchModalOpen, setSaleSearchModalOpen] = useState(false);
+  const [saleSearchQuery, setSaleSearchQuery] = useState("");
   const [saleLineModalOpen, setSaleLineModalOpen] = useState(false);
   const [expandedSaleModalItemId, setExpandedSaleModalItemId] = useState("");
   const [saleReadyModalDismissedKey, setSaleReadyModalDismissedKey] = useState("");
@@ -2643,6 +2645,76 @@ const isSameSalesListDay = (item, dateKey) => {
     })
     .filter((product) => !saleForm.search || has(productTitle(product), saleForm.search) || has(product.barcode, saleForm.search))
     .filter((product) => Number(product.qty || 0) > 0);
+
+  const saleSearchGroups = [
+    { key: "Telefon", title: "Telefon" },
+    { key: "Aksesuar", title: "Aksesuar" },
+    { key: "Teknik", title: "Teknik" },
+    { key: "Diger", title: "Diğerleri / geri kalanlar" },
+  ];
+  const getSaleSearchGroupKey = (product) => {
+    const group = stockSearchGroup(product);
+    if (group === "TELEFON") return "Telefon";
+    if (group === "AKSESUAR") return "Aksesuar";
+    if (["PC", "TABLET", "ELEKTRONİK", "BLUETOOTH", "SAAT"].includes(group)) return "Teknik";
+    return "Diger";
+  };
+  const saleSearchMatchesCari = (product, queryText) => {
+    if (!queryText) return true;
+    if (stockSearchHaystack(product).includes(queryText)) return true;
+    return activeContacts.some((contact) => {
+      const contactText = [contact.name, contact.phone, contact.note]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("tr-TR");
+      if (!contactText || !contactText.includes(queryText)) return false;
+      const productParty = [product.supplier, product.supplier_name, product.sellerPerson, product.seller_person, product.buyerName]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("tr-TR");
+      return productParty && contactText.split(/\s+/).some((part) => part.length > 2 && productParty.includes(part));
+    });
+  };
+  const saleSearchResultsByGroup = useMemo(() => {
+    const queryText = saleSearchQuery.trim().toLocaleLowerCase("tr-TR");
+    const grouped = saleSearchGroups.reduce((acc, group) => ({ ...acc, [group.key]: [] }), {});
+
+    inStockItems
+      .map((product, index) => ({ product, index }))
+      .filter(({ product }) => saleSearchMatchesCari(product, queryText))
+      .sort((a, b) => {
+        const aTime = new Date(a.product.saleDate || a.product.createdAt || a.product.created_at || 0).getTime();
+        const bTime = new Date(b.product.saleDate || b.product.createdAt || b.product.created_at || 0).getTime();
+        if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return bTime - aTime;
+        return a.index - b.index;
+      })
+      .forEach(({ product }) => {
+        const key = getSaleSearchGroupKey(product);
+        if (grouped[key].length < 12) grouped[key].push(product);
+      });
+
+    return grouped;
+  }, [activeContacts, inStockItems, saleSearchQuery]);
+  const saleSearchTotalCount = saleSearchGroups.reduce((total, group) => total + (saleSearchResultsByGroup[group.key]?.length || 0), 0);
+  const openSaleSearchModal = () => {
+    setSaleSearchModalOpen(true);
+    setSaleSearchQuery("");
+  };
+  const selectSaleSearchProduct = (product) => {
+    const target = saleTargetFromStockProduct(product);
+    setSaleGroup(target.saleGroup);
+    setSaleForm((current) => ({
+      ...current,
+      type: target.saleType,
+      productId: String(product.id || ""),
+      search: product.barcode || product.imei || productTitle(product),
+      total: product.sell || product.sellPrice || product.sell_price || "",
+      cash: "",
+      card: "",
+    }));
+    setSaleSearchModalOpen(false);
+    setSaleLineModalOpen(true);
+  };
 
   const stockSearchResults = useMemo(() => {
     const queryText = stockSearchQuery.trim().toLocaleLowerCase("tr-TR");
@@ -5824,13 +5896,6 @@ const isSameSalesListDay = (item, dateKey) => {
           </div>
         )}
           </div>
-          <div className="hero-banner-visual" aria-hidden="true">
-            <div className="mockup-window">
-              <span>Canlı Dashboard</span>
-              <b>CEPLOG PRO</b>
-              <small>Akıllı GSM yönetimi</small>
-            </div>
-          </div>
           {isLocalhostRuntime() && <div className="status-pill">WEB TEST</div>}
         </header>
 
@@ -6420,103 +6485,42 @@ const isSameSalesListDay = (item, dateKey) => {
             {kasaTab === "yeniSatis" && (
               <div className="kasa-home-dashboard kasa-mockup-dashboard ceplog-kasa-ref">
                 <div className="kasa-layout">
-                  <div className="card pad kasa-sale-card">
-                    <button className="kasa-sale-title-button" type="button" onClick={() => setSaleLineModalOpen(Boolean(selectedProduct) || isProgramSale)}>
-                      <ShoppingBag size={22} />
-                      YENİ SATIŞ
+                  <div className="card pad kasa-sale-card kasa-sorgula-card">
+                    <button className="kasa-sorgula-launch" type="button" onClick={openSaleSearchModal}>
+                      <span className="kasa-sorgula-icon"><Search size={34} strokeWidth={2.7} /></span>
+                      <span className="kasa-sorgula-copy">
+                        <small>Satış başlangıcı</small>
+                        <b>SORGULA</b>
+                        <em>IMEI, barkod, ürün/model veya cari adıyla ürünü bul; mevcut satış popup akışıyla devam et.</em>
+                      </span>
+                      <span className="kasa-sorgula-count">{inStockItems.length} ürün</span>
                     </button>
-
-                    <div className="kasa-category-grid">
-                      {mainSaleGroups.map((group) => (
-                        <button
-                          key={group}
-                          type="button"
-                          className={saleGroup === group ? "big-sale-btn active" : "big-sale-btn"}
-                          onClick={() => {
-                            setSaleGroup(group);
-                            setSaleForm({
-                              ...saleForm,
-                              type:
-                                group === "Aksesuar" ? "Aksesuar Satışı" :
-                                group === "Program" ? "Program Satışı" :
-                                group === "Telefon" ? "Telefon Satışı" :
-                                group === "Tablet" ? "Tablet Satışı" :
-                                group === "Saat" ? "Saat Satışı" :
-                                group === "PC" ? "PC Satışı" :
-                                group === "Bluetooth" ? "Bluetooth Satışı" :
-                                group === "Elektronik" ? "Elektronik Satışı" :
-                                group === "X" ? "Diğerleri Satışı" :
-                                "Telefon Satışı",
-                              productId: "",
-                              search: "",
-                              total: "",
-                              cash: "",
-                              card: "",
-                            });
-                            setSaleLineModalOpen(false);
-                          }}
-                        >
-                          {group === "X" ? "Diğer" : group}
-                        </button>
+                    <div className="kasa-sorgula-flow" aria-label="Sorgula ürün grupları">
+                      {saleSearchGroups.map((group) => (
+                        <span key={group.key}>{group.title}</span>
                       ))}
                     </div>
-
-                    {!isAccessorySale && (
-                      <input
-                        placeholder="Müşteri adı soyadı / telefon"
-                        value={saleForm.customer}
-                        onChange={(e) => {
-                          const customerName = e.target.value;
-                          setSaleForm({ ...saleForm, customer: customerName, cariPerson: customerName });
-                          changeCartCustomer(customerName);
-                        }}
-                      />
-                    )}
-
-                    {isProgramSale ? (
-                      <input placeholder="Teknik servis / işçilik / program kalemi" value={saleForm.search} onChange={(e) => setSaleForm({ ...saleForm, search: e.target.value })} />
-                    ) : (
-                      <>
-                        <input placeholder={isAccessorySale ? "Barkod veya ürün adı" : "Barkod / IMEI veya model"} value={saleForm.search} onChange={(e) => setSaleForm({ ...saleForm, search: e.target.value })} />
-                        <select value={saleForm.productId} onChange={(e) => {
-                          const product = stock.find((item) => String(item.id) === e.target.value);
-                          setSaleForm({
-                            ...saleForm,
-                            productId: e.target.value,
-                            search: product?.barcode || product?.imei || "",
-                            total: product?.sell || "",
-                            cash: "",
-                            card: "",
-                          });
-                          if (product) setSaleLineModalOpen(true);
-                        }}>
-                          <option value="">Ürün seç</option>
-                          {saleProducts.map((product) => (
-                            <option key={product.id} value={product.id}>{productTitle(product)} | IMEI: {getLastSixBarcode(product)}</option>
-                          ))}
-                        </select>
-                      </>
-                    )}
-                    <div className="kasa-sale-hint">
-                      <span>Ürünü seçince detaylı satış penceresi açılır.</span>
-                      <b>{selectedProduct ? saleProductDisplayName : "Fiyat ve ödeme popup içinde tamamlanır."}</b>
+                    <div className="kasa-sale-hint kasa-sorgula-hint">
+                      <span>Manuel satış formu kaldırıldı.</span>
+                      <b>Ürün seçimi SORGULA popup içinden yapılır.</b>
                     </div>
                   </div>
 
                   <main className="kasa-mid">
                     <section className="card pad kasa-quick">
-                      <div className="quick-head quick-head-shortcuts">
-                        <button type="button" className="quick-title-btn">KISAYOLLAR</button>
+                      <div className="quick-head quick-head-shortcuts quick-action-head">
+                        <div className="quick-action-tabs" aria-label="Kasa hızlı işlemleri">
+                          <button className="quick-action-btn" type="button" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
+                          <button className="quick-action-btn" type="button" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
+                          <button className="quick-action-btn" type="button" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
+                          <button className="quick-action-btn" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPATMA</button>
+                        </div>
                         <button type="button" className="cart-open-chip" disabled={!cartItems.length} onClick={() => setCartPaymentModalOpen(true)}>
                           Sepeti Aç
                           <b>{cartSummary.totalQuantity}</b>
                         </button>
                       </div>
 
-                      <div className="quick-sub">
-                        <span>Aksesuar • Program • Telefon • Tablet • Saat • PC • Bluetooth • Elektronik • Diğer</span>
-                        <b>{visibleAccessoryShortcuts.length} ürün</b>
-                      </div>
 
                       <div className="quick-grid">
                         {visibleAccessoryShortcuts.map((shortcut) => {
@@ -6538,21 +6542,7 @@ const isSameSalesListDay = (item, dateKey) => {
                     </section>
 
                     <div className="kasa-lower-band">
-                      <div className="card pad kasa-bottom-actions" aria-label="Kasa hızlı geçişleri">
-                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
-                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
-                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
-                        <button className="big-sale-btn" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPATMA</button>
-                      </div>
-
                       <section className="card pad kasa-day">
-                        <div className="kasa-day-head">
-                          <div>
-                            <h2>Gün Özeti Raporu</h2>
-                            <p>Bugünkü nakit, kart ve cari hareketler</p>
-                          </div>
-                          <span className="kasa-date">{dailyReportDate ? new Date(dailyReportDate).toLocaleDateString("tr-TR", { day: "2-digit", month: "long" }) : "Bugün"}</span>
-                        </div>
                         <div className="kasa-day-grid">
                           <div className="summary-col">
                             <h3>Nakit İşlemler</h3>
@@ -6577,6 +6567,58 @@ const isSameSalesListDay = (item, dateKey) => {
                     </div>
                   </main>
                 </div>
+
+                {saleSearchModalOpen && (
+                  <div className="sale-search-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="sale-search-modal-title">
+                    <div className="sale-search-modal-window">
+                      <button type="button" className="sale-ready-modal-close" onClick={() => setSaleSearchModalOpen(false)} aria-label="Sorgula penceresini kapat">×</button>
+                      <div className="sale-search-modal-head">
+                        <span className="sale-search-modal-icon"><Search size={26} strokeWidth={2.7} /></span>
+                        <div>
+                          <b id="sale-search-modal-title">SORGULA</b>
+                          <small>IMEI, barkod, ürün adı, model veya cari adıyla ara; seçince mevcut satış popup’ı açılır.</small>
+                        </div>
+                      </div>
+                      <div className="sale-search-modal-input-wrap">
+                        <Search size={18} />
+                        <input
+                          autoFocus
+                          value={saleSearchQuery}
+                          onChange={(event) => setSaleSearchQuery(event.target.value)}
+                          placeholder="IMEI, barkod, ürün/model veya cari adı yaz"
+                        />
+                      </div>
+                      <div className="sale-search-modal-groups">
+                        {saleSearchGroups.map((group) => {
+                          const products = saleSearchResultsByGroup[group.key] || [];
+                          return (
+                            <section className="sale-search-group" key={group.key}>
+                              <div className="sale-search-group-title">
+                                <b>{group.title}</b>
+                                <span>{products.length} sonuç</span>
+                              </div>
+                              <div className="sale-search-result-list">
+                                {products.map((product) => (
+                                  <button key={product.id} type="button" className="sale-search-result" onClick={() => selectSaleSearchProduct(product)}>
+                                    <span>
+                                      <b>{productTitle(product)}</b>
+                                      <small>{[product.imei || product.barcode, displayStockGroup(stockSearchGroup(product)), product.supplier || product.sellerPerson].filter(Boolean).join(" • ")}</small>
+                                    </span>
+                                    <strong>{money(product.sell || product.sellPrice || product.sell_price || 0)}</strong>
+                                  </button>
+                                ))}
+                                {!products.length && <div className="sale-search-empty">Bu grupta eşleşen ürün yok.</div>}
+                              </div>
+                            </section>
+                          );
+                        })}
+                      </div>
+                      {!saleSearchTotalCount && (
+                        <div className="sale-search-empty sale-search-empty-wide">Arama kriterine uygun stok ürünü bulunamadı.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {showSaleReadyModal && (
                   <div className="sale-ready-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="sale-ready-modal-title">
