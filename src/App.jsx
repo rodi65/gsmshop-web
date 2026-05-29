@@ -5824,13 +5824,6 @@ const isSameSalesListDay = (item, dateKey) => {
           </div>
         )}
           </div>
-          <div className="hero-banner-visual" aria-hidden="true">
-            <div className="mockup-window">
-              <span>Canlı Dashboard</span>
-              <b>CEPLOG PRO</b>
-              <small>Akıllı GSM yönetimi</small>
-            </div>
-          </div>
           {isLocalhostRuntime() && <div className="status-pill">WEB TEST</div>}
         </header>
 
@@ -6419,6 +6412,13 @@ const isSameSalesListDay = (item, dateKey) => {
 
             {kasaTab === "yeniSatis" && (
               <div className="kasa-home-dashboard kasa-mockup-dashboard ceplog-kasa-ref">
+                <div className="kasa-main-tabs clean-kasa-tabs" aria-label="Kasa işlemleri">
+                  <button className="choice active" type="button" onClick={() => setKasaTab("yeniSatis")}>YENİ SATIŞ</button>
+                  <button className="choice" type="button" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
+                  <button className="choice" type="button" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
+                  <button className="choice" type="button" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
+                  <button className="choice" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPATMA</button>
+                </div>
                 <div className="kasa-layout">
                   <div className="card pad kasa-sale-card">
                     <button className="kasa-sale-title-button" type="button" onClick={() => setSaleLineModalOpen(Boolean(selectedProduct) || isProgramSale)}>
@@ -6461,17 +6461,6 @@ const isSameSalesListDay = (item, dateKey) => {
                       ))}
                     </div>
 
-                    {!isAccessorySale && (
-                      <input
-                        placeholder="Müşteri adı soyadı / telefon"
-                        value={saleForm.customer}
-                        onChange={(e) => {
-                          const customerName = e.target.value;
-                          setSaleForm({ ...saleForm, customer: customerName, cariPerson: customerName });
-                          changeCartCustomer(customerName);
-                        }}
-                      />
-                    )}
 
                     {isProgramSale ? (
                       <input placeholder="Teknik servis / işçilik / program kalemi" value={saleForm.search} onChange={(e) => setSaleForm({ ...saleForm, search: e.target.value })} />
@@ -6513,10 +6502,6 @@ const isSameSalesListDay = (item, dateKey) => {
                         </button>
                       </div>
 
-                      <div className="quick-sub">
-                        <span>Aksesuar • Program • Telefon • Tablet • Saat • PC • Bluetooth • Elektronik • Diğer</span>
-                        <b>{visibleAccessoryShortcuts.length} ürün</b>
-                      </div>
 
                       <div className="quick-grid">
                         {visibleAccessoryShortcuts.map((shortcut) => {
@@ -6549,9 +6534,7 @@ const isSameSalesListDay = (item, dateKey) => {
                         <div className="kasa-day-head">
                           <div>
                             <h2>Gün Özeti Raporu</h2>
-                            <p>Bugünkü nakit, kart ve cari hareketler</p>
                           </div>
-                          <span className="kasa-date">{dailyReportDate ? new Date(dailyReportDate).toLocaleDateString("tr-TR", { day: "2-digit", month: "long" }) : "Bugün"}</span>
                         </div>
                         <div className="kasa-day-grid">
                           <div className="summary-col">

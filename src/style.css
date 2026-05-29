@@ -13125,3 +13125,263 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     padding: 0 10px !important;
   }
 }
+
+/* Ana ekran sade düzen: tek ödeme akışı, net sekmeler ve iki kolonlu kasa çalışma alanı. */
+@media (min-width: 921px) {
+  .premium-dashboard .app-shell > .section.kasa-home-section {
+    padding: 14px 16px 18px !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f6f8fc 100%) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref {
+    grid-template-rows: 42px minmax(0, 1fr) !important;
+    gap: 14px !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref > .clean-kasa-tabs {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin: 0 !important;
+    overflow-x: auto !important;
+    scrollbar-width: thin !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref > .clean-kasa-tabs .choice {
+    flex: 0 0 auto !important;
+    min-width: 120px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 18px !important;
+    border-radius: 10px !important;
+    border: 1px solid #dbe5f3 !important;
+    background: #fff !important;
+    color: #14213d !important;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, .05) !important;
+    font-size: 12px !important;
+    font-weight: 1000 !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref > .clean-kasa-tabs .choice.active {
+    color: #fff !important;
+    border-color: transparent !important;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, .22) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-layout {
+    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr) !important;
+    gap: 14px !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-card,
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick,
+  .premium-dashboard .ceplog-kasa-ref .kasa-day,
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions {
+    border-radius: 16px !important;
+    border: 1px solid #e1e8f2 !important;
+    background: #fff !important;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, .07) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-card {
+    padding: 14px !important;
+    gap: 10px !important;
+    overflow-y: auto !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-mid {
+    grid-template-rows: minmax(0, 1fr) 178px !important;
+    gap: 14px !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick,
+  .premium-dashboard .ceplog-kasa-ref .kasa-day {
+    padding: 14px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-lower-band {
+    grid-template-columns: 220px minmax(0, 1fr) !important;
+    gap: 14px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions {
+    padding: 12px !important;
+    gap: 8px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions .big-sale-btn {
+    min-height: 34px !important;
+    border-radius: 10px !important;
+    background: #fff !important;
+    color: #14213d !important;
+    border: 1px solid #dbe5f3 !important;
+    box-shadow: none !important;
+    font-size: 11px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-day-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+}
+
+/* Reklam banner final düzeltmesi: tek düzen, saat en sağda, kartlar akışta. */
+@media (min-width: 921px) {
+  .premium-dashboard .app-shell > .hero-banner,
+  .premium-dashboard .hero-banner {
+    height: 112px !important;
+    min-height: 112px !important;
+    max-height: 112px !important;
+    padding: 14px 24px !important;
+    border-radius: 16px !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: center !important;
+    background:
+      radial-gradient(circle at 92% 16%, rgba(147, 51, 234, .42), transparent 32%),
+      linear-gradient(110deg, #071a3f 0%, #12306f 48%, #6d28d9 100%) !important;
+    overflow: hidden !important;
+  }
+
+  .premium-dashboard .hero-banner-copy,
+  .premium-dashboard .brand-title-row,
+  .premium-dashboard .hero-mockup-grid {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    height: auto !important;
+  }
+
+  .premium-dashboard .hero-mockup-grid {
+    display: grid !important;
+    grid-template-columns: 220px minmax(0, 1fr) max-content !important;
+    gap: 18px !important;
+    align-items: center !important;
+  }
+
+  .premium-dashboard .hero-brand-block {
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding-right: 18px !important;
+    border-right: 1px solid rgba(255, 255, 255, .18) !important;
+  }
+
+  .premium-dashboard .hero-banner .hero-brand-block h1,
+  .premium-dashboard .hero-banner h1 {
+    margin: 0 !important;
+    font-size: 36px !important;
+    line-height: .95 !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-dashboard .hero-module-chips {
+    gap: 6px !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .premium-dashboard .hero-module-chips span {
+    height: 22px !important;
+    min-width: 0 !important;
+    padding: 0 10px !important;
+    font-size: 10px !important;
+  }
+
+  .premium-dashboard .hero-banner .hero-banner-text {
+    min-width: 0 !important;
+    overflow: visible !important;
+    text-align: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .premium-dashboard .hero-banner .hero-banner-text strong {
+    display: block !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    font-size: clamp(22px, 2.2vw, 30px) !important;
+    line-height: 1.08 !important;
+    letter-spacing: -.6px !important;
+  }
+
+  .premium-dashboard .hero-banner .hero-banner-text p {
+    display: block !important;
+    max-width: 100% !important;
+    margin: 6px 0 0 !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+  }
+
+  .premium-dashboard .hero-date-card {
+    width: 218px !important;
+    min-width: 218px !important;
+    max-width: 218px !important;
+    min-height: 76px !important;
+    justify-self: end !important;
+    margin: 0 !important;
+    padding: 12px 18px !important;
+    border-radius: 16px !important;
+  }
+
+  .premium-dashboard .hero-date-card b {
+    font-size: 14px !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-dashboard .hero-date-card strong {
+    font-size: 24px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-dashboard .hero-banner-visual {
+    display: none !important;
+  }
+
+  .premium-dashboard .app-shell > .section.kasa-home-section,
+  .premium-dashboard .kasa-home-dashboard.kasa-mockup-dashboard.ceplog-kasa-ref,
+  .premium-dashboard .ceplog-kasa-ref .kasa-layout,
+  .premium-dashboard .ceplog-kasa-ref .kasa-mid,
+  .premium-dashboard .ceplog-kasa-ref .kasa-lower-band {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .premium-dashboard .app-shell > .section.kasa-home-section {
+    overflow-y: auto !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-card,
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick,
+  .premium-dashboard .ceplog-kasa-ref .kasa-day,
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions {
+    position: static !important;
+  }
+}
+
+@media (max-width: 920px) {
+  .premium-dashboard .hero-banner-visual {
+    display: none !important;
+  }
+
+  .premium-dashboard .hero-date-card {
+    margin-left: auto !important;
+    margin-right: 0 !important;
+  }
+}
