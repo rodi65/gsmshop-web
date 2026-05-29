@@ -5835,9 +5835,20 @@ const isSameSalesListDay = (item, dateKey) => {
         </header>
 
         <nav className="nav-grid premium-sidebar">
-          <div className="premium-sidebar-brand">
-            <div className="premium-sidebar-logo"><span>CEP</span><b>LOG</b></div>
-            <p>İşini Yönet, Kazan!</p>
+          <div className="premium-sidebar-brand premium-store-card" aria-label="Mağaza bilgisi">
+            <div className="premium-store-card-content">
+              <div className="premium-store-icon" aria-hidden="true">
+                <Smartphone size={19} />
+              </div>
+              <div className="premium-store-copy">
+                <strong>AHMET GSM</strong>
+                <span>Van Merkez Şube</span>
+                <small>Lisanslı Mağaza Paneli</small>
+              </div>
+            </div>
+            <div className="premium-store-phone" aria-hidden="true">
+              <span />
+            </div>
           </div>
           <div className="sidebar-contact-links">
             <a href="https://www.ceplog.com" target="_blank" rel="noreferrer">
