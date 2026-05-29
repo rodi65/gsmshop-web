@@ -2630,7 +2630,7 @@ const isSameSalesListDay = (item, dateKey) => {
       total: amount ? money(amount) : "",
       cash: "",
       card: "",
-      bank: "",
+      bank: cartBankName || "",
     });
     setKasaTab("yeniSatis");
     setActive("kasa");
@@ -2719,7 +2719,13 @@ const isSameSalesListDay = (item, dateKey) => {
     const added = addCurrentSaleFormToCart();
     if (!added) return;
     setSaleLineModalOpen(false);
-    if (mode === "finish") setCartPaymentModalOpen(true);
+    setExpandedSaleModalItemId("");
+    if (mode === "finish") {
+      setCartPaymentModalOpen(true);
+      return;
+    }
+    setKasaSearchQuery("");
+    setKasaSearchModalOpen(true);
   };
   const findCartCustomer = (name) => {
     const clean = String(name || "").trim().toLocaleLowerCase("tr-TR");
@@ -2839,7 +2845,7 @@ const isSameSalesListDay = (item, dateKey) => {
       total: salePrice ? formatMoneyInput(salePrice) : "",
       cash: "",
       card: "",
-      bank: "",
+      bank: cartBankName || "",
     });
     setKasaTab("yeniSatis");
     setActive("kasa");
@@ -2986,7 +2992,7 @@ const isSameSalesListDay = (item, dateKey) => {
   }
 
   function addCurrentSaleFormToCart() {
-    const resolvedCustomerName = saleFormCariText.trim();
+    const resolvedCustomerName = saleFormCariText.trim() || String(cartCustomer.customerName || "").trim();
     const linePaymentMeta = {
       cashAmountAtAdd: saleCash,
       cardAmountAtAdd: saleCard,
@@ -3000,7 +3006,7 @@ const isSameSalesListDay = (item, dateKey) => {
       return false;
     }
     if (saleCustomerRequired && !resolvedCustomerName) {
-      alert(isAccessorySale ? "Cari/kalan varsa müşteri adı zorunludur." : "Müşteri adı soyadı / telefon yaz");
+      alert(isAccessorySale ? "Cari/kalan varsa aktif sepet müşterisi veya cari kişi zorunludur." : "Müşteri adı soyadı / telefon yaz");
       return false;
     }
     if (saleCard + parseMoneyInput(cartPayments.cardAmount) > 0 && !saleForm.bank && !cartBankName) {
@@ -3102,7 +3108,8 @@ const isSameSalesListDay = (item, dateKey) => {
     if (cartPaymentGap !== 0) return alert("Nakit + kart/banka + cari toplamı satış tutarına eşit olmalıdır.");
     if ((parseMoneyInput(cartPayments.cardAmount) + parseMoneyInput(cartPayments.bankAmount)) > 0 && !cartBankName) return alert("Kart/Banka ödeme varsa banka seç.");
     const cartCariAmount = parseMoneyInput(cartPayments.cariAmount);
-    const cartCustomerName = String(cartCustomer.customerName || saleForm.customer || "").trim();
+    const fallbackCartCustomerName = rows.find((item) => String(item.customerNameAtAdd || "").trim())?.customerNameAtAdd || "";
+    const cartCustomerName = String(cartCustomer.customerName || saleForm.customer || fallbackCartCustomerName || "").trim();
     const isOnlyAccessoryCart = rows.every((item) => {
       const marker = normalizeCashEntryText([item.productType, item.productTypeLabel, item.category, item.note].join(" "));
       return marker.includes("accessory") || marker.includes("aksesuar");
@@ -5146,7 +5153,7 @@ const isSameSalesListDay = (item, dateKey) => {
       total: product.sell || "",
       cash: product.sell || "",
       card: "",
-      bank: "",
+      bank: cartBankName || "",
     });
     setKasaTab("yeniSatis");
     setActive("kasa");
@@ -5906,9 +5913,13 @@ const isSameSalesListDay = (item, dateKey) => {
   }, [appTheme]);
 
   useEffect(() => {
-    if (!searchModalOpen && !technicalSearchModalOpen && !technicalServiceDetailModalOpen && !technicalServiceFormModalOpen) return undefined;
+    if (!searchModalOpen && !technicalSearchModalOpen && !technicalServiceDetailModalOpen && !technicalServiceFormModalOpen && !kasaSearchModalOpen) return undefined;
     const closeOnEscape = (event) => {
       if (event.key !== "Escape") return;
+      if (kasaSearchModalOpen) {
+        if (!kasaSearchQuery.trim()) setKasaSearchModalOpen(false);
+        return;
+      }
       setSearchModalOpen(false);
       setTechnicalSearchModalOpen(false);
       setTechnicalServiceDetailModalOpen(false);
@@ -5916,7 +5927,21 @@ const isSameSalesListDay = (item, dateKey) => {
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [searchModalOpen, technicalSearchModalOpen, technicalServiceDetailModalOpen, technicalServiceFormModalOpen]);
+  }, [searchModalOpen, technicalSearchModalOpen, technicalServiceDetailModalOpen, technicalServiceFormModalOpen, kasaSearchModalOpen, kasaSearchQuery]);
+
+  useEffect(() => {
+    const openSorSatShortcut = (event) => {
+      if (event.key !== "s" && event.key !== "S") return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const targetTag = String(event.target?.tagName || "").toLocaleLowerCase("tr-TR");
+      if (["input", "textarea", "select", "button"].includes(targetTag) || event.target?.isContentEditable) return;
+      if (active !== "kasa" || kasaSearchModalOpen || saleLineModalOpen || cartPaymentModalOpen) return;
+      event.preventDefault();
+      openKasaSearchModal();
+    };
+    window.addEventListener("keydown", openSorSatShortcut);
+    return () => window.removeEventListener("keydown", openSorSatShortcut);
+  }, [active, kasaSearchModalOpen, saleLineModalOpen, cartPaymentModalOpen]);
 
   const calculatorKeys = [
     { label: "C", tone: "danger", action: clearCalculator },
