@@ -6412,13 +6412,6 @@ const isSameSalesListDay = (item, dateKey) => {
 
             {kasaTab === "yeniSatis" && (
               <div className="kasa-home-dashboard kasa-mockup-dashboard ceplog-kasa-ref">
-                <div className="kasa-main-tabs clean-kasa-tabs" aria-label="Kasa işlemleri">
-                  <button className="choice active" type="button" onClick={() => setKasaTab("yeniSatis")}>YENİ SATIŞ</button>
-                  <button className="choice" type="button" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
-                  <button className="choice" type="button" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
-                  <button className="choice" type="button" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
-                  <button className="choice" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPATMA</button>
-                </div>
                 <div className="kasa-layout">
                   <div className="card pad kasa-sale-card">
                     <button className="kasa-sale-title-button" type="button" onClick={() => setSaleLineModalOpen(Boolean(selectedProduct) || isProgramSale)}>

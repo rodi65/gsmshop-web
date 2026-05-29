@@ -13468,3 +13468,14 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     transform: none !important;
   }
 }
+
+/* Kasa ana ekran: Yeni Satış ile Kısayollar arasındaki gereksiz beyaz sekme butonlarını kaldır. */
+@media (min-width: 921px) {
+  .premium-dashboard .ceplog-kasa-ref {
+    grid-template-rows: minmax(0, 1fr) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref > .clean-kasa-tabs {
+    display: none !important;
+  }
+}
