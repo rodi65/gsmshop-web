@@ -310,6 +310,18 @@ body {
   font-weight: 950 !important;
 }
 
+.premium-dashboard .cart-payment-gap button {
+  min-height: 28px !important;
+  padding: 0 10px !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  color: #fff !important;
+  background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+  font-size: 11px !important;
+  font-weight: 950 !important;
+  white-space: nowrap !important;
+}
+
 .premium-dashboard .cart-panel {
   padding: 12px !important;
   display: grid !important;
@@ -10958,11 +10970,24 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 
   .premium-dashboard .cart-payment-gap {
     min-height: 28px !important;
+    grid-template-columns: 78px minmax(0, 1fr) auto !important;
   }
 
   .premium-dashboard .cart-payment-gap b {
     text-align: right !important;
     font-size: 11px !important;
+    white-space: nowrap !important;
+  }
+
+  .premium-dashboard .cart-payment-gap button {
+    min-height: 24px !important;
+    padding: 0 8px !important;
+    border: 0 !important;
+    border-radius: 8px !important;
+    color: #fff !important;
+    background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+    font-size: 10px !important;
+    font-weight: 950 !important;
     white-space: nowrap !important;
   }
 
@@ -11920,8 +11945,104 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 
 .sale-ready-modal-head small {
   color: #526174 !important;
-  font-size: 13px !important;
+  font-size: 14px !important;
   font-weight: 900 !important;
+}
+
+.sale-modal-cart-stack {
+  margin-top: 14px !important;
+  display: grid !important;
+  gap: 9px !important;
+  padding: 12px !important;
+  border-radius: 17px !important;
+  border: 1px solid #dbe5f3 !important;
+  background: linear-gradient(180deg, #ffffff, #f8fbff) !important;
+}
+
+.sale-modal-cart-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+.sale-modal-cart-head strong {
+  color: #071226 !important;
+  font-size: 15px !important;
+  font-weight: 950 !important;
+}
+
+.sale-modal-cart-head span {
+  color: #64748b !important;
+  font-size: 13px !important;
+  font-weight: 950 !important;
+}
+
+.sale-modal-cart-chips {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 7px !important;
+}
+
+.sale-modal-cart-chip {
+  max-width: 100% !important;
+  min-height: 34px !important;
+  padding: 7px 12px !important;
+  border: 1px solid #dbe5f3 !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  color: #102848 !important;
+  font-size: 14px !important;
+  font-weight: 950 !important;
+  line-height: 1.15 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.sale-modal-cart-chip.active,
+.sale-modal-cart-chip:hover,
+.sale-modal-cart-chip:focus-visible {
+  border-color: #2563eb !important;
+  color: #071226 !important;
+  background: #eef4ff !important;
+}
+
+.sale-modal-cart-detail {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+  padding-top: 2px !important;
+}
+
+.sale-modal-cart-detail div {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 3px !important;
+  padding: 8px 9px !important;
+  border-radius: 11px !important;
+  background: #f1f6ff !important;
+}
+
+.sale-modal-cart-detail span {
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 950 !important;
+}
+
+.sale-modal-cart-detail b {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: #071226 !important;
+  font-size: 13px !important;
+  font-weight: 950 !important;
+}
+
+.sale-modal-cart-detail b.negative,
+.sale-ready-modal-lines b.negative {
+  color: #dc2626 !important;
 }
 
 .sale-ready-modal-lines {
@@ -11936,7 +12057,7 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 
 .sale-ready-modal-lines span,
 .sale-ready-modal-lines b {
-  font-size: 13px !important;
+  font-size: 14px !important;
   font-weight: 950 !important;
 }
 
@@ -11949,7 +12070,7 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 .sale-ready-modal-actions .primary {
   min-height: 46px !important;
   border-radius: 14px !important;
-  font-size: 14px !important;
+  font-size: 15px !important;
   font-weight: 950 !important;
 }
 
@@ -12141,7 +12262,7 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 .sale-line-editor-grid label span,
 .sale-line-profit-peek span {
   color: #526174 !important;
-  font-size: 11px !important;
+  font-size: 13px !important;
   font-weight: 950 !important;
 }
 
@@ -12156,7 +12277,7 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   background: transparent !important;
   color: #071226 !important;
   outline: 0 !important;
-  font-size: 14px !important;
+  font-size: 16px !important;
   font-weight: 950 !important;
 }
 
@@ -12172,7 +12293,7 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 
 .sale-line-profit-peek b {
   color: #102848 !important;
-  font-size: 14px !important;
+  font-size: 16px !important;
   font-weight: 950 !important;
 }
 
@@ -12184,7 +12305,7 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   transform: translateY(6px) !important;
   pointer-events: none !important;
   color: #16a34a !important;
-  font-size: 15px !important;
+  font-size: 17px !important;
   font-weight: 950 !important;
   transition: opacity .14s ease, transform .14s ease !important;
 }
@@ -12201,7 +12322,7 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 }
 
 .sale-ready-modal-window {
-  width: min(620px, calc(100vw - 36px)) !important;
+  width: min(700px, calc(100vw - 36px)) !important;
   max-height: min(760px, calc(100vh - 44px)) !important;
 }
 
@@ -12325,12 +12446,12 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 }
 
 .sale-product-showcase {
-  margin-top: 14px !important;
+  margin-top: 12px !important;
   display: grid !important;
-  grid-template-columns: 92px minmax(0, 1fr) 118px !important;
-  gap: 14px !important;
+  grid-template-columns: 72px minmax(0, 1fr) 116px !important;
+  gap: 11px !important;
   align-items: center !important;
-  padding: 14px !important;
+  padding: 11px !important;
   border-radius: 18px !important;
   border: 1px solid #dbe5f3 !important;
   background:
@@ -12339,8 +12460,8 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 }
 
 .sale-product-visual {
-  width: 78px !important;
-  height: 78px !important;
+  width: 60px !important;
+  height: 60px !important;
   display: grid !important;
   place-items: center !important;
   border-radius: 22px !important;
@@ -12365,7 +12486,7 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 .sale-product-copy span,
 .sale-product-total span {
   color: #64748b !important;
-  font-size: 11px !important;
+  font-size: 12px !important;
   font-weight: 950 !important;
   text-transform: uppercase !important;
 }
@@ -12376,7 +12497,7 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
   color: #071226 !important;
-  font-size: 20px !important;
+  font-size: 18px !important;
   line-height: 1.1 !important;
   font-weight: 950 !important;
 }
@@ -12387,12 +12508,12 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
   color: #526174 !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
   font-weight: 900 !important;
 }
 
 .sale-product-total {
-  min-height: 68px !important;
+  min-height: 56px !important;
   display: grid !important;
   align-content: center !important;
   justify-items: end !important;
@@ -12405,7 +12526,7 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 
 .sale-product-total b {
   color: #102848 !important;
-  font-size: 20px !important;
+  font-size: 19px !important;
   font-weight: 950 !important;
   white-space: nowrap !important;
 }

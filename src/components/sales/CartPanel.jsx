@@ -115,6 +115,11 @@ export function CartPaymentBox({
         <div className="cart-payment-gap">
           <span>Ödeme farkı</span>
           <b>{money(paymentGap)}</b>
+          {paymentGap > 0 && (
+            <button type="button" onClick={() => onPaymentChange("cariAmount", String(paymentNumber(payments.cariAmount) + paymentGap))}>
+              Kalanı cariye yaz
+            </button>
+          )}
         </div>
       )}
     </div>
