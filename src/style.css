@@ -13385,3 +13385,86 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     margin-right: 0 !important;
   }
 }
+
+/* Kasa kart hareketi: kartlar sabit görünmesin, hover/focus ile canlı tepki versin. */
+@media (min-width: 921px) {
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-card,
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick,
+  .premium-dashboard .ceplog-kasa-ref .kasa-day,
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions {
+    transform: translateY(0) scale(1) !important;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease !important;
+    animation: ceplogCardSoftIn .32s ease both;
+    will-change: transform;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick {
+    animation-delay: .04s;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions {
+    animation-delay: .08s;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-day {
+    animation-delay: .12s;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-card:hover,
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick:hover,
+  .premium-dashboard .ceplog-kasa-ref .kasa-day:hover,
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions:hover,
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-card:focus-within,
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick:focus-within,
+  .premium-dashboard .ceplog-kasa-ref .kasa-day:focus-within,
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions:focus-within {
+    transform: translateY(-4px) scale(1.006) !important;
+    border-color: rgba(37, 99, 235, .28) !important;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, .12) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .qitem,
+  .premium-dashboard .ceplog-kasa-ref .kasa-category-grid .big-sale-btn,
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions .big-sale-btn,
+  .premium-dashboard .ceplog-kasa-ref > .clean-kasa-tabs .choice {
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .qitem:hover,
+  .premium-dashboard .ceplog-kasa-ref .qitem:focus-visible,
+  .premium-dashboard .ceplog-kasa-ref .kasa-category-grid .big-sale-btn:hover,
+  .premium-dashboard .ceplog-kasa-ref .kasa-category-grid .big-sale-btn:focus-visible,
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions .big-sale-btn:hover,
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions .big-sale-btn:focus-visible,
+  .premium-dashboard .ceplog-kasa-ref > .clean-kasa-tabs .choice:hover,
+  .premium-dashboard .ceplog-kasa-ref > .clean-kasa-tabs .choice:focus-visible {
+    transform: translateY(-2px) !important;
+  }
+}
+
+@keyframes ceplogCardSoftIn {
+  from {
+    opacity: .72;
+    transform: translateY(8px) scale(.994);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-dashboard .ceplog-kasa-ref .kasa-sale-card,
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick,
+  .premium-dashboard .ceplog-kasa-ref .kasa-day,
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions,
+  .premium-dashboard .ceplog-kasa-ref .qitem,
+  .premium-dashboard .ceplog-kasa-ref .kasa-category-grid .big-sale-btn,
+  .premium-dashboard .ceplog-kasa-ref .kasa-bottom-actions .big-sale-btn,
+  .premium-dashboard .ceplog-kasa-ref > .clean-kasa-tabs .choice {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
