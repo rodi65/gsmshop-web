@@ -3405,6 +3405,105 @@ const isSameSalesListDay = (item, dateKey) => {
     };
   }
 
+
+  function isMissingCartSaleRpcError(result) {
+    const text = [result?.message, result?.errorCode, result?.details?.message, result?.details?.details, result?.details?.hint]
+      .filter(Boolean)
+      .join(" ");
+    return text.includes("ceplog_apply_cart_sale_transaction") || text.includes("PGRST202") || text.includes("schema cache") || text.includes("SQL kurulumu");
+  }
+
+  function expandCartRowsForSingleSaleFallback(rows) {
+    return rows.flatMap((row, rowIndex) => {
+      const quantity = Math.max(Math.trunc(Number(row.quantity || 1)), 1);
+      const unitDiscount = Math.round((Number(row.discountAmount || 0) / quantity) * 100) / 100;
+      return Array.from({ length: quantity }, (_, unitIndex) => {
+        const unitLineTotal = Math.round((Number(row.unitPriceAtSale || 0) - unitDiscount) * 100) / 100;
+        return rebuildCartItem({
+          ...row,
+          cartItemId: `${row.cartItemId || row.productId || rowIndex}-single-rpc-${unitIndex}`,
+          quantity: 1,
+          discountAmount: unitDiscount,
+          discountText: unitDiscount > 0 ? formatMoneyInput(unitDiscount) : "",
+          lineTotal: unitLineTotal,
+          lineProfit: unitLineTotal - Number(row.unitCostAtSale || 0),
+        });
+      });
+    });
+  }
+
+  async function completeCartSaleWithSingleRpcFallback({ rows, idempotencyKey, cartCustomerId, cartCustomerName, cartCashAmount, cartCardAmount, cartBankAmount, cartCariAmount }) {
+    const unitRows = expandCartRowsForSingleSaleFallback(rows);
+    let remainingCash = cartCashAmount;
+    let remainingCard = cartCardAmount + cartBankAmount;
+    let remainingCari = cartCariAmount;
+    const processed = [];
+
+    for (let index = 0; index < unitRows.length; index += 1) {
+      const row = unitRows[index];
+      const lineTotal = Math.round(Number(row.lineTotal || 0) * 100) / 100;
+      const lineCash = Math.min(Math.max(remainingCash, 0), lineTotal);
+      remainingCash = Math.round((remainingCash - lineCash) * 100) / 100;
+      const cashRemainder = Math.round((lineTotal - lineCash) * 100) / 100;
+      const lineCard = Math.min(Math.max(remainingCard, 0), cashRemainder);
+      remainingCard = Math.round((remainingCard - lineCard) * 100) / 100;
+      const cardRemainder = Math.round((lineTotal - lineCash - lineCard) * 100) / 100;
+      const lineCari = Math.max(cardRemainder, 0);
+      remainingCari = Math.round((remainingCari - lineCari) * 100) / 100;
+
+      const linePayload = createCartSalePayload({
+        rows: [row],
+        idempotencyKey: `${idempotencyKey}-line-${index + 1}`,
+        cartCustomerId,
+        cartCustomerName,
+        cartCashAmount: lineCash,
+        cartCardAmount: lineCard,
+        cartBankAmount: 0,
+        cartCariAmount: lineCari,
+        cartTotalAmount: lineTotal,
+      });
+      linePayload.metadata = {
+        ...linePayload.metadata,
+        source: "cart_rpc_single_sale_fallback",
+        cartSessionId: idempotencyKey,
+        cart_session_id: idempotencyKey,
+        lineIndex: index + 1,
+        lineCount: unitRows.length,
+        originalCartItemId: row.cartItemId,
+      };
+
+      const lineResult = await createSaleTransaction(linePayload);
+      if (!lineResult.success) {
+        console.error("CEPLOG cart RPC fallback line failed", { lineIndex: index + 1, linePayload, lineResult });
+        return {
+          ...lineResult,
+          message: lineResult.message || `Sepet yedek satış satırı ${index + 1} kaydedilemedi. Sepet korunuyor.`,
+          details: { lineIndex: index + 1, processed, originalDetails: lineResult.details },
+        };
+      }
+      processed.push(lineResult);
+    }
+
+    if (Math.round((remainingCash + remainingCard + remainingCari) * 100) !== 0) {
+      return {
+        success: false,
+        errorCode: "CART_FALLBACK_PAYMENT_REMAINDER",
+        message: "Sepet ödeme dağılımı satırlara tam aktarılamadı. Sepet korunuyor.",
+        details: { remainingCash, remainingCard, remainingCari, processed },
+      };
+    }
+
+    return {
+      success: true,
+      status: "POSTED",
+      summary: {
+        mode: "cart_rpc_single_sale_fallback",
+        transactionCount: processed.length,
+        processed,
+      },
+    };
+  }
+
   async function completeCartSale() {
     const rows = cartItems.map(rebuildCartItem);
     if (!rows.length) return alert("Sepet boş.");
@@ -3459,12 +3558,26 @@ const isSameSalesListDay = (item, dateKey) => {
           hasCustomer: Boolean(cartSalePayload.customerName || cartSalePayload.customerId),
         });
       }
-      const result = await createSaleTransaction(cartSalePayload);
+      let result = await createSaleTransaction(cartSalePayload);
+      const requiresCartSaleRpc = rows.length > 1 || rows.some((item) => Number(item.quantity || 1) > 1);
+      if (!result.success && requiresCartSaleRpc && isMissingCartSaleRpcError(result)) {
+        console.warn("CEPLOG cart RPC is missing; using single-sale RPC fallback until migration is applied.", result);
+        result = await completeCartSaleWithSingleRpcFallback({
+          rows,
+          idempotencyKey,
+          cartCustomerId,
+          cartCustomerName,
+          cartCashAmount,
+          cartCardAmount,
+          cartBankAmount,
+          cartCariAmount,
+        });
+      }
 
       if (!result.success) {
         const customerValidation = result.errorCode === "MISSING_CUSTOMER" || String(result.message || "").includes("Cari satis icin musteri zorunludur");
         const resultMessage = String(result.message || "");
-        const missingCartRpc = resultMessage.includes("ceplog_apply_cart_sale_transaction") || resultMessage.includes("PGRST202");
+        const missingCartRpc = isMissingCartSaleRpcError(result);
         alert(customerValidation
           ? "Cari kalan için aktif sepet müşterisi gerekli. Müşteri alanını kontrol et; sepet korunuyor."
           : missingCartRpc

@@ -123,7 +123,9 @@ assert(cartSaleEngine.includes("normalizeCartSalePayload") && cartSaleEngine.inc
 assert(cartSaleEngine.includes("saleTotal") && cartSaleEngine.includes("paymentTotal") && cartSaleEngine.includes("INVALID_ITEM_PRICE"), "Cart sale motoru toplam ve fiyat validasyonlarını içermeli.");
 assert(cartSaleEngine.includes("MISSING_BANK") && cartSaleEngine.includes("MissingCustomerError") && cartSaleEngine.includes("INVALID_PAYMENT_AMOUNT"), "Cart sale motoru banka/cari/negatif ödeme kontrollerini içermeli.");
 assert(transactionEngine.includes("normalizeCartSalePayload") && transactionEngine.includes("validateCartSale"), "Transaction engine cart sale motorundan geçmeli.");
+assert(transactionEngine.includes("totalQuantity") && transactionEngine.includes("totalQuantity > 1"), "Tek satırda adetli sepet satışları da cart transaction yoluna girmeli.");
 assert(app.includes("createCartSalePayload") && app.includes('console.debug("CEPLOG cartSalePayload"'), "UI standart cartSalePayload oluşturup debug bilgisini sadece console'a yazmalı.");
+assert(app.includes("completeCartSaleWithSingleRpcFallback") && app.includes("cart_rpc_single_sale_fallback"), "Eksik cart RPC durumunda çoklu sepet, tekli satış RPC fallback akışıyla bloklanmamalı.");
 assert(dataService.includes("ceplog_apply_sale_transaction"), "Satış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_stock_purchase_transaction"), "Alış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_expense_transaction"), "Gider transaction RPC bağlantısı eksik.");

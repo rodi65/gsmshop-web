@@ -75,7 +75,8 @@ export async function createSaleTransaction(input: SaleTransactionInput): Promis
     const normalizedInput = normalizeCartSalePayload(input as SaleTransactionInput & Record<string, unknown>) as SaleTransactionInput;
     validateCartSale(normalizedInput as SaleTransactionInput & Record<string, unknown>);
     validateSaleTransaction(normalizedInput);
-    const isCartSale = normalizedInput.items.length > 1;
+    const totalQuantity = normalizedInput.items.reduce((total, item) => total + Number(item.quantity || 1), 0);
+    const isCartSale = normalizedInput.items.length > 1 || totalQuantity > 1;
     return await callTransactionRpc(isCartSale ? "ceplog_apply_cart_sale_transaction" : "ceplog_apply_sale_transaction", normalizedInput as unknown as Record<string, unknown>);
   } catch (error) {
     return errorResult(error);
