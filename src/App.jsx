@@ -2768,6 +2768,26 @@ const isSameSalesListDay = (item, dateKey) => {
   }, [cartItems]);
   const cartPaymentTotal = parseMoneyInput(cartPayments.cashAmount) + parseMoneyInput(cartPayments.cardAmount) + parseMoneyInput(cartPayments.bankAmount) + parseMoneyInput(cartPayments.cariAmount);
   const cartPaymentGap = Math.round(cartSummary.netTotal - cartPaymentTotal);
+  function reconcileCartPaymentRemainder(payments, netTotal, { allowCreateCari = false } = {}) {
+    const cashAmount = parseMoneyInput(payments.cashAmount);
+    const cardAmount = parseMoneyInput(payments.cardAmount);
+    const bankAmount = parseMoneyInput(payments.bankAmount);
+    const currentCariAmount = parseMoneyInput(payments.cariAmount);
+    const paidWithoutCari = cashAmount + cardAmount + bankAmount;
+    const expectedCariAmount = Math.max(Math.round(Number(netTotal || 0) - paidWithoutCari), 0);
+    let nextCariAmount = currentCariAmount;
+
+    if (expectedCariAmount > 0 && (allowCreateCari || currentCariAmount > 0)) {
+      nextCariAmount = expectedCariAmount;
+    } else if (expectedCariAmount === 0 && currentCariAmount > 0) {
+      nextCariAmount = 0;
+    }
+
+    return {
+      ...payments,
+      cariAmount: nextCariAmount > 0 ? formatMoneyInput(nextCariAmount) : "",
+    };
+  }
   const cartSearchResults = useMemo(() => {
     const queryText = cartProductQuery.trim().toLocaleLowerCase("tr-TR");
     return inStockItems
@@ -2949,9 +2969,27 @@ const isSameSalesListDay = (item, dateKey) => {
     if (item.productType !== "service" && Number(item.unitCostAtSale || 0) <= 0) {
       alert("Bu ürünün alış fiyatı eksik. Kar hesabı doğru çıkmayabilir.");
     }
+    const itemHasPaymentMeta = Number(item.cashAmountAtAdd || 0) > 0 || Number(item.cardAmountAtAdd || 0) > 0 || Number(item.cariAmountAtAdd || 0) > 0;
+    if (item.productType !== "service" && item.productId) {
+      const sameProductQuantity = cartItems
+        .filter((row) => row.productId === item.productId)
+        .reduce((total, row) => total + Number(row.quantity || 0), 0);
+      if (sameProductQuantity + Number(item.quantity || 1) > Number(item.stockAvailable || 0)) {
+        alert("Bu ürün stok adedi kadar sepette. Ödeme tutarı tekrar eklenmedi.");
+        return false;
+      }
+    }
+    const mergeRow = cartItems.find((row) => row.productType !== "phone" && row.productType !== "service" && row.productId === item.productId && !itemHasPaymentMeta && !Number(row.cashAmountAtAdd || 0) && !Number(row.cardAmountAtAdd || 0) && !Number(row.cariAmountAtAdd || 0));
+    if (mergeRow) {
+      const nextQuantity = Math.min(Number(mergeRow.quantity || 0) + Number(item.quantity || 1), Number(mergeRow.stockAvailable || 999999));
+      if (nextQuantity <= Number(mergeRow.quantity || 0)) {
+        alert("Bu ürün stok adedi kadar sepette. Ödeme tutarı tekrar eklenmedi.");
+        return false;
+      }
+    }
 
     setCartItems((current) => {
-      const mergeIndex = current.findIndex((row) => row.productType !== "phone" && row.productType !== "service" && row.productId === item.productId);
+      const mergeIndex = current.findIndex((row) => row.productType !== "phone" && row.productType !== "service" && row.productId === item.productId && !itemHasPaymentMeta && !Number(row.cashAmountAtAdd || 0) && !Number(row.cardAmountAtAdd || 0) && !Number(row.cariAmountAtAdd || 0));
       if (mergeIndex >= 0) {
         return current.map((row, index) => {
           if (index !== mergeIndex) return row;
@@ -3036,12 +3074,12 @@ const isSameSalesListDay = (item, dateKey) => {
 
     if (resolvedCustomerName) setCartCustomer({ customerId: findCartCustomer(resolvedCustomerName)?.id || "", customerName: resolvedCustomerName });
     if (saleForm.bank) setCartBankName(saleForm.bank);
-    setCartPayments((current) => ({
+    setCartPayments((current) => reconcileCartPaymentRemainder({
       cashAmount: addMoneyText(current.cashAmount, saleCash),
       cardAmount: addMoneyText(current.cardAmount, saleCard),
       bankAmount: current.bankAmount,
       cariAmount: addMoneyText(current.cariAmount, saleRemaining),
-    }));
+    }, cartSummary.netTotal + saleTotal, { allowCreateCari: Boolean(resolvedCustomerName) || saleRemaining > 0 }));
     setSaleForm({ ...saleForm, customer: resolvedCustomerName || saleForm.customer, cariPerson: resolvedCustomerName || saleForm.cariPerson, search: "", productId: "", total: "", cash: "", card: "" });
     return true;
   }
@@ -3086,7 +3124,13 @@ const isSameSalesListDay = (item, dateKey) => {
   }
 
   function changeCartPayment(field, value) {
-    setCartPayments((current) => ({ ...current, [field]: formatMoneyInput(cleanMoneyTyping(value)) }));
+    setCartPayments((current) => {
+      const next = { ...current, [field]: formatMoneyInput(cleanMoneyTyping(value)) };
+      if (field === "cariAmount") return next;
+      return reconcileCartPaymentRemainder(next, cartSummary.netTotal, {
+        allowCreateCari: Boolean(cartCustomer.customerName) || parseMoneyInput(current.cariAmount) > 0,
+      });
+    });
   }
 
   function addMoneyText(currentValue, addValue) {
@@ -5911,6 +5955,18 @@ const isSameSalesListDay = (item, dateKey) => {
     if (typeof window === "undefined") return;
     localStorage.setItem("ceplog_app_theme", appTheme);
   }, [appTheme]);
+
+  useEffect(() => {
+    if (!cartItems.length) return;
+    setCartPayments((current) => {
+      if (!cartCustomer.customerName && parseMoneyInput(current.cariAmount) <= 0) return current;
+      const next = reconcileCartPaymentRemainder(current, cartSummary.netTotal, {
+        allowCreateCari: Boolean(cartCustomer.customerName),
+      });
+      if (next.cariAmount === current.cariAmount) return current;
+      return next;
+    });
+  }, [cartItems.length, cartSummary.netTotal, cartCustomer.customerName]);
 
   useEffect(() => {
     if (!searchModalOpen && !technicalSearchModalOpen && !technicalServiceDetailModalOpen && !technicalServiceFormModalOpen && !kasaSearchModalOpen) return undefined;
