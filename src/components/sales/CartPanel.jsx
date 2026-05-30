@@ -115,11 +115,24 @@ export function CartPaymentBox({
   onSetFullPayment,
 }) {
   const paymentNumber = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, "")) || 0;
-  const hasCardPayment = paymentNumber(payments.cardAmount) + paymentNumber(payments.bankAmount) > 0;
+  const cashAmount = paymentNumber(payments.cashAmount);
+  const cardAmount = paymentNumber(payments.cardAmount) + paymentNumber(payments.bankAmount);
+  const cariAmount = paymentNumber(payments.cariAmount);
+  const totalEntered = cashAmount + cardAmount + cariAmount;
+  const hasCardPayment = cardAmount > 0;
   const gapTone = paymentGap > 0 ? "remaining" : "overpaid";
+  const statusText = paymentGap === 0 && totalEntered > 0 ? "Ödeme dengede" : paymentGap > 0 ? "Eksik tutar var" : paymentGap < 0 ? "Fazla ödeme var" : "Ödeme bekleniyor";
 
   return (
     <div className="cart-payment-box cart-final-payment-box">
+      <div className={`cart-payment-status ${paymentGap === 0 && totalEntered > 0 ? "ok" : gapTone}`}>
+        <div>
+          <strong>Ödeme bilgileri</strong>
+          <span>Parçalı ödeme girebilirsin: nakit + kart + cari toplamı sepet tutarına eşit olmalı.</span>
+        </div>
+        <b>{statusText}</b>
+      </div>
+
       <div className="payment-box cart-final-payment-grid">
         <label>
           <span>Müşteri / Cari</span>
@@ -204,6 +217,11 @@ export default function CartPanel({
       <div className="top-line cart-top-line">
         <h2>Satış Sepeti</h2>
         <button type="button" className="cart-clear-btn" disabled={!items.length || processing} onClick={onClear}>Temizle</button>
+      </div>
+
+      <div className="cart-checkout-section-head">
+        <strong>Satılan ürünler</strong>
+        <span>{items.length} satır</span>
       </div>
 
       <div className="cart-checkout-list" aria-label="Sepetteki ürünler">

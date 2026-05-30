@@ -91,6 +91,8 @@ assert(cartPanel.includes("cart-final-summary"), "Sepet onay ekranı final topla
 assert(cartPanel.includes("cart-checkout-list"), "Sepet ürünleri final ekranda okunur kart/listede gösterilmeli.");
 assert(cartPanel.includes("compactProductName") && cartPanel.includes("normalizeProductTypeLabel"), "Sepet ürün adları ve kategori etiketleri temizlenmeli.");
 assert(cartPanel.includes("cart-payment-quick-actions"), "Tamamı ödeme kısayolları ikincil kompakt alanda kalmalı.");
+assert(cartPanel.includes("cart-payment-status") && cartPanel.includes("Parçalı ödeme girebilirsin"), "Final ödeme alanı parçalı ödeme durumunu açık göstermeli.");
+assert(cartPanel.includes("cart-checkout-section-head"), "Sepet ürün listesinin kompakt bölüm başlığı olmalı.");
 assert(cartPanel.includes("Kart Toplamı") && cartPanel.includes("Cari Toplamı") && cartPanel.includes("Sepet Toplam Tutarı"), "Sepet özeti kart/cari/toplam sırasını göstermeli.");
 assert(app.includes("cartEffectivePayments"), "Sepet tamamlamada etkin ödeme toplamları kullanılmalı.");
 assert(dataService.includes("ceplog_apply_sale_transaction"), "Satış transaction RPC bağlantısı eksik.");
