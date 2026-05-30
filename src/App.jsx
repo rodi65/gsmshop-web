@@ -3376,13 +3376,10 @@ const isSameSalesListDay = (item, dateKey) => {
       });
 
       if (!result.success) {
-        const missingRpc = String(result.message || "").includes("ceplog_apply_cart_sale_transaction") || String(result.details || "").includes("ceplog_apply_cart_sale_transaction");
         const customerValidation = result.errorCode === "MISSING_CUSTOMER" || String(result.message || "").includes("Cari satis icin musteri zorunludur");
-        alert(missingRpc
-          ? "Sepet satış motoru SQL kurulumu bekliyor. Sepet korunuyor."
-          : customerValidation
-            ? "Cari kalan için aktif sepet müşterisi gerekli. Müşteri alanını kontrol et; sepet korunuyor."
-            : (result.message || "Satış kaydedilemedi. Sepet korunuyor."));
+        alert(customerValidation
+          ? "Cari kalan için aktif sepet müşterisi gerekli. Müşteri alanını kontrol et; sepet korunuyor."
+          : (result.message || "Satış kaydedilemedi. Sepet korunuyor."));
         return;
       }
 
