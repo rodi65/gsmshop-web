@@ -120,7 +120,7 @@ begin
     raise exception 'Workspace bilgisi bulunamadı';
   end if;
 
-  if v_total < 0 or v_cash < 0 or v_card < 0 or coalesce(p_buy_cost, 0) < 0 or coalesce(p_profit_amount, 0) < 0 then
+  if v_total < 0 or v_cash < 0 or v_card < 0 or coalesce(p_buy_cost, 0) < 0 then
     raise exception 'Negatif tutar girilemez';
   end if;
 

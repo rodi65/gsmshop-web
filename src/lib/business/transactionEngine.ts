@@ -43,8 +43,13 @@ function errorResult(error: unknown): BusinessTransactionResult {
   if (error instanceof BusinessRuleError) {
     return { success: false, errorCode: error.code, message: error.message, details: error.details };
   }
-  const message = error instanceof Error ? error.message : "Islem tamamlanamadi.";
-  return { success: false, errorCode: "TRANSACTION_ENGINE_ERROR", message, details: error };
+
+  const errorRecord = error && typeof error === "object" ? error as Record<string, unknown> : null;
+  const message = error instanceof Error
+    ? error.message
+    : String(errorRecord?.message || errorRecord?.details || errorRecord?.hint || error || "Islem tamamlanamadi.");
+  const errorCode = String(errorRecord?.code || "TRANSACTION_ENGINE_ERROR");
+  return { success: false, errorCode, message, details: error };
 }
 
 async function callTransactionRpc(name: RpcName, input: Record<string, unknown>): Promise<BusinessTransactionResult> {
@@ -67,7 +72,7 @@ async function callTransactionRpc(name: RpcName, input: Record<string, unknown>)
 export async function createSaleTransaction(input: SaleTransactionInput): Promise<BusinessTransactionResult> {
   try {
     validateSaleTransaction(input);
-    const isCartSale = input.items.length > 1 || input.metadata?.source === "cart";
+    const isCartSale = input.items.length > 1;
     return await callTransactionRpc(isCartSale ? "ceplog_apply_cart_sale_transaction" : "ceplog_apply_sale_transaction", input as unknown as Record<string, unknown>);
   } catch (error) {
     return errorResult(error);
