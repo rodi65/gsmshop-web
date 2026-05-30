@@ -15935,3 +15935,333 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     flex-direction: column;
   }
 }
+
+/* Final ödeme ekranı: ürünler okunur, ödeme özeti kısa, ÖDE butonu her zaman görünür. */
+.cart-flow-modal-window {
+  width: min(980px, calc(100vw - 28px)) !important;
+  max-height: min(900px, calc(100vh - 28px)) !important;
+  padding: 16px !important;
+  overflow: hidden !important;
+}
+
+.cart-flow-modal-window .cart-panel {
+  height: min(820px, calc(100vh - 64px)) !important;
+  min-height: 0 !important;
+  max-height: calc(100vh - 64px) !important;
+  display: grid !important;
+  grid-template-rows: auto minmax(260px, 1fr) auto auto auto !important;
+  gap: 12px !important;
+  overflow: hidden !important;
+  padding: 18px !important;
+}
+
+.cart-flow-modal-window .cart-top-line {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  padding-right: 58px !important;
+}
+
+.cart-flow-modal-window .cart-top-line h2 {
+  font-size: 30px !important;
+  line-height: 1 !important;
+}
+
+.cart-flow-modal-window .sale-ready-modal-close {
+  top: 18px !important;
+  right: 18px !important;
+  width: 48px !important;
+  min-width: 48px !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  border-radius: 12px !important;
+  font-size: 26px !important;
+  line-height: 1 !important;
+}
+
+.cart-flow-modal-window .cart-clear-btn {
+  min-width: 118px !important;
+  min-height: 48px !important;
+  border-radius: 12px !important;
+  font-size: 17px !important;
+}
+
+.cart-flow-modal-window .cart-table-wrap {
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: auto !important;
+  border-radius: 18px !important;
+}
+
+.cart-flow-modal-window .cart-table-wrap table {
+  width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed !important;
+  border-collapse: separate !important;
+  border-spacing: 0 8px !important;
+}
+
+.cart-flow-modal-window .cart-table-wrap th:first-child,
+.cart-flow-modal-window .cart-table-wrap td:first-child {
+  width: auto !important;
+}
+
+.cart-flow-modal-window .cart-table-wrap th:last-child,
+.cart-flow-modal-window .cart-table-wrap td:last-child {
+  width: 210px !important;
+}
+
+.cart-flow-modal-window .cart-item-row td {
+  padding: 12px 14px !important;
+}
+
+.cart-flow-modal-window .cart-product-head {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+}
+
+.cart-flow-modal-window .cart-product-title-block {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.cart-flow-modal-window .cart-table-product strong {
+  display: block !important;
+  color: #0f172a !important;
+  font-size: 21px !important;
+  line-height: 1.2 !important;
+  font-weight: 1000 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+.cart-flow-modal-window .cart-table-product small {
+  color: #64748b !important;
+  font-size: 14px !important;
+  line-height: 1.35 !important;
+  font-weight: 900 !important;
+}
+
+.cart-flow-modal-window .cart-table-amount {
+  min-width: 0 !important;
+  height: 100% !important;
+  display: grid !important;
+  justify-items: end !important;
+  align-content: center !important;
+  gap: 5px !important;
+}
+
+.cart-flow-modal-window .cart-table-amount span {
+  color: #64748b !important;
+  font-size: 15px !important;
+  font-weight: 950 !important;
+}
+
+.cart-flow-modal-window .cart-table-amount b {
+  color: #0f172a !important;
+  font-size: 25px !important;
+  line-height: 1.05 !important;
+  font-weight: 1000 !important;
+  white-space: nowrap !important;
+}
+
+.cart-flow-modal-window .cart-line-payment-split {
+  gap: 7px !important;
+}
+
+.cart-flow-modal-window .cart-line-payment-split span {
+  min-height: 30px !important;
+  padding: 6px 10px !important;
+  font-size: 13px !important;
+}
+
+.cart-flow-modal-window .cart-icon-btn.danger {
+  flex: 0 0 auto !important;
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  border-radius: 12px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary {
+  gap: 7px !important;
+  padding: 10px !important;
+  border-radius: 18px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row {
+  min-height: 48px !important;
+  padding: 9px 14px !important;
+  border-radius: 13px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row.muted {
+  order: -1;
+  min-height: 40px !important;
+  opacity: .82;
+}
+
+.cart-flow-modal-window .cart-final-summary-row.muted span,
+.cart-flow-modal-window .cart-final-summary-row.muted b {
+  font-size: 15px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row span {
+  font-size: 18px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row b {
+  font-size: 26px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row.total {
+  min-height: 62px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row.total span {
+  font-size: 21px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row.total b {
+  font-size: 36px !important;
+}
+
+.cart-flow-modal-window .cart-session-total-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.cart-flow-modal-window .cart-session-total-grid div {
+  min-height: 52px !important;
+  padding: 8px 12px !important;
+}
+
+.cart-flow-modal-window .cart-session-total-grid span {
+  font-size: 13px !important;
+}
+
+.cart-flow-modal-window .cart-session-total-grid b {
+  font-size: 19px !important;
+}
+
+.cart-final-warning {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 2px solid rgba(239, 68, 68, .28);
+  background: #fff1f2;
+  color: #991b1b;
+  font-weight: 950;
+}
+
+.cart-final-warning b {
+  font-size: 22px;
+}
+
+.cart-flow-modal-window .cart-footer-actions {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  align-items: stretch !important;
+}
+
+.cart-flow-modal-window .cart-checkout-btn {
+  position: relative !important;
+  z-index: 3 !important;
+  width: 100% !important;
+  min-height: 76px !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  color: #ffffff !important;
+  font-size: 25px !important;
+  font-weight: 1000 !important;
+  letter-spacing: .01em !important;
+  box-shadow: 0 18px 38px rgba(37, 99, 235, .3) !important;
+}
+
+@media (max-width: 720px) {
+  .cart-flow-modal-window {
+    width: calc(100vw - 16px) !important;
+    max-height: calc(100vh - 16px) !important;
+    padding: 10px !important;
+  }
+
+  .cart-flow-modal-window .cart-panel {
+    height: calc(100vh - 36px) !important;
+    grid-template-rows: auto minmax(220px, 1fr) auto auto auto !important;
+    padding: 12px !important;
+  }
+
+  .cart-flow-modal-window .cart-top-line {
+    padding-right: 48px !important;
+  }
+
+  .cart-flow-modal-window .cart-top-line h2 {
+    font-size: 24px !important;
+  }
+
+  .cart-flow-modal-window .cart-clear-btn {
+    min-width: 92px !important;
+    font-size: 14px !important;
+  }
+
+  .cart-flow-modal-window .cart-table-wrap table,
+  .cart-flow-modal-window .cart-table-wrap thead,
+  .cart-flow-modal-window .cart-table-wrap tbody,
+  .cart-flow-modal-window .cart-item-row,
+  .cart-flow-modal-window .cart-item-row td {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .cart-flow-modal-window .cart-table-wrap thead {
+    display: none !important;
+  }
+
+  .cart-flow-modal-window .cart-item-row {
+    margin-bottom: 10px !important;
+    border: 1px solid rgba(226, 232, 240, .95) !important;
+    border-radius: 16px !important;
+  }
+
+  .cart-flow-modal-window .cart-table-amount {
+    justify-items: start !important;
+    padding-top: 0 !important;
+  }
+
+  .cart-flow-modal-window .cart-table-product strong {
+    font-size: 18px !important;
+  }
+
+  .cart-flow-modal-window .cart-table-amount b {
+    font-size: 24px !important;
+  }
+
+  .cart-flow-modal-window .cart-final-summary-row,
+  .cart-flow-modal-window .cart-session-total-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .cart-flow-modal-window .cart-final-summary-row.total b {
+    font-size: 30px !important;
+  }
+
+  .cart-flow-modal-window .cart-checkout-btn {
+    min-height: 68px !important;
+    font-size: 21px !important;
+  }
+}
+
+/* Nakit bilgisi ana ödeme sırasını bozmasın: Kart > Cari > Sepet Toplamı, nakit sadece ikincil bilgi. */
+.cart-flow-modal-window .cart-final-summary-row.muted {
+  order: 2 !important;
+}

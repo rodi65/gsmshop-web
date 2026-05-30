@@ -1,42 +1,24 @@
 import React from "react";
-import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { ShoppingCart, Trash2 } from "lucide-react";
 
-export function CartItemRow({ item, money, onUpdate, onRemove }) {
+export function CartItemRow({ item, money, onRemove }) {
   const cashAmount = Number(item.cashAmountAtAdd || 0);
   const cardAmount = Number(item.cardAmountAtAdd || 0);
   const cariAmount = Number(item.cariAmountAtAdd || 0);
-  const maxQuantity = Number.isFinite(Number(item.stockAvailable)) ? Number(item.stockAvailable) : 999999;
-  const canDecrease = Number(item.quantity || 0) > 1;
-  const canIncrease = item.productType === "service" || Number(item.quantity || 0) < maxQuantity;
 
   return (
     <tr className="cart-item-row">
       <td>
         <div className="cart-table-product">
           <div className="cart-product-head">
-            <strong>{item.productName}</strong>
-            <div className="cart-row-controls">
-              <div className="cart-qty-control" aria-label="Adet">
-                <button type="button" className="cart-icon-btn" disabled={!canDecrease} onClick={() => onUpdate(item.cartItemId, { quantity: Math.max(Number(item.quantity || 1) - 1, 1) })}>
-                  <Minus size={14} />
-                </button>
-                <input
-                  type="number"
-                  min="1"
-                  max={item.productType === "service" ? undefined : maxQuantity}
-                  value={item.quantity}
-                  onChange={(event) => onUpdate(item.cartItemId, { quantity: Number(event.target.value || 1) })}
-                />
-                <button type="button" className="cart-icon-btn" disabled={!canIncrease} onClick={() => onUpdate(item.cartItemId, { quantity: Number(item.quantity || 1) + 1 })}>
-                  <Plus size={14} />
-                </button>
-              </div>
-              <button type="button" className="cart-icon-btn danger" onClick={() => onRemove(item.cartItemId)} aria-label="Sepetten sil">
-                <Trash2 size={14} />
-              </button>
+            <div className="cart-product-title-block">
+              <strong>{item.productName}</strong>
+              <small>{item.productTypeLabel}{item.imei ? ` • IMEI: ${item.imei}` : ""}</small>
             </div>
+            <button type="button" className="cart-icon-btn danger" onClick={() => onRemove(item.cartItemId)} aria-label="Sepetten sil">
+              <Trash2 size={18} />
+            </button>
           </div>
-          <small>{item.productTypeLabel}{item.imei ? ` • IMEI: ${item.imei}` : ""}</small>
           <div className="cart-line-payment-split" aria-label="Satır ödeme dağılımı">
             <span>Nakit <b>{money(cashAmount)}</b></span>
             <span>Kart <b>{money(cardAmount)}</b></span>
@@ -194,7 +176,6 @@ export default function CartPanel({
                 key={item.cartItemId}
                 item={item}
                 money={money}
-                onUpdate={onUpdateItem}
                 onRemove={onRemoveItem}
               />
             )) : (
@@ -213,10 +194,10 @@ export default function CartPanel({
       </div>
 
       <div className="cart-final-summary" aria-label="Sepet toplam özeti">
-        <div className="cart-final-summary-row muted"><span>Nakit Toplamı</span><b>{money(cashTotal)}</b></div>
         <div className="cart-final-summary-row"><span>Kart Toplamı</span><b>{money(cardTotal)}</b></div>
         <div className="cart-final-summary-row"><span>Cari Toplamı</span><b>{money(cariTotal)}</b></div>
         <div className="cart-final-summary-row total"><span>Sepet Toplam Tutarı</span><b>{money(summary.netTotal)}</b></div>
+        {cashTotal > 0 && <div className="cart-final-summary-row muted"><span>Nakit Bilgisi</span><b>{money(cashTotal)}</b></div>}
       </div>
 
       <div className="cart-session-total-grid" aria-label="Sepet müşteri ve banka özeti">
@@ -224,24 +205,16 @@ export default function CartPanel({
         <div><span>Aktif Banka</span><b>{bankName || "-"}</b></div>
       </div>
 
-      <CartPaymentBox
-        payments={payments}
-        customer={customer}
-        bankName={bankName}
-        bankOptions={bankOptions}
-        paymentGap={paymentGap}
-        money={money}
-        onPaymentChange={onPaymentChange}
-        onCustomerChange={onCustomerChange}
-        onBankChange={onBankChange}
-        onSetFullPayment={onSetFullPayment}
-      />
-
-      <textarea className="cart-note" placeholder="Satış notu" value={note} onChange={(event) => onNoteChange(event.target.value)} />
+      {paymentGap !== 0 && (
+        <div className={`cart-final-warning ${paymentGap > 0 ? "remaining" : "overpaid"}`} role="alert">
+          <span>{paymentGap > 0 ? "Eksik kalan" : "Fazla ödeme"}</span>
+          <b>{money(Math.abs(paymentGap))}</b>
+        </div>
+      )}
 
       <div className="cart-footer-actions">
         <button type="button" className="primary cart-checkout-btn" disabled={!items.length || processing} onClick={onCheckout}>
-          {processing ? "İşleniyor..." : "Satış işlemini bitir"}
+          {processing ? "İşleniyor..." : "ÖDE · Satış işlemini bitir"}
         </button>
       </div>
     </aside>
