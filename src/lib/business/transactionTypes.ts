@@ -95,6 +95,10 @@ export interface SaleTransactionInput {
   actorId?: string | null;
   idempotencyKey: string;
   customerId?: string | null;
+  customerName?: string | null;
+  customer_name?: string | null;
+  cariPerson?: string | null;
+  cari_person?: string | null;
   items: SaleItemInput[];
   payments: SalePaymentInput;
   note?: string | null;
