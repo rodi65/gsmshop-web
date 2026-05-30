@@ -17687,3 +17687,162 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     width: 100% !important;
   }
 }
+
+/* Payment visibility fix: keep the popup size, but reserve visible space for payment inputs before checkout. */
+.cart-flow-modal-window {
+  width: min(620px, calc(100vw - 28px)) !important;
+  max-height: min(560px, calc(100vh - 28px)) !important;
+}
+
+.cart-flow-modal-window .cart-panel {
+  max-height: calc(100vh - 44px) !important;
+  grid-template-rows: auto minmax(92px, auto) auto auto auto auto !important;
+  gap: 4px !important;
+  padding: 9px !important;
+  align-content: start !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list {
+  max-height: min(122px, 18vh) !important;
+  min-height: 92px !important;
+  padding: 4px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-card {
+  min-height: 42px !important;
+  padding: 4px 6px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-main strong {
+  font-size: 14px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-main small {
+  font-size: 9px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-side .cart-table-amount b {
+  font-size: 15px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-card .cart-icon-btn,
+.cart-flow-modal-window .cart-checkout-item-card .cart-qty-control input {
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  min-height: 26px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-card .cart-qty-control {
+  grid-template-columns: 26px 28px 26px !important;
+}
+
+.cart-flow-modal-window .cart-summary-label {
+  display: none !important;
+}
+
+.cart-flow-modal-window .cart-final-summary {
+  gap: 4px !important;
+  padding: 4px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row,
+.cart-flow-modal-window .cart-final-summary-row.total,
+.cart-flow-modal-window .cart-final-summary-row.compact {
+  min-height: 32px !important;
+  padding: 4px 7px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row span,
+.cart-flow-modal-window .cart-final-summary-row.total span,
+.cart-flow-modal-window .cart-final-summary-row.compact span {
+  font-size: 9.5px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row b,
+.cart-flow-modal-window .cart-final-summary-row.compact b {
+  font-size: 15px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row.total b {
+  font-size: 18px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-box {
+  display: grid !important;
+  gap: 4px !important;
+  padding: 5px !important;
+  overflow: visible !important;
+}
+
+.cart-flow-modal-window .cart-payment-title {
+  min-height: 26px !important;
+  padding: 4px 6px !important;
+}
+
+.cart-flow-modal-window .cart-payment-title strong {
+  font-size: 12px !important;
+}
+
+.cart-flow-modal-window .cart-payment-title > b {
+  font-size: 9.5px !important;
+  padding: 2px 6px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 4px !important;
+  visibility: visible !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid label {
+  min-height: 38px !important;
+  padding: 4px 6px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid input,
+.cart-flow-modal-window .cart-final-payment-grid select {
+  min-height: 24px !important;
+  height: 24px !important;
+  font-size: 12px !important;
+}
+
+.cart-flow-modal-window .cart-payment-quick-actions {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 4px !important;
+  visibility: visible !important;
+}
+
+.cart-flow-modal-window .cart-payment-quick-actions button {
+  min-height: 26px !important;
+  font-size: 11.5px !important;
+}
+
+.cart-flow-modal-window .cart-payment-gap {
+  min-height: 28px !important;
+  padding: 3px 6px !important;
+}
+
+.cart-flow-modal-window .cart-note {
+  display: none !important;
+}
+
+.cart-flow-modal-window .cart-footer-actions {
+  position: static !important;
+  display: grid !important;
+  flex: none !important;
+  inset: auto !important;
+  transform: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+}
+
+.cart-flow-modal-window .cart-checkout-btn {
+  position: static !important;
+  min-height: 42px !important;
+  font-size: 16px !important;
+  transform: none !important;
+}
