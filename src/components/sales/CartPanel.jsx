@@ -46,8 +46,8 @@ export function CartItemRow({ item, money, onUpdate, onRemove }) {
       </td>
       <td>
         <div className="cart-table-amount">
+          <span>Satış fiyatı</span>
           <b>{money(item.lineTotal)}</b>
-          <span className={Number(item.lineProfit || 0) < 0 ? "loss" : "profit"}>{money(item.lineProfit)}</span>
         </div>
       </td>
     </tr>
@@ -168,6 +168,11 @@ export default function CartPanel({
   onSetFullPayment,
   onCheckout,
 }) {
+  const paymentNumber = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, "")) || 0;
+  const cardTotal = paymentNumber(payments.cardAmount) + paymentNumber(payments.bankAmount);
+  const cariTotal = paymentNumber(payments.cariAmount);
+  const cashTotal = paymentNumber(payments.cashAmount);
+
   return (
     <aside className="card pad kasa-cart cart-panel">
       <div className="top-line cart-top-line">
@@ -207,15 +212,14 @@ export default function CartPanel({
         </table>
       </div>
 
-      <div className="cart-total">
-        <span>Genel Toplam</span>
-        <b>{money(summary.netTotal)}</b>
+      <div className="cart-final-summary" aria-label="Sepet toplam özeti">
+        <div className="cart-final-summary-row muted"><span>Nakit Toplamı</span><b>{money(cashTotal)}</b></div>
+        <div className="cart-final-summary-row"><span>Kart Toplamı</span><b>{money(cardTotal)}</b></div>
+        <div className="cart-final-summary-row"><span>Cari Toplamı</span><b>{money(cariTotal)}</b></div>
+        <div className="cart-final-summary-row total"><span>Sepet Toplam Tutarı</span><b>{money(summary.netTotal)}</b></div>
       </div>
 
-      <div className="cart-session-total-grid" aria-label="Sepet ödeme toplamları">
-        <div><span>Toplam Nakit</span><b>{money(payments.cashAmount)}</b></div>
-        <div><span>Toplam Kart</span><b>{money(payments.cardAmount)}</b></div>
-        <div><span>Toplam Cari</span><b>{money(payments.cariAmount)}</b></div>
+      <div className="cart-session-total-grid" aria-label="Sepet müşteri ve banka özeti">
         <div><span>Aktif Müşteri</span><b>{customer.customerName || "-"}</b></div>
         <div><span>Aktif Banka</span><b>{bankName || "-"}</b></div>
       </div>
@@ -237,7 +241,7 @@ export default function CartPanel({
 
       <div className="cart-footer-actions">
         <button type="button" className="primary cart-checkout-btn" disabled={!items.length || processing} onClick={onCheckout}>
-          {processing ? "İşleniyor..." : "Satışı Tamamla"}
+          {processing ? "İşleniyor..." : "Satış işlemini bitir"}
         </button>
       </div>
     </aside>

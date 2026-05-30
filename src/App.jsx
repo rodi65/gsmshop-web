@@ -2796,7 +2796,33 @@ const isSameSalesListDay = (item, dateKey) => {
       totalProfit: summary.totalProfit + Number(item.lineProfit || 0),
     }), { totalQuantity: 0, grossTotal: 0, totalDiscount: 0, netTotal: 0, totalCost: 0, totalProfit: 0 });
   }, [cartItems]);
-  const cartPaymentTotal = parseMoneyInput(cartPayments.cashAmount) + parseMoneyInput(cartPayments.cardAmount) + parseMoneyInput(cartPayments.bankAmount) + parseMoneyInput(cartPayments.cariAmount);
+  const cartLinePaymentSummary = useMemo(() => {
+    const rows = cartItems.map(rebuildCartItem);
+    return rows.reduce((summary, item) => {
+      const cash = parseMoneyInput(item.cashAmountAtAdd || 0);
+      const card = parseMoneyInput(item.cardAmountAtAdd || 0);
+      const cari = parseMoneyInput(item.cariAmountAtAdd || 0);
+      return {
+        cashAmount: summary.cashAmount + cash,
+        cardAmount: summary.cardAmount + card,
+        cariAmount: summary.cariAmount + cari,
+        hasLinePayments: summary.hasLinePayments || cash > 0 || card > 0 || cari > 0,
+      };
+    }, { cashAmount: 0, cardAmount: 0, cariAmount: 0, hasLinePayments: false });
+  }, [cartItems]);
+  const cartEffectivePayments = useMemo(() => {
+    if (!cartLinePaymentSummary.hasLinePayments) return cartPayments;
+    const cashAmount = Math.max(Math.round(cartLinePaymentSummary.cashAmount), 0);
+    const cardAmount = Math.max(Math.round(cartLinePaymentSummary.cardAmount), 0);
+    const remainingCari = Math.max(Math.round(cartSummary.netTotal - cashAmount - cardAmount), 0);
+    return {
+      cashAmount: cashAmount > 0 ? formatMoneyInput(cashAmount) : "",
+      cardAmount: cardAmount > 0 ? formatMoneyInput(cardAmount) : "",
+      bankAmount: cartPayments.bankAmount,
+      cariAmount: remainingCari > 0 ? formatMoneyInput(remainingCari) : "",
+    };
+  }, [cartLinePaymentSummary, cartPayments.bankAmount, cartPayments, cartSummary.netTotal]);
+  const cartPaymentTotal = parseMoneyInput(cartEffectivePayments.cashAmount) + parseMoneyInput(cartEffectivePayments.cardAmount) + parseMoneyInput(cartEffectivePayments.bankAmount) + parseMoneyInput(cartEffectivePayments.cariAmount);
   const cartPaymentGap = Math.round(cartSummary.netTotal - cartPaymentTotal);
   function reconcileCartPaymentRemainder(payments, netTotal, { allowCreateCari = false } = {}) {
     const cashAmount = parseMoneyInput(payments.cashAmount);
@@ -3195,8 +3221,8 @@ const isSameSalesListDay = (item, dateKey) => {
     if (!rows.length) return alert("Sepet boş.");
     if (cartSummary.netTotal <= 0) return alert("Net toplam 0’dan büyük olmalıdır.");
     if (cartPaymentGap !== 0) return alert("Nakit + kart/banka + cari toplamı satış tutarına eşit olmalıdır.");
-    if ((parseMoneyInput(cartPayments.cardAmount) + parseMoneyInput(cartPayments.bankAmount)) > 0 && !cartBankName) return alert("Kart/Banka ödeme varsa banka seç.");
-    const cartCariAmount = parseMoneyInput(cartPayments.cariAmount);
+    if ((parseMoneyInput(cartEffectivePayments.cardAmount) + parseMoneyInput(cartEffectivePayments.bankAmount)) > 0 && !cartBankName) return alert("Kart/Banka ödeme varsa banka seç.");
+    const cartCariAmount = parseMoneyInput(cartEffectivePayments.cariAmount);
     const fallbackCartCustomerName = rows.find((item) => String(item.customerNameAtAdd || "").trim())?.customerNameAtAdd || "";
     const cartCustomerName = String(cartCustomer.customerName || saleForm.customer || fallbackCartCustomerName || "").trim();
     const cartCustomerId = cartCustomer.customerId || findCartCustomer(cartCustomerName)?.id || null;
@@ -3246,9 +3272,9 @@ const isSameSalesListDay = (item, dateKey) => {
           },
         })),
         payments: {
-          cashAmount: parseMoneyInput(cartPayments.cashAmount),
-          cardAmount: parseMoneyInput(cartPayments.cardAmount),
-          bankAmount: parseMoneyInput(cartPayments.bankAmount),
+          cashAmount: parseMoneyInput(cartEffectivePayments.cashAmount),
+          cardAmount: parseMoneyInput(cartEffectivePayments.cardAmount),
+          bankAmount: parseMoneyInput(cartEffectivePayments.bankAmount),
           cariAmount: cartCariAmount,
         },
         note: cartNote,
@@ -7037,7 +7063,7 @@ const isSameSalesListDay = (item, dateKey) => {
                       <CartPanel
                         items={cartItems.map(rebuildCartItem)}
                         summary={cartSummary}
-                        payments={cartPayments}
+                        payments={cartEffectivePayments}
                         customer={cartCustomer}
                         bankName={cartBankName}
                         bankOptions={bankOptions}

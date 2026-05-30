@@ -90,6 +90,10 @@ assert(app.includes("applyCartPaymentTemplate"), "Devam ürünlerinde ilk satı�
 assert(app.includes("Nakit • otomatik"), "Devam ürünlerinde nakit alanı otomatik/readonly görünmeli.");
 assert(cartPanel.includes("cart-payment-session-note"), "Sepet oturumu başladıktan sonra Nakit/Kart/Cari hızlı ödeme butonları gizlenmeli.");
 assert(cartPanel.includes("readOnly={hasSessionPayment}"), "Sepet ödeme toplamları oturum başladığında readonly olmalı.");
+assert(cartPanel.includes("Satış işlemini bitir"), "Sepet bitirme butonu istenen metinle görünmeli.");
+assert(cartPanel.includes("cart-final-summary"), "Sepet onay ekranı final toplam özetini göstermeli.");
+assert(cartPanel.includes("Kart Toplamı") && cartPanel.includes("Cari Toplamı") && cartPanel.includes("Sepet Toplam Tutarı"), "Sepet özeti kart/cari/toplam sırasını göstermeli.");
+assert(app.includes("cartEffectivePayments"), "Sepet tamamlamada satır ödeme dağılımından hesaplanan etkin toplamlar kullanılmalı.");
 assert(dataService.includes("ceplog_apply_sale_transaction"), "Satış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_stock_purchase_transaction"), "Alış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_expense_transaction"), "Gider transaction RPC bağlantısı eksik.");
