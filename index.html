@@ -12,6 +12,7 @@
 <script>
   (function () {
     const STORAGE_KEY = "ceplog_screen_zoom";
+    const POSITION_KEY = "ceplog_zoom_control_position";
     const MIN_ZOOM = 0.75;
     const MAX_ZOOM = 1.25;
     const STEP = 0.05;
@@ -40,6 +41,35 @@
 
       const label = document.getElementById("ceplogZoomLabel");
       if (label) label.textContent = Math.round(zoom * 100) + "%";
+    }
+
+    function getSavedPosition() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(POSITION_KEY) || "null");
+        if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) return saved;
+      } catch (error) {
+        localStorage.removeItem(POSITION_KEY);
+      }
+      return null;
+    }
+
+    function clampPosition(x, y, element) {
+      const rect = element?.getBoundingClientRect?.();
+      const width = rect?.width || 150;
+      const height = rect?.height || 48;
+      return {
+        x: Math.min(Math.max(8, x), Math.max(8, window.innerWidth - width - 8)),
+        y: Math.min(Math.max(8, y), Math.max(8, window.innerHeight - height - 8)),
+      };
+    }
+
+    function setZoomControlPosition(element, position, save = true) {
+      const next = clampPosition(position.x, position.y, element);
+      element.style.setProperty("left", next.x + "px", "important");
+      element.style.setProperty("top", next.y + "px", "important");
+      element.style.setProperty("right", "auto", "important");
+      element.style.setProperty("bottom", "auto", "important");
+      if (save) localStorage.setItem(POSITION_KEY, JSON.stringify(next));
     }
 
     function makeButton(text, title, onClick) {
@@ -80,6 +110,22 @@
       wrap.style.boxShadow = "0 14px 35px rgba(15,23,42,.18)";
       wrap.style.backdropFilter = "blur(12px)";
 
+      const grip = document.createElement("span");
+      grip.textContent = "↕";
+      grip.title = "Zoom tuşunu taşımak için sürükle";
+      grip.style.width = "22px";
+      grip.style.height = "34px";
+      grip.style.borderRadius = "10px";
+      grip.style.display = "inline-flex";
+      grip.style.alignItems = "center";
+      grip.style.justifyContent = "center";
+      grip.style.background = "#e0ecff";
+      grip.style.color = "#1d4ed8";
+      grip.style.fontWeight = "1000";
+      grip.style.cursor = "grab";
+      grip.style.userSelect = "none";
+      grip.setAttribute("aria-label", "Zoom kontrolünü taşı");
+
       const minus = makeButton("−", "Ekranı küçült", function () {
         applyZoom(getZoom() - STEP);
       });
@@ -106,10 +152,49 @@
         applyZoom(getZoom() + STEP);
       });
 
+      wrap.appendChild(grip);
       wrap.appendChild(minus);
       wrap.appendChild(label);
       wrap.appendChild(plus);
       document.body.appendChild(wrap);
+
+      const savedPosition = getSavedPosition();
+      if (savedPosition) {
+        setZoomControlPosition(wrap, savedPosition, false);
+      } else {
+        requestAnimationFrame(function () {
+          setZoomControlPosition(wrap, { x: window.innerWidth - wrap.offsetWidth - 14, y: window.innerHeight - wrap.offsetHeight - 14 }, false);
+        });
+      }
+
+      let dragState = null;
+      grip.addEventListener("pointerdown", function (event) {
+        const rect = wrap.getBoundingClientRect();
+        dragState = { startX: event.clientX, startY: event.clientY, left: rect.left, top: rect.top };
+        grip.style.cursor = "grabbing";
+        grip.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+      });
+
+      grip.addEventListener("pointermove", function (event) {
+        if (!dragState) return;
+        setZoomControlPosition(wrap, {
+          x: dragState.left + event.clientX - dragState.startX,
+          y: dragState.top + event.clientY - dragState.startY,
+        });
+      });
+
+      function endDrag() {
+        dragState = null;
+        grip.style.cursor = "grab";
+      }
+
+      grip.addEventListener("pointerup", endDrag);
+      grip.addEventListener("pointercancel", endDrag);
+      window.addEventListener("resize", function () {
+        const rect = wrap.getBoundingClientRect();
+        setZoomControlPosition(wrap, { x: rect.left, y: rect.top });
+      });
 
       applyZoom(getZoom());
     }
