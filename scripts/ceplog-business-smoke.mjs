@@ -9,6 +9,7 @@ const requiredFiles = [
   "src/lib/business/transactionTypes.ts",
   "src/lib/business/businessRules.ts",
   "src/lib/business/transactionEngine.ts",
+  "src/lib/business/cartSaleEngine.ts",
   "src/lib/business/ledger.ts",
   "src/lib/business/reconciliation.ts",
   "src/lib/business/audit.ts",
@@ -63,6 +64,7 @@ const app = read("src/App.jsx");
 const cartPanel = read("src/components/sales/CartPanel.jsx");
 const style = read("src/style.css");
 const transactionEngine = read("src/lib/business/transactionEngine.ts");
+const cartSaleEngine = read("src/lib/business/cartSaleEngine.ts");
 const reconciliation = read("src/lib/business/reconciliation.ts");
 
 for (const rpcName of requiredRpcNames) {
@@ -117,6 +119,11 @@ assert(app.includes("cartEffectivePayments"), "Sepet tamamlamada etkin ödeme to
 assert(app.includes("total_amount: cartTotalAmount") && app.includes("line_total: Number(item.lineTotal || 0)"), "Sepet satış payload'u RPC uyumlu snake_case toplam ve satır tutarı taşımalı.");
 assert(app.includes("cash_amount: cartCashAmount") && app.includes("card_amount: cartCardAmount") && app.includes("cari_amount: cartCariAmount"), "Sepet ödeme payload'u RPC uyumlu snake_case ödeme alanları taşımalı.");
 assert(app.includes("cart_sale_transaction_rpc_20260529.sql migration") || app.includes("Sepet satış motoru veritabanında kurulu görünmüyor"), "Eksik sepet RPC hatası kullanıcıya migration sebebiyle açıklanmalı.");
+assert(cartSaleEngine.includes("normalizeCartSalePayload") && cartSaleEngine.includes("validateCartSale"), "Kasa Beyni cart sale normalize/validate motoru bulunmalı.");
+assert(cartSaleEngine.includes("saleTotal") && cartSaleEngine.includes("paymentTotal") && cartSaleEngine.includes("INVALID_ITEM_PRICE"), "Cart sale motoru toplam ve fiyat validasyonlarını içermeli.");
+assert(cartSaleEngine.includes("MISSING_BANK") && cartSaleEngine.includes("MissingCustomerError") && cartSaleEngine.includes("INVALID_PAYMENT_AMOUNT"), "Cart sale motoru banka/cari/negatif ödeme kontrollerini içermeli.");
+assert(transactionEngine.includes("normalizeCartSalePayload") && transactionEngine.includes("validateCartSale"), "Transaction engine cart sale motorundan geçmeli.");
+assert(app.includes("createCartSalePayload") && app.includes('console.debug("CEPLOG cartSalePayload"'), "UI standart cartSalePayload oluşturup debug bilgisini sadece console'a yazmalı.");
 assert(dataService.includes("ceplog_apply_sale_transaction"), "Satış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_stock_purchase_transaction"), "Alış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_expense_transaction"), "Gider transaction RPC bağlantısı eksik.");

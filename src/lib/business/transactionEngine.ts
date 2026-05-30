@@ -8,6 +8,7 @@ import {
   validateSaleTransaction,
 } from "./businessRules";
 import { BusinessRuleError } from "./errors";
+import { normalizeCartSalePayload, validateCartSale } from "./cartSaleEngine";
 import type {
   BusinessTransactionResult,
   CancelTransactionInput,
@@ -71,9 +72,11 @@ async function callTransactionRpc(name: RpcName, input: Record<string, unknown>)
 
 export async function createSaleTransaction(input: SaleTransactionInput): Promise<BusinessTransactionResult> {
   try {
-    validateSaleTransaction(input);
-    const isCartSale = input.items.length > 1;
-    return await callTransactionRpc(isCartSale ? "ceplog_apply_cart_sale_transaction" : "ceplog_apply_sale_transaction", input as unknown as Record<string, unknown>);
+    const normalizedInput = normalizeCartSalePayload(input as SaleTransactionInput & Record<string, unknown>) as SaleTransactionInput;
+    validateCartSale(normalizedInput as SaleTransactionInput & Record<string, unknown>);
+    validateSaleTransaction(normalizedInput);
+    const isCartSale = normalizedInput.items.length > 1;
+    return await callTransactionRpc(isCartSale ? "ceplog_apply_cart_sale_transaction" : "ceplog_apply_sale_transaction", normalizedInput as unknown as Record<string, unknown>);
   } catch (error) {
     return errorResult(error);
   }
