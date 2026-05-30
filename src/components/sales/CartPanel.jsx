@@ -121,11 +121,7 @@ export function CartPaymentBox({
 
   return (
     <div className="cart-payment-box cart-final-payment-box">
-      <div className={`cart-payment-title ${paymentGap === 0 ? "ok" : gapTone}`}>
-        <div>
-          <strong>Ödeme Bilgileri</strong>
-          <span>Parçalı ödeme için nakit, kart ve cari alanlarını birlikte doldur.</span>
-        </div>
+      <div className={`cart-payment-title cart-payment-status-only ${paymentGap === 0 ? "ok" : gapTone}`} aria-label="Ödeme durumu">
         <b>{statusText}</b>
       </div>
 

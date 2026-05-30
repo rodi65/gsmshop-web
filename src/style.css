@@ -18160,3 +18160,159 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 .cart-flow-modal-window .cart-final-payment-box {
   margin-top: 0 !important;
 }
+
+/* Merge cart sections: payment starts directly after totals and the finish controls stay visible. */
+.cart-flow-modal-window .cart-panel {
+  grid-template-rows: auto auto auto auto auto !important;
+  gap: 3px !important;
+  padding: 8px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list {
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: 96px !important;
+  padding: 3px !important;
+  gap: 3px !important;
+  border-bottom-left-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
+  margin-bottom: 0 !important;
+  overflow-y: auto !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-card {
+  min-height: 36px !important;
+  padding: 3px 5px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list:has(.cart-checkout-item-card:nth-of-type(1)) {
+  max-height: 42px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list:has(.cart-checkout-item-card:nth-of-type(2)) {
+  max-height: 78px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list:has(.cart-checkout-item-card:nth-of-type(3)) {
+  max-height: 96px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary {
+  margin-top: -1px !important;
+  padding: 4px !important;
+  gap: 4px !important;
+  border-top-left-radius: 8px !important;
+  border-top-right-radius: 8px !important;
+  border-bottom-left-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row,
+.cart-flow-modal-window .cart-final-summary-row.total,
+.cart-flow-modal-window .cart-final-summary-row.compact {
+  min-height: 30px !important;
+  padding: 4px 7px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row span,
+.cart-flow-modal-window .cart-final-summary-row.total span,
+.cart-flow-modal-window .cart-final-summary-row.compact span {
+  font-size: 10.5px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row b,
+.cart-flow-modal-window .cart-final-summary-row.compact b {
+  font-size: 15px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row.total b {
+  font-size: 18px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-box {
+  margin-top: -1px !important;
+  padding: 4px !important;
+  gap: 3px !important;
+  border-top-left-radius: 8px !important;
+  border-top-right-radius: 8px !important;
+}
+
+.cart-flow-modal-window .cart-payment-title.cart-payment-status-only {
+  min-height: 0 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.cart-flow-modal-window .cart-payment-title.cart-payment-status-only > b {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 20px !important;
+  padding: 2px 8px !important;
+  border-radius: 999px !important;
+  font-size: 10px !important;
+}
+
+.cart-flow-modal-window .cart-payment-title.cart-payment-status-only > div,
+.cart-flow-modal-window .cart-payment-title.cart-payment-status-only strong,
+.cart-flow-modal-window .cart-payment-title.cart-payment-status-only span {
+  display: none !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 4px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid label {
+  min-height: 36px !important;
+  padding: 4px 6px !important;
+  border-radius: 9px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid label span {
+  font-size: 11px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid input,
+.cart-flow-modal-window .cart-final-payment-grid select {
+  min-height: 23px !important;
+  height: 23px !important;
+  font-size: 12.5px !important;
+}
+
+.cart-flow-modal-window .cart-payment-quick-actions {
+  gap: 4px !important;
+}
+
+.cart-flow-modal-window .cart-payment-quick-actions button {
+  min-height: 25px !important;
+  font-size: 11.5px !important;
+}
+
+.cart-flow-modal-window .cart-payment-gap {
+  min-height: 26px !important;
+  padding: 3px 6px !important;
+  margin-top: 0 !important;
+}
+
+.cart-flow-modal-window .cart-payment-gap span,
+.cart-flow-modal-window .cart-payment-gap b,
+.cart-flow-modal-window .cart-payment-gap button {
+  font-size: 11px !important;
+}
+
+.cart-flow-modal-window .cart-payment-gap button {
+  min-height: 22px !important;
+}
+
+.cart-flow-modal-window .cart-footer-actions {
+  margin-top: 0 !important;
+}
+
+.cart-flow-modal-window .cart-checkout-btn {
+  min-height: 40px !important;
+}
