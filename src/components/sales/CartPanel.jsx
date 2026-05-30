@@ -1,48 +1,90 @@
 import React from "react";
 import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 
+function normalizeCartText(value) {
+  return String(value || "")
+    .toLocaleLowerCase("tr-TR")
+    .replace(/ı/g, "i")
+    .replace(/[^a-z0-9ğüşöçİi]+/g, "")
+    .trim();
+}
+
+function displayCartProductName(name) {
+  const parts = String(name || "Ürün")
+    .split(" / ")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const seen = new Set();
+  const visible = [];
+  parts.forEach((part) => {
+    const key = normalizeCartText(part);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    visible.push(part);
+  });
+  return visible.join(" / ") || String(name || "Ürün");
+}
+
+function displayCartCategory(label) {
+  const text = String(label || "").trim();
+  const normalized = normalizeCartText(text);
+  if (normalized.includes("accessory") || normalized.includes("aksesuar")) return "Aksesuar";
+  if (normalized.includes("phone") || normalized.includes("telefon")) return "Telefon";
+  if (normalized.includes("service") || normalized.includes("servis") || normalized.includes("teknik")) return "Teknik";
+  return text || "Ürün";
+}
+
 export function CartItemRow({ item, money, onUpdate, onRemove }) {
+  const cashAmount = Number(item.cashAmountAtAdd || 0);
+  const cardAmount = Number(item.cardAmountAtAdd || 0);
+  const cariAmount = Number(item.cariAmountAtAdd || 0);
   const maxQuantity = Number.isFinite(Number(item.stockAvailable)) ? Number(item.stockAvailable) : 999999;
   const canDecrease = Number(item.quantity || 0) > 1;
   const canIncrease = item.productType === "service" || Number(item.quantity || 0) < maxQuantity;
+  const displayName = displayCartProductName(item.productName);
+  const displayCategory = displayCartCategory(item.productTypeLabel);
 
   return (
-    <tr className="cart-item-row">
-      <td>
-        <div className="cart-table-product">
-          <div className="cart-product-head">
-            <strong>{item.productName}</strong>
-            <div className="cart-row-controls">
-              <div className="cart-qty-control" aria-label="Adet">
-                <button type="button" className="cart-icon-btn" disabled={!canDecrease} onClick={() => onUpdate(item.cartItemId, { quantity: Math.max(Number(item.quantity || 1) - 1, 1) })}>
-                  <Minus size={14} />
-                </button>
-                <input
-                  type="number"
-                  min="1"
-                  max={item.productType === "service" ? undefined : maxQuantity}
-                  value={item.quantity}
-                  onChange={(event) => onUpdate(item.cartItemId, { quantity: Number(event.target.value || 1) })}
-                />
-                <button type="button" className="cart-icon-btn" disabled={!canIncrease} onClick={() => onUpdate(item.cartItemId, { quantity: Number(item.quantity || 1) + 1 })}>
-                  <Plus size={14} />
-                </button>
-              </div>
-              <button type="button" className="cart-icon-btn danger" onClick={() => onRemove(item.cartItemId)} aria-label="Sepetten sil">
-                <Trash2 size={14} />
-              </button>
-            </div>
+    <article className="cart-checkout-item-card">
+      <div className="cart-checkout-item-main">
+        <strong>{displayName}</strong>
+        <small>{displayCategory}{item.imei ? ` • IMEI: ${item.imei}` : item.barcode ? ` • Barkod: ${item.barcode}` : ""}</small>
+        {(cashAmount > 0 || cardAmount > 0 || cariAmount > 0) && (
+          <div className="cart-line-payment-split" aria-label="Satır ödeme dağılımı">
+            <span>Nakit <b>{money(cashAmount)}</b></span>
+            <span>Kart <b>{money(cardAmount)}</b></span>
+            <span>Cari <b>{money(cariAmount)}</b></span>
           </div>
-          <small>{item.productTypeLabel}{item.imei ? ` • IMEI: ${item.imei}` : ""}</small>
-        </div>
-      </td>
-      <td>
+        )}
+      </div>
+
+      <div className="cart-checkout-item-side">
         <div className="cart-table-amount">
+          <span>Satış fiyatı</span>
           <b>{money(item.lineTotal)}</b>
-          <span className={Number(item.lineProfit || 0) < 0 ? "loss" : "profit"}>{money(item.lineProfit)}</span>
         </div>
-      </td>
-    </tr>
+        <div className="cart-row-controls">
+          <div className="cart-qty-control" aria-label="Adet">
+            <button type="button" className="cart-icon-btn" disabled={!canDecrease} onClick={() => onUpdate(item.cartItemId, { quantity: Math.max(Number(item.quantity || 1) - 1, 1) })}>
+              <Minus size={16} />
+            </button>
+            <input
+              type="number"
+              min="1"
+              max={item.productType === "service" ? undefined : maxQuantity}
+              value={item.quantity}
+              onChange={(event) => onUpdate(item.cartItemId, { quantity: Number(event.target.value || 1) })}
+            />
+            <button type="button" className="cart-icon-btn" disabled={!canIncrease} onClick={() => onUpdate(item.cartItemId, { quantity: Number(item.quantity || 1) + 1 })}>
+              <Plus size={16} />
+            </button>
+          </div>
+          <button type="button" className="cart-icon-btn danger" onClick={() => onRemove(item.cartItemId)} aria-label="Sepetten sil">
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -71,55 +113,59 @@ export function CartPaymentBox({
 }) {
   const paymentNumber = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, "")) || 0;
   const hasCardPayment = paymentNumber(payments.cardAmount) + paymentNumber(payments.bankAmount) > 0;
-  const hasCariPayment = paymentNumber(payments.cariAmount) > 0;
+  const gapTone = paymentGap > 0 ? "remaining" : "overpaid";
 
   return (
-    <div className="cart-payment-box">
-      <div className="cart-payment-actions">
+    <div className="cart-payment-box cart-final-payment-box">
+      <div className="cart-final-payment-head">
+        <strong>Ödeme Bilgileri</strong>
+        <span>Parçalı ödeme için tutarları ayrı ayrı yaz.</span>
+      </div>
+      <div className="cart-payment-actions cart-quick-fill-actions">
+        <span>Hızlı doldur</span>
         <button type="button" onClick={() => onSetFullPayment("cash")}>Nakit</button>
         <button type="button" onClick={() => onSetFullPayment("card")}>Kart</button>
         <button type="button" onClick={() => onSetFullPayment("cari")}>Cari</button>
       </div>
 
-      <div className="payment-box">
+      <div className="payment-box cart-final-payment-grid">
+        <label>
+          <span>Müşteri / Cari</span>
+          <input list="cart-customer-list" value={customer.customerName || ""} onChange={(event) => onCustomerChange(event.target.value)} placeholder="Müşteri adı veya cari kişi" />
+        </label>
         <label>
           <span>Nakit</span>
-          <input inputMode="numeric" value={payments.cashAmount} onChange={(event) => onPaymentChange("cashAmount", event.target.value)} />
+          <input inputMode="numeric" value={payments.cashAmount} onChange={(event) => onPaymentChange("cashAmount", event.target.value)} placeholder="0" />
         </label>
         <label>
-          <span>Kart</span>
-          <input inputMode="numeric" value={payments.cardAmount} onChange={(event) => onPaymentChange("cardAmount", event.target.value)} />
+          <span>Kart / POS</span>
+          <input inputMode="numeric" value={payments.cardAmount} onChange={(event) => onPaymentChange("cardAmount", event.target.value)} placeholder="0" />
         </label>
         <label>
-          <span>Cari</span>
-          <input inputMode="numeric" value={payments.cariAmount} onChange={(event) => onPaymentChange("cariAmount", event.target.value)} />
+          <span>Banka</span>
+          <select value={bankName || ""} disabled={!hasCardPayment} onChange={(event) => onBankChange(event.target.value)}>
+            <option value="">{hasCardPayment ? "Banka seç" : "Kart yok"}</option>
+            {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+            <option value="__add_bank__">+ Banka Ekle</option>
+          </select>
+        </label>
+        <label>
+          <span>Kalan / Cari</span>
+          <input inputMode="numeric" value={payments.cariAmount} onChange={(event) => onPaymentChange("cariAmount", event.target.value)} placeholder="0" />
         </label>
       </div>
 
-      {hasCardPayment && (
-        <select value={bankName} onChange={(event) => onBankChange(event.target.value)}>
-          <option value="">Banka / POS seç</option>
-          {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
-          <option value="__add_bank__">+ Banka Ekle</option>
-        </select>
-      )}
-
-      {hasCariPayment && (
-        <input
-          list="cart-customer-list"
-          placeholder="Müşteri / cari kişi"
-          value={customer.customerName}
-          onChange={(event) => onCustomerChange(event.target.value)}
-        />
-      )}
-
       {paymentGap !== 0 && (
-        <div className="cart-payment-gap">
-          <span>Ödeme farkı</span>
-          <b>{money(paymentGap)}</b>
-          {paymentGap > 0 && (
+        <div className={`cart-payment-gap ${gapTone}`}>
+          <span>{paymentGap > 0 ? "Eksik / cariye aktarılacak kalan" : "Fazla ödeme"}</span>
+          <b>{money(Math.abs(paymentGap))}</b>
+          {paymentGap > 0 ? (
             <button type="button" onClick={() => onPaymentChange("cariAmount", String(paymentNumber(payments.cariAmount) + paymentGap))}>
               Kalanı cariye yaz
+            </button>
+          ) : (
+            <button type="button" onClick={() => onPaymentChange("cariAmount", String(Math.max(paymentNumber(payments.cariAmount) - Math.abs(paymentGap), 0)))}>
+              Fazlayı düzelt
             </button>
           )}
         </div>
@@ -149,6 +195,11 @@ export default function CartPanel({
   onSetFullPayment,
   onCheckout,
 }) {
+  const paymentNumber = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, "")) || 0;
+  const cardTotal = paymentNumber(payments.cardAmount) + paymentNumber(payments.bankAmount);
+  const cariTotal = paymentNumber(payments.cariAmount);
+  const cashTotal = paymentNumber(payments.cashAmount);
+
   return (
     <aside className="card pad kasa-cart cart-panel">
       <div className="top-line cart-top-line">
@@ -156,41 +207,29 @@ export default function CartPanel({
         <button type="button" className="cart-clear-btn" disabled={!items.length || processing} onClick={onClear}>Temizle</button>
       </div>
 
-      <div className="cart-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Ürün</th>
-              <th>Tutar</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length ? items.map((item) => (
-              <CartItemRow
-                key={item.cartItemId}
-                item={item}
-                money={money}
-                onUpdate={onUpdateItem}
-                onRemove={onRemoveItem}
-              />
-            )) : (
-              <tr>
-                <td colSpan="2">
-                  <div className="cart-empty-state">
-                    <ShoppingCart size={26} />
-                    <strong>Sepet boş.</strong>
-                    <span>Ürün ara veya hızlı satıştan ekle.</span>
-                  </div>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="cart-checkout-list" aria-label="Sepetteki ürünler">
+        {items.length ? items.map((item) => (
+          <CartItemRow
+            key={item.cartItemId}
+            item={item}
+            money={money}
+            onUpdate={onUpdateItem}
+            onRemove={onRemoveItem}
+          />
+        )) : (
+          <div className="cart-empty-state">
+            <ShoppingCart size={26} />
+            <strong>Sepet boş.</strong>
+            <span>Ürün ara veya hızlı satıştan ekle.</span>
+          </div>
+        )}
       </div>
 
-      <div className="cart-total">
-        <span>Genel Toplam</span>
-        <b>{money(summary.netTotal)}</b>
+      <div className="cart-final-summary" aria-label="Sepet toplam özeti">
+        <div className="cart-final-summary-row compact"><span>Nakit Toplamı</span><b>{money(cashTotal)}</b></div>
+        <div className="cart-final-summary-row"><span>Kart Toplamı</span><b>{money(cardTotal)}</b></div>
+        <div className="cart-final-summary-row"><span>Cari Toplamı</span><b>{money(cariTotal)}</b></div>
+        <div className="cart-final-summary-row total"><span>Sepet Toplam Tutarı</span><b>{money(summary.netTotal)}</b></div>
       </div>
 
       <CartPaymentBox
@@ -210,7 +249,7 @@ export default function CartPanel({
 
       <div className="cart-footer-actions">
         <button type="button" className="primary cart-checkout-btn" disabled={!items.length || processing} onClick={onCheckout}>
-          {processing ? "İşleniyor..." : "Satışı Tamamla"}
+          {processing ? "İşleniyor..." : "Satış işlemini bitir"}
         </button>
       </div>
     </aside>
