@@ -76,6 +76,11 @@ for (const pattern of forbiddenSql) {
 
 assert(reconciliation.includes("runReadOnlyReconciliation"), "Read-only reconciliation export eksik.");
 assert(dataService.includes("callBusinessTransactionRpc"), "dataService merkezi RPC çağrı helper'ı eksik.");
+
+assert(/customerText\s*=\s*String\([\s\S]*customerName[\s\S]*cariPerson/.test(read("src/lib/business/businessRules.ts")), "Cari satış müşteri doğrulaması isim/cari fallback kabul etmeli.");
+assert(app.includes("customerId: cartCustomerId || cartCustomerName || null"), "Sepet cari tamamlamada müşteri adı customerId fallback olarak iletilmeli.");
+assert(app.includes("customerName: cartCustomerName"), "Sepet satış payload müşteri adını camelCase taşımalı.");
+assert(app.includes("cariPerson: cartCustomerName"), "Sepet satış payload cari kişiyi camelCase taşımalı.");
 assert(dataService.includes("ceplog_apply_sale_transaction"), "Satış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_stock_purchase_transaction"), "Alış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_expense_transaction"), "Gider transaction RPC bağlantısı eksik.");

@@ -3154,6 +3154,7 @@ const isSameSalesListDay = (item, dateKey) => {
     const cartCariAmount = parseMoneyInput(cartPayments.cariAmount);
     const fallbackCartCustomerName = rows.find((item) => String(item.customerNameAtAdd || "").trim())?.customerNameAtAdd || "";
     const cartCustomerName = String(cartCustomer.customerName || saleForm.customer || fallbackCartCustomerName || "").trim();
+    const cartCustomerId = cartCustomer.customerId || findCartCustomer(cartCustomerName)?.id || null;
     const isOnlyAccessoryCart = rows.every((item) => {
       const marker = normalizeCashEntryText([item.productType, item.productTypeLabel, item.category, item.note].join(" "));
       return marker.includes("accessory") || marker.includes("aksesuar");
@@ -3174,8 +3175,10 @@ const isSameSalesListDay = (item, dateKey) => {
         workspaceId: activeWorkspaceId,
         actorId: currentUser?.id || currentUser?.email || null,
         idempotencyKey,
-        customerId: cartCustomer.customerId || null,
+        customerId: cartCustomerId || cartCustomerName || null,
+        customerName: cartCustomerName,
         customer_name: cartCustomerName,
+        cariPerson: cartCustomerName || saleForm.cariPerson || "",
         cari_person: cartCustomerName || saleForm.cariPerson || "",
         sale_group: "Sepet",
         sale_type: "Sepet Satışı",
@@ -3204,12 +3207,24 @@ const isSameSalesListDay = (item, dateKey) => {
           cariAmount: cartCariAmount,
         },
         note: cartNote,
-        metadata: { source: "cart", screen: "main_sales", itemCount: rows.length },
+        metadata: {
+          source: "cart",
+          screen: "main_sales",
+          itemCount: rows.length,
+          customerName: cartCustomerName,
+          cariPerson: cartCustomerName || saleForm.cariPerson || "",
+          bankName: cartBankName || "",
+        },
       });
 
       if (!result.success) {
         const missingRpc = String(result.message || "").includes("ceplog_apply_cart_sale_transaction") || String(result.details || "").includes("ceplog_apply_cart_sale_transaction");
-        alert(missingRpc ? "Sepet satış motoru SQL kurulumu bekliyor. Sepet korunuyor." : (result.message || "Satış kaydedilemedi. Sepet korunuyor."));
+        const customerValidation = result.errorCode === "MISSING_CUSTOMER" || String(result.message || "").includes("Cari satis icin musteri zorunludur");
+        alert(missingRpc
+          ? "Sepet satış motoru SQL kurulumu bekliyor. Sepet korunuyor."
+          : customerValidation
+            ? "Cari kalan için aktif sepet müşterisi gerekli. Müşteri alanını kontrol et; sepet korunuyor."
+            : (result.message || "Satış kaydedilemedi. Sepet korunuyor."));
         return;
       }
 
