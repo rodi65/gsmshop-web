@@ -1,6 +1,41 @@
 import React from "react";
 import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 
+function normalizeDisplayText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeProductTypeLabel(value) {
+  const text = normalizeDisplayText(value);
+  const lower = text.toLocaleLowerCase("tr-TR");
+  if (["accessory", "aksesuar", "aksesauar"].includes(lower)) return "Aksesuar";
+  if (["phone", "telefon", "cihaz"].includes(lower)) return "Telefon";
+  if (["service", "program / hizmet", "hizmet"].includes(lower)) return "Hizmet";
+  return text;
+}
+
+function compactProductName(value, fallback = "Ürün") {
+  const text = normalizeDisplayText(value);
+  if (!text) return fallback;
+  const parts = text
+    .split(" / ")
+    .map((part) => normalizeDisplayText(part))
+    .filter(Boolean);
+  if (parts.length <= 1) return text;
+
+  const half = parts.length / 2;
+  if (Number.isInteger(half)) {
+    const left = parts.slice(0, half).join(" / ").toLocaleLowerCase("tr-TR");
+    const right = parts.slice(half).join(" / ").toLocaleLowerCase("tr-TR");
+    if (left === right) return parts.slice(0, half).join(" / ");
+  }
+
+  return parts.filter((part, index) => {
+    const normalized = part.toLocaleLowerCase("tr-TR");
+    return parts.findIndex((candidate) => candidate.toLocaleLowerCase("tr-TR") === normalized) === index;
+  }).join(" / ");
+}
+
 export function CartItemRow({ item, money, onUpdate, onRemove }) {
   const cashAmount = Number(item.cashAmountAtAdd || 0);
   const cardAmount = Number(item.cardAmountAtAdd || 0);
@@ -8,12 +43,15 @@ export function CartItemRow({ item, money, onUpdate, onRemove }) {
   const maxQuantity = Number.isFinite(Number(item.stockAvailable)) ? Number(item.stockAvailable) : 999999;
   const canDecrease = Number(item.quantity || 0) > 1;
   const canIncrease = item.productType === "service" || Number(item.quantity || 0) < maxQuantity;
+  const displayName = compactProductName(item.productName);
+  const typeLabel = normalizeProductTypeLabel(item.productTypeLabel);
+  const details = [typeLabel, item.imei ? `IMEI: ${item.imei}` : item.barcode ? `Barkod: ${item.barcode}` : ""].filter(Boolean).join(" • ");
 
   return (
     <article className="cart-checkout-item-card">
       <div className="cart-checkout-item-main">
-        <strong>{item.productName}</strong>
-        <small>{item.productTypeLabel}{item.imei ? ` • IMEI: ${item.imei}` : ""}</small>
+        <strong title={item.productName}>{displayName}</strong>
+        {details && <small>{details}</small>}
         {(cashAmount > 0 || cardAmount > 0 || cariAmount > 0) && (
           <div className="cart-line-payment-split" aria-label="Satır ödeme dağılımı">
             <span>Nakit <b>{money(cashAmount)}</b></span>
@@ -82,12 +120,6 @@ export function CartPaymentBox({
 
   return (
     <div className="cart-payment-box cart-final-payment-box">
-      <div className="cart-payment-actions">
-        <button type="button" onClick={() => onSetFullPayment("cash")}>Tamamı Nakit</button>
-        <button type="button" onClick={() => onSetFullPayment("card")}>Tamamı Kart</button>
-        <button type="button" onClick={() => onSetFullPayment("cari")}>Tamamı Cari</button>
-      </div>
-
       <div className="payment-box cart-final-payment-grid">
         <label>
           <span>Müşteri / Cari</span>
@@ -113,6 +145,13 @@ export function CartPaymentBox({
           <span>Kalan / Cari</span>
           <input inputMode="numeric" value={payments.cariAmount} onChange={(event) => onPaymentChange("cariAmount", event.target.value)} placeholder="0" />
         </label>
+      </div>
+
+      <div className="cart-payment-actions cart-payment-quick-actions" aria-label="Hızlı ödeme doldur">
+        <span>Hızlı doldur</span>
+        <button type="button" onClick={() => onSetFullPayment("cash")}>Hepsi nakit</button>
+        <button type="button" onClick={() => onSetFullPayment("card")}>Hepsi kart</button>
+        <button type="button" onClick={() => onSetFullPayment("cari")}>Hepsi cari</button>
       </div>
 
       {paymentGap !== 0 && (

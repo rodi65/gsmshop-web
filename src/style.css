@@ -16316,3 +16316,221 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     display: grid;
   }
 }
+
+/* Final kompakt sepet düzeltmesi: ödeme alanları görünür, ürün satırları yatay ve okunur. */
+.cart-flow-modal-window {
+  width: min(960px, calc(100vw - 28px)) !important;
+  max-height: min(820px, calc(100vh - 28px)) !important;
+  padding: 12px !important;
+}
+
+.cart-flow-modal-window .cart-panel {
+  max-height: calc(100vh - 56px) !important;
+  grid-template-rows: auto minmax(130px, 1fr) auto auto auto auto !important;
+  gap: 8px !important;
+  padding: 14px !important;
+  overflow: auto !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list {
+  max-height: min(245px, 30vh) !important;
+  gap: 7px !important;
+  padding: 8px !important;
+  border-radius: 16px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-card {
+  min-height: 76px !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 10px !important;
+  padding: 10px 12px !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, .06) !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-main {
+  gap: 3px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-main strong {
+  font-size: 21px !important;
+  line-height: 1.12 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-main small {
+  font-size: 13px !important;
+  line-height: 1.2 !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-side {
+  min-width: 310px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-side .cart-table-amount {
+  min-width: 116px !important;
+  gap: 1px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-side .cart-table-amount span {
+  font-size: 13px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-side .cart-table-amount b {
+  font-size: 23px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-card .cart-row-controls {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-card .cart-qty-control {
+  grid-template-columns: 34px 38px 34px !important;
+  gap: 5px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-card .cart-icon-btn,
+.cart-flow-modal-window .cart-checkout-item-card .cart-qty-control input {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  font-size: 16px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+  padding: 8px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row,
+.cart-flow-modal-window .cart-final-summary-row.total,
+.cart-flow-modal-window .cart-final-summary-row.compact {
+  min-height: 48px !important;
+  padding: 7px 10px !important;
+  align-items: center !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row span,
+.cart-flow-modal-window .cart-final-summary-row.compact span,
+.cart-flow-modal-window .cart-final-summary-row.total span {
+  font-size: 14px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary-row b,
+.cart-flow-modal-window .cart-final-summary-row.compact b,
+.cart-flow-modal-window .cart-final-summary-row.total b {
+  font-size: 21px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-box {
+  padding: 8px !important;
+  border-radius: 16px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid {
+  grid-template-columns: minmax(190px, 1.3fr) repeat(4, minmax(112px, 1fr)) !important;
+  gap: 7px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid label {
+  min-height: 58px !important;
+  gap: 3px !important;
+  padding: 7px 8px !important;
+  border-radius: 12px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid label span {
+  font-size: 12px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid input,
+.cart-flow-modal-window .cart-final-payment-grid select {
+  min-height: 34px !important;
+  height: 34px !important;
+  font-size: 15px !important;
+}
+
+.cart-flow-modal-window .cart-payment-quick-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 6px !important;
+  margin-top: 6px !important;
+}
+
+.cart-flow-modal-window .cart-payment-quick-actions span {
+  margin-right: auto !important;
+  color: #64748b !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+}
+
+.cart-flow-modal-window .cart-payment-quick-actions button {
+  flex: 0 0 auto !important;
+  min-height: 28px !important;
+  padding: 4px 10px !important;
+  border-radius: 9px !important;
+  font-size: 12px !important;
+}
+
+.cart-flow-modal-window .cart-payment-gap {
+  min-height: 42px !important;
+  padding: 6px 10px !important;
+  grid-template-columns: minmax(150px, 1fr) auto auto !important;
+}
+
+.cart-flow-modal-window .cart-payment-gap span,
+.cart-flow-modal-window .cart-payment-gap b,
+.cart-flow-modal-window .cart-payment-gap button {
+  font-size: 14px !important;
+}
+
+.cart-flow-modal-window .cart-note {
+  min-height: 34px !important;
+  height: 34px !important;
+  font-size: 14px !important;
+  resize: none !important;
+}
+
+.cart-flow-modal-window .cart-footer-actions {
+  position: static !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.cart-flow-modal-window .cart-checkout-btn {
+  min-height: 54px !important;
+  border-radius: 12px !important;
+  font-size: 20px !important;
+}
+
+@media (max-width: 860px) {
+  .cart-flow-modal-window .cart-checkout-item-card,
+  .cart-flow-modal-window .cart-final-summary,
+  .cart-flow-modal-window .cart-final-payment-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .cart-flow-modal-window .cart-checkout-item-side {
+    min-width: 0 !important;
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .cart-flow-modal-window .cart-payment-quick-actions {
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+  }
+}
