@@ -90,7 +90,18 @@ export function validateSaleTransaction(input: SaleTransactionInput): void {
   const saleTotal = sumMoney(input.items.map((item) => item.lineTotal));
   validatePaymentSplit(saleTotal, input.payments);
 
-  if (compareMoney(input.payments.cariAmount || 0, 0) > 0 && !String(input.customerId || "").trim()) {
+  const customerText = String(
+    input.customerId ||
+    input.customerName ||
+    input.customer_name ||
+    input.cariPerson ||
+    input.cari_person ||
+    input.metadata?.customerName ||
+    input.metadata?.cariPerson ||
+    ""
+  ).trim();
+
+  if (compareMoney(input.payments.cariAmount || 0, 0) > 0 && !customerText) {
     throw new MissingCustomerError("Cari satis icin musteri zorunludur.");
   }
 }
