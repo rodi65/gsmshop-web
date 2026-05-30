@@ -1356,40 +1356,6 @@ function Table({ headers, rows }) {
   );
 }
 
-const DASHBOARD_LAYOUT_STORAGE_KEY = "ceplog_dashboard_layout_v1";
-const dashboardLayoutDefaults = {
-  sorgula: { order: 1, colSpan: 1, rowSpan: 2 },
-  shortcuts: { order: 2, colSpan: 2, rowSpan: 2 },
-  cashSummary: { order: 3, colSpan: 1, rowSpan: 2 },
-  cardCariSummary: { order: 4, colSpan: 1, rowSpan: 2 },
-};
-
-function normalizeDashboardLayout(layout = {}) {
-  return Object.fromEntries(
-    Object.entries(dashboardLayoutDefaults).map(([id, defaults]) => {
-      const saved = layout[id] || {};
-      return [
-        id,
-        {
-          order: Number.isFinite(Number(saved.order)) ? Number(saved.order) : defaults.order,
-          colSpan: Math.min(3, Math.max(1, Number(saved.colSpan || defaults.colSpan))),
-          rowSpan: Math.min(3, Math.max(1, Number(saved.rowSpan || defaults.rowSpan))),
-        },
-      ];
-    }),
-  );
-}
-
-function loadDashboardLayout() {
-  if (typeof window === "undefined") return dashboardLayoutDefaults;
-  try {
-    const saved = JSON.parse(localStorage.getItem(DASHBOARD_LAYOUT_STORAGE_KEY) || "{}");
-    return normalizeDashboardLayout(saved);
-  } catch {
-    return dashboardLayoutDefaults;
-  }
-}
-
 export default function App() {
   const [active, setActive] = useState("kasa");
   const [currentUser, setCurrentUser] = useState(null);
@@ -1427,9 +1393,6 @@ export default function App() {
   const [quickAccessorySubType, setQuickAccessorySubType] = useState("A Kılıf");
   const [accessoryShortcuts, setAccessoryShortcuts] = useState([]);
   const [hiddenShortcutIds, setHiddenShortcutIds] = useState([]);
-  const [dashboardEditMode, setDashboardEditMode] = useState(false);
-  const [dashboardLayout, setDashboardLayout] = useState(() => loadDashboardLayout());
-  const [draggedDashboardCard, setDraggedDashboardCard] = useState("");
   const [accessoryShortcutForm, setAccessoryShortcutForm] = useState({ group: "Kılıf", sub: "A Kılıf", price: "" });
   const [technicalServices, setTechnicalServices] = useState([]);
   const [technicalServiceForm, setTechnicalServiceForm] = useState(() => makeEmptyTechnicalServiceForm());
@@ -2620,99 +2583,6 @@ const isSameSalesListDay = (item, dateKey) => {
       })
       .slice(0, accessoryShortcutLimit);
   }, [accessoryShortcuts, hiddenShortcutIds]);
-
-  const sortedDashboardCardIds = useMemo(() => Object.keys(dashboardLayoutDefaults).sort((a, b) => {
-    const aLayout = dashboardLayout[a] || dashboardLayoutDefaults[a];
-    const bLayout = dashboardLayout[b] || dashboardLayoutDefaults[b];
-    return aLayout.order - bLayout.order;
-  }), [dashboardLayout]);
-
-  function swapDashboardCards(sourceId, targetId) {
-    if (!sourceId || !targetId || sourceId === targetId) return;
-    setDashboardLayout((current) => {
-      const normalized = normalizeDashboardLayout(current);
-      const sourceOrder = normalized[sourceId]?.order;
-      const targetOrder = normalized[targetId]?.order;
-      if (!sourceOrder || !targetOrder) return current;
-      return {
-        ...normalized,
-        [sourceId]: { ...normalized[sourceId], order: targetOrder },
-        [targetId]: { ...normalized[targetId], order: sourceOrder },
-      };
-    });
-  }
-
-  function resizeDashboardCard(cardId, colDelta = 0, rowDelta = 0) {
-    setDashboardLayout((current) => {
-      const normalized = normalizeDashboardLayout(current);
-      const card = normalized[cardId] || dashboardLayoutDefaults[cardId];
-      return {
-        ...normalized,
-        [cardId]: {
-          ...card,
-          colSpan: Math.min(3, Math.max(1, card.colSpan + colDelta)),
-          rowSpan: Math.min(3, Math.max(1, card.rowSpan + rowDelta)),
-        },
-      };
-    });
-  }
-
-  function saveDashboardLayout() {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(normalizeDashboardLayout(dashboardLayout)));
-    }
-    setDashboardEditMode(false);
-  }
-
-  function resetDashboardLayout() {
-    const defaults = normalizeDashboardLayout(dashboardLayoutDefaults);
-    setDashboardLayout(defaults);
-    if (typeof window !== "undefined") localStorage.removeItem(DASHBOARD_LAYOUT_STORAGE_KEY);
-  }
-
-  function dashboardCardStyle(cardId) {
-    const card = dashboardLayout[cardId] || dashboardLayoutDefaults[cardId];
-    return {
-      order: card.order,
-      gridColumn: `span ${card.colSpan}`,
-      minHeight: `${Math.max(158, card.rowSpan * 126)}px`,
-    };
-  }
-
-  function DashboardEditCard({ id, title, children }) {
-    const card = dashboardLayout[id] || dashboardLayoutDefaults[id];
-    return (
-      <div
-        className={draggedDashboardCard === id ? "dashboard-edit-card dragging" : "dashboard-edit-card"}
-        style={dashboardCardStyle(id)}
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={(event) => {
-          event.preventDefault();
-          swapDashboardCards(draggedDashboardCard, id);
-          setDraggedDashboardCard("");
-        }}
-      >
-        <div
-          className="dashboard-edit-card-bar"
-          draggable
-          onDragStart={(event) => {
-            setDraggedDashboardCard(id);
-            event.dataTransfer.effectAllowed = "move";
-          }}
-          onDragEnd={() => setDraggedDashboardCard("")}
-        >
-          <span>↕ {title}</span>
-          <div className="dashboard-edit-size-actions" aria-label={`${title} kart ölçüsü`}>
-            <button type="button" onClick={() => resizeDashboardCard(id, -1, 0)} disabled={card.colSpan <= 1}>Daralt</button>
-            <button type="button" onClick={() => resizeDashboardCard(id, 1, 0)} disabled={card.colSpan >= 3}>Genişlet</button>
-            <button type="button" onClick={() => resizeDashboardCard(id, 0, -1)} disabled={card.rowSpan <= 1}>Kısalt</button>
-            <button type="button" onClick={() => resizeDashboardCard(id, 0, 1)} disabled={card.rowSpan >= 3}>Yükselt</button>
-          </div>
-        </div>
-        <div className="dashboard-edit-card-body">{children}</div>
-      </div>
-    );
-  }
 
   const shortcutGroupOptions = useMemo(() => {
     const stockGroups = activeStock.map((product) => displayStockGroup(stockSearchGroup(product)));
@@ -7031,119 +6901,8 @@ const isSameSalesListDay = (item, dateKey) => {
             )}
 
             {kasaTab === "yeniSatis" && (
-              <div className={dashboardEditMode ? "kasa-home-dashboard kasa-mockup-dashboard ceplog-kasa-ref dashboard-editing" : "kasa-home-dashboard kasa-mockup-dashboard ceplog-kasa-ref"}>
-                <div className="dashboard-edit-toolbar" aria-label="Dashboard düzenleme kontrolleri">
-                  <div>
-                    <strong>Dashboard düzeni</strong>
-                    <small>{dashboardEditMode ? "Kartları tutamaçtan sürükle, ölçüsünü değiştir ve kaydet." : "Normal kullanımda kartlar sabittir."}</small>
-                  </div>
-                  <div className="dashboard-edit-toolbar-actions">
-                    <button type="button" className={dashboardEditMode ? "dashboard-edit-toggle active" : "dashboard-edit-toggle"} onClick={() => setDashboardEditMode((current) => !current)}>
-                      {dashboardEditMode ? "Düzenlemeyi Kapat" : "Düzeni Düzenle"}
-                    </button>
-                    {dashboardEditMode && (
-                      <>
-                        <button type="button" className="dashboard-edit-save" onClick={saveDashboardLayout}>Kaydet</button>
-                        <button type="button" className="dashboard-edit-reset" onClick={resetDashboardLayout}>Varsayılana Dön</button>
-                      </>
-                    )}
-                  </div>
-                </div>
-                {dashboardEditMode ? (
-                  <div className="dashboard-edit-grid">
-                    {sortedDashboardCardIds.map((cardId) => {
-                      if (cardId === "sorgula") {
-                        return (
-                          <DashboardEditCard id="sorgula" title="SOR SAT" key={cardId}>
-                            <div className="card pad kasa-sale-card kasa-sorgula-card">
-                              <button className="kasa-sorgula-launch" type="button" onClick={openKasaSearchModal}>
-                                <span className="kasa-sorgula-icon"><Search size={34} strokeWidth={2.8} /></span>
-                                <span className="kasa-sorgula-copy">
-                                  <strong>SOR SAT</strong>
-                                  <small>IMEI, barkod, ürün adı veya model ile ürünü bul; mevcut satış popup akışıyla devam et.</small>
-                                </span>
-                              </button>
-                            </div>
-                          </DashboardEditCard>
-                        );
-                      }
-
-                      if (cardId === "shortcuts") {
-                        return (
-                          <DashboardEditCard id="shortcuts" title="Hızlı satış / kısayollar" key={cardId}>
-                            <section className="card pad kasa-quick">
-                              <div className="quick-head quick-head-shortcuts quick-action-head">
-                                <div className="quick-action-tabs" aria-label="Kasa hızlı işlemleri">
-                                  <button className="quick-action-btn" type="button" onClick={() => setKasaTab("satisListesi")}>SATIŞ LİSTESİ</button>
-                                  <button className="quick-action-btn" type="button" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
-                                  <button className="quick-action-btn" type="button" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
-                                  <button className="quick-action-btn" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPATMA</button>
-                                </div>
-                                <button type="button" className="cart-open-chip" disabled={!cartItems.length} onClick={() => setCartPaymentModalOpen(true)}>
-                                  Sepeti Aç
-                                  <b>{cartSummary.totalQuantity}</b>
-                                </button>
-                              </div>
-
-                              <div className="quick-grid">
-                                {visibleAccessoryShortcuts.map((shortcut) => {
-                                  const ShortcutIcon = getShortcutIconComponent(shortcut);
-                                  return (
-                                    <button key={shortcut.id} type="button" className="qitem" onClick={() => addShortcutToCart(shortcut)}>
-                                      <span className="qicon"><ShortcutIcon size={13} strokeWidth={2.6} /></span>
-                                      <span className="qtext">
-                                        <strong>{shortcut.label}</strong>
-                                        {shortcut.price && <small>{shortcut.price}</small>}
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                                {!visibleAccessoryShortcuts.length && (
-                                  <div className="cart-product-empty">Henüz kısayol eklenmedi.</div>
-                                )}
-                              </div>
-                            </section>
-                          </DashboardEditCard>
-                        );
-                      }
-
-                      if (cardId === "cashSummary") {
-                        return (
-                          <DashboardEditCard id="cashSummary" title="Nakit İşlemler" key={cardId}>
-                            <section className="card pad kasa-day dashboard-summary-card">
-                              <div className="summary-col">
-                                <h3>Nakit İşlemler</h3>
-                                <div className="srow"><span>Telefon Nakit</span><b>{money(phoneIncomeSummary.cash)}</b></div>
-                                <div className="srow"><span>Aksesuar Nakit</span><b>{money(accessoryIncomeSummary.cash)}</b></div>
-                                <div className="srow"><span>Diğerleri Nakit</span><b>{money(otherIncomeSummary.cash)}</b></div>
-                                <div className="srow"><span>Teknik Nakit</span><b>{money(technicalIncomeSummary.cash)}</b></div>
-                                <div className="srow danger"><span>Giderler</span><b>-{money(cashExpensePayments || 0)}</b></div>
-                                <div className="srow total"><span>Net Nakit</span><b>{money(cashWithBankIncoming)}</b></div>
-                              </div>
-                            </section>
-                          </DashboardEditCard>
-                        );
-                      }
-
-                      return (
-                        <DashboardEditCard id="cardCariSummary" title="Kart / Cari İşlemler" key={cardId}>
-                          <section className="card pad kasa-day dashboard-summary-card">
-                            <div className="summary-col">
-                              <h3>Kart / Cari İşlemler</h3>
-                              <div className="srow"><span>Telefon Kart</span><b>{money(phoneIncomeSummary.card)}</b></div>
-                              <div className="srow"><span>Aksesuar Kart</span><b>{money(accessoryIncomeSummary.card)}</b></div>
-                              <div className="srow"><span>Diğer Kart</span><b>{money(otherIncomeSummary.card)}</b></div>
-                              <div className="srow"><span>Teknik Kart</span><b>{money(technicalIncomeSummary.card)}</b></div>
-                              <div className="srow total"><span>Kart Toplamı</span><b>{money(phoneIncomeSummary.card + accessoryIncomeSummary.card + otherIncomeSummary.card + technicalIncomeSummary.card)}</b></div>
-                              <div className="srow"><span>Cari Kalan</span><b>{money(report.remaining || 0)}</b></div>
-                            </div>
-                          </section>
-                        </DashboardEditCard>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="kasa-layout">
+              <div className="kasa-home-dashboard kasa-mockup-dashboard ceplog-kasa-ref">
+                <div className="kasa-layout">
                     <div className="card pad kasa-sale-card kasa-sorgula-card">
                       <button className="kasa-sorgula-launch" type="button" onClick={openKasaSearchModal}>
                         <span className="kasa-sorgula-icon"><Search size={34} strokeWidth={2.8} /></span>
@@ -7162,11 +6921,10 @@ const isSameSalesListDay = (item, dateKey) => {
                             <button className="quick-action-btn" type="button" onClick={() => setKasaTab("giderler")}>GİDERLER</button>
                             <button className="quick-action-btn" type="button" onClick={() => setKasaTab("nakitGirisi")}>NAKİT GİRİŞİ</button>
                             <button className="quick-action-btn" type="button" onClick={() => setKasaTab("kapanis")}>KASA KAPATMA</button>
+                            <button type="button" className="quick-action-btn quick-action-cart-btn" disabled={!cartItems.length} onClick={() => setCartPaymentModalOpen(true)}>
+                              SEPETİ AÇ <b>{cartSummary.totalQuantity}</b>
+                            </button>
                           </div>
-                          <button type="button" className="cart-open-chip" disabled={!cartItems.length} onClick={() => setCartPaymentModalOpen(true)}>
-                            Sepeti Aç
-                            <b>{cartSummary.totalQuantity}</b>
-                          </button>
                         </div>
 
 
@@ -7215,7 +6973,6 @@ const isSameSalesListDay = (item, dateKey) => {
                       </div>
                     </main>
                   </div>
-                )}
                 {kasaSearchModalOpen && (
                   <div className="kasa-search-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="kasa-search-modal-title">
                     <div className="kasa-search-modal-window">
