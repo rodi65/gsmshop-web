@@ -17,11 +17,13 @@ const requiredFiles = [
   "src/lib/business/idempotency.ts",
   "supabase/ceplog_business_ledger_foundation_20260529.sql",
   "supabase/ceplog_business_transaction_rpcs_20260529.sql",
+  "supabase/cart_sale_transaction_rpc_20260529.sql",
   "supabase/technical_service_transactions_20260529.sql",
 ];
 
 const requiredRpcNames = [
   "ceplog_apply_sale_transaction",
+  "ceplog_apply_cart_sale_transaction",
   "ceplog_record_collection_transaction",
   "ceplog_record_expense_transaction",
   "ceplog_cancel_sale_transaction",
@@ -50,6 +52,7 @@ for (const file of requiredFiles) {
 
 const rpcSql = [
   read("supabase/ceplog_business_transaction_rpcs_20260529.sql"),
+  read("supabase/cart_sale_transaction_rpc_20260529.sql"),
   read("supabase/technical_service_transactions_20260529.sql"),
 ].join("\n");
 const foundationSql = read("supabase/ceplog_business_ledger_foundation_20260529.sql");
@@ -109,6 +112,9 @@ assert(app.includes("Düzeni Düzenle") && app.includes("ceplog_dashboard_layout
 assert(app.includes("dashboard-edit-card-bar") && app.includes("resizeDashboardCard"), "Dashboard kartları düzenleme modunda taşınabilir ve ölçülendirilebilir olmalı.");
 assert(style.includes("Dashboard edit mode") && style.includes(".dashboard-edit-grid") && style.includes(".dashboard-edit-size-actions"), "Dashboard düzenleme modu stilleri bulunmalı.");
 assert(app.includes("cartEffectivePayments"), "Sepet tamamlamada etkin ödeme toplamları kullanılmalı.");
+assert(app.includes("total_amount: cartTotalAmount") && app.includes("line_total: Number(item.lineTotal || 0)"), "Sepet satış payload'u RPC uyumlu snake_case toplam ve satır tutarı taşımalı.");
+assert(app.includes("cash_amount: cartCashAmount") && app.includes("card_amount: cartCardAmount") && app.includes("cari_amount: cartCariAmount"), "Sepet ödeme payload'u RPC uyumlu snake_case ödeme alanları taşımalı.");
+assert(app.includes("cart_sale_transaction_rpc_20260529.sql migration") || app.includes("Sepet satış motoru veritabanında kurulu görünmüyor"), "Eksik sepet RPC hatası kullanıcıya migration sebebiyle açıklanmalı.");
 assert(dataService.includes("ceplog_apply_sale_transaction"), "Satış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_stock_purchase_transaction"), "Alış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_expense_transaction"), "Gider transaction RPC bağlantısı eksik.");

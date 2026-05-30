@@ -3308,8 +3308,12 @@ const isSameSalesListDay = (item, dateKey) => {
     if (!rows.length) return alert("Sepet boş.");
     if (cartSummary.netTotal <= 0) return alert("Net toplam 0’dan büyük olmalıdır.");
     if (cartPaymentGap !== 0) return alert("Nakit + kart/banka + cari toplamı satış tutarına eşit olmalıdır.");
-    if ((parseMoneyInput(cartEffectivePayments.cardAmount) + parseMoneyInput(cartEffectivePayments.bankAmount)) > 0 && !cartBankName) return alert("Kart/Banka ödeme varsa banka seç.");
+    const cartCashAmount = parseMoneyInput(cartEffectivePayments.cashAmount);
+    const cartCardAmount = parseMoneyInput(cartEffectivePayments.cardAmount);
+    const cartBankAmount = parseMoneyInput(cartEffectivePayments.bankAmount);
     const cartCariAmount = parseMoneyInput(cartEffectivePayments.cariAmount);
+    const cartTotalAmount = Number(cartSummary.netTotal || 0);
+    if ((cartCardAmount + cartBankAmount) > 0 && !cartBankName) return alert("Kart/Banka ödeme varsa banka seç.");
     const fallbackCartCustomerName = rows.find((item) => String(item.customerNameAtAdd || "").trim())?.customerNameAtAdd || "";
     const cartCustomerName = String(cartCustomer.customerName || saleForm.customer || fallbackCartCustomerName || "").trim();
     const cartCustomerId = cartCustomer.customerId || findCartCustomer(cartCustomerName)?.id || null;
@@ -3340,18 +3344,28 @@ const isSameSalesListDay = (item, dateKey) => {
         cari_person: cartCustomerName || saleForm.cariPerson || "",
         sale_group: "Sepet",
         sale_type: "Sepet Satışı",
+        product_name: rows.length === 1 ? rows[0]?.productName || "Sepet Satışı" : `Sepet Satışı (${rows.length} kalem)`,
+        totalAmount: cartTotalAmount,
+        total_amount: cartTotalAmount,
         bank_name: cartBankName || "",
         items: rows.map((item) => ({
           productType: item.productType,
+          product_type: item.productType,
           productId: item.productId,
+          product_id: item.productId,
           product_name: item.productName,
           imei: item.imei || null,
           quantity: Number(item.quantity || 1),
           unitCostAtSale: Number(item.unitCostAtSale || 0),
+          unit_cost_at_sale: Number(item.unitCostAtSale || 0),
           unitPriceAtSale: Number(item.unitPriceAtSale || 0),
+          unit_price_at_sale: Number(item.unitPriceAtSale || 0),
           discountAmount: Number(item.discountAmount || 0),
+          discount_amount: Number(item.discountAmount || 0),
           lineTotal: Number(item.lineTotal || 0),
+          line_total: Number(item.lineTotal || 0),
           lineProfit: Number(item.lineProfit || 0),
+          line_profit: Number(item.lineProfit || 0),
           metadata: {
             category: item.category,
             barcode: item.barcode,
@@ -3359,10 +3373,16 @@ const isSameSalesListDay = (item, dateKey) => {
           },
         })),
         payments: {
-          cashAmount: parseMoneyInput(cartEffectivePayments.cashAmount),
-          cardAmount: parseMoneyInput(cartEffectivePayments.cardAmount),
-          bankAmount: parseMoneyInput(cartEffectivePayments.bankAmount),
+          cashAmount: cartCashAmount,
+          cash_amount: cartCashAmount,
+          cardAmount: cartCardAmount,
+          card_amount: cartCardAmount,
+          bankAmount: cartBankAmount,
+          bank_amount: cartBankAmount,
           cariAmount: cartCariAmount,
+          cari_amount: cartCariAmount,
+          totalAmount: cartTotalAmount,
+          total_amount: cartTotalAmount,
         },
         note: cartNote,
         metadata: {
@@ -3377,9 +3397,13 @@ const isSameSalesListDay = (item, dateKey) => {
 
       if (!result.success) {
         const customerValidation = result.errorCode === "MISSING_CUSTOMER" || String(result.message || "").includes("Cari satis icin musteri zorunludur");
+        const resultMessage = String(result.message || "");
+        const missingCartRpc = resultMessage.includes("ceplog_apply_cart_sale_transaction") || resultMessage.includes("PGRST202");
         alert(customerValidation
           ? "Cari kalan için aktif sepet müşterisi gerekli. Müşteri alanını kontrol et; sepet korunuyor."
-          : (result.message || "Satış kaydedilemedi. Sepet korunuyor."));
+          : missingCartRpc
+            ? "Sepet satış motoru veritabanında kurulu görünmüyor. supabase/cart_sale_transaction_rpc_20260529.sql migration'ı Preview Supabase ortamına uygulanmalı; sepet korunuyor."
+            : (resultMessage || "Satış kaydedilemedi. Sepet korunuyor."));
         return;
       }
 
