@@ -255,7 +255,7 @@ declare
   v_profit numeric := coalesce(p_profit_amount, 0);
   v_customer_key text := nullif(trim(coalesce(p_cari_person, p_customer_name, '')), '');
 begin
-  if v_total < 0 or v_cash < 0 or v_card < 0 or coalesce(p_remaining_amount, 0) < 0 or v_buy_cost < 0 or v_profit < 0 then
+  if v_total < 0 or v_cash < 0 or v_card < 0 or coalesce(p_remaining_amount, 0) < 0 or v_buy_cost < 0 then
     raise exception 'Tutarlar negatif olamaz';
   end if;
 

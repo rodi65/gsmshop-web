@@ -73,30 +73,87 @@ export interface BusinessTransactionInput {
 
 export interface SaleItemInput {
   productType: string;
+  product_type?: string;
   productId: string;
+  product_id?: string;
+  stockId?: string | null;
+  stock_id?: string | null;
+  name?: string;
+  product_name?: string;
+  barcode?: string | null;
   imei?: string | null;
   quantity: number;
+  unitPrice?: number;
+  unit_price?: number;
   unitCostAtSale: number;
+  unit_cost_at_sale?: number;
   unitPriceAtSale: number;
+  unit_price_at_sale?: number;
   discountAmount: number;
+  discount_amount?: number;
   lineTotal: number;
+  line_total?: number;
   lineProfit: number;
+  line_profit?: number;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SalePaymentInput {
   cashAmount: number;
+  cash_amount?: number;
   cardAmount: number;
+  card_amount?: number;
   bankAmount: number;
+  bank_amount?: number;
   cariAmount: number;
+  cari_amount?: number;
+  bankId?: string | null;
+  bank_id?: string | null;
+  bankName?: string | null;
+  bank_name?: string | null;
+  totalAmount?: number;
+  total_amount?: number;
+}
+
+export interface CartSaleTotalsInput {
+  subtotal: number;
+  discount?: number;
+  saleTotal: number;
+  sale_total?: number;
+  paymentTotal: number;
+  payment_total?: number;
+  remainingAmount: number;
+  remaining_amount?: number;
 }
 
 export interface SaleTransactionInput {
   workspaceId: string;
   actorId?: string | null;
   idempotencyKey: string;
+  sessionId?: string | null;
+  session_id?: string | null;
   customerId?: string | null;
+  customer_id?: string | null;
+  customerName?: string | null;
+  customer_name?: string | null;
+  activeCariId?: string | null;
+  active_cari_id?: string | null;
+  activeCustomer?: Record<string, unknown> | null;
+  active_customer?: Record<string, unknown> | null;
+  activeBankId?: string | null;
+  active_bank_id?: string | null;
+  bankId?: string | null;
+  bank_id?: string | null;
+  bankName?: string | null;
+  bank_name?: string | null;
+  product_name?: string | null;
+  totalAmount?: number;
+  total_amount?: number;
+  cariPerson?: string | null;
+  cari_person?: string | null;
   items: SaleItemInput[];
   payments: SalePaymentInput;
+  totals?: CartSaleTotalsInput;
   note?: string | null;
   metadata?: Record<string, unknown>;
 }
