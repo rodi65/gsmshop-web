@@ -56,6 +56,7 @@ const foundationSql = read("supabase/ceplog_business_ledger_foundation_20260529.
 const dataService = read("src/services/dataService.js");
 const app = read("src/App.jsx");
 const cartPanel = read("src/components/sales/CartPanel.jsx");
+const style = read("src/style.css");
 const transactionEngine = read("src/lib/business/transactionEngine.ts");
 const reconciliation = read("src/lib/business/reconciliation.ts");
 
@@ -96,6 +97,7 @@ assert(cartPanel.includes("cart-payment-quick-actions"), "Tamamı ödeme kısayo
 assert(cartPanel.includes("Ödeme Bilgileri") && cartPanel.includes("Ödeme dengede"), "Final ödeme alanı durum başlığı göstermeli. ");
 assert(cartPanel.includes("cart-top-subtitle") && !cartPanel.includes("Adet ve fiyatı sağdan düzenle") && !cartPanel.includes("Hızlı doldur"), "Sepet paneli gereksiz ürün ve hızlı doldur başlıklarını göstermemeli.");
 assert(cartPanel.includes("Kart Toplamı") && cartPanel.includes("Cari Toplamı") && cartPanel.includes("Sepet Toplam Tutarı"), "Sepet özeti kart/cari/toplam sırasını göstermeli.");
+assert(style.includes("width: min(620px") && style.includes(".cart-final-payment-grid label:first-child"), "Sepet popup dar ve ödeme alanları iki satırlı okunur düzene alınmalı.");
 assert(app.includes("cartEffectivePayments"), "Sepet tamamlamada etkin ödeme toplamları kullanılmalı.");
 assert(dataService.includes("ceplog_apply_sale_transaction"), "Satış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_stock_purchase_transaction"), "Alış transaction RPC bağlantısı eksik.");
