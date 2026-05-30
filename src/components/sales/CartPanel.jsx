@@ -157,7 +157,6 @@ export function CartPaymentBox({
       </div>
 
       <div className="cart-payment-actions cart-payment-quick-actions" aria-label="Hızlı ödeme doldur">
-        <span>Hızlı doldur</span>
         <button type="button" onClick={() => onSetFullPayment("cash")}>Hepsi nakit</button>
         <button type="button" onClick={() => onSetFullPayment("card")}>Hepsi kart</button>
         <button type="button" onClick={() => onSetFullPayment("cari")}>Hepsi cari</button>
@@ -218,8 +217,6 @@ export default function CartPanel({
         </div>
         <button type="button" className="cart-clear-btn" disabled={!items.length || processing} onClick={onClear}>Temizle</button>
       </div>
-
-      <div className="cart-section-label"><span>Ürünler</span><b>Adet ve fiyatı sağdan düzenle</b></div>
 
       <div className="cart-checkout-list" aria-label="Sepetteki ürünler">
         {items.length ? items.map((item) => (
