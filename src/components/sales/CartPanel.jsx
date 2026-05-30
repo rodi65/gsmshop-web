@@ -201,6 +201,7 @@ export default function CartPanel({
   onNoteChange,
   onSetFullPayment,
   onCheckout,
+  onClose,
 }) {
   const paymentNumber = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, "")) || 0;
   const cardTotal = paymentNumber(payments.cardAmount) + paymentNumber(payments.bankAmount);
@@ -211,11 +212,16 @@ export default function CartPanel({
   return (
     <aside className="card pad kasa-cart cart-panel">
       <div className="top-line cart-top-line">
-        <div>
-          <h2>Satış Sepeti</h2>
-          <p className="cart-top-subtitle">{items.length ? `${items.length} satır • ${itemCount} ürün` : "Sepet boş"}</p>
+        <div className="cart-title-stack">
+          <div className="cart-title-row">
+            <h2>Satış Sepeti</h2>
+            <p className="cart-top-subtitle">{items.length ? `${items.length} satır • ${itemCount} ürün` : "Sepet boş"}</p>
+          </div>
         </div>
-        <button type="button" className="cart-clear-btn" disabled={!items.length || processing} onClick={onClear}>Temizle</button>
+        <div className="cart-header-actions">
+          <button type="button" className="cart-clear-btn" disabled={!items.length || processing} onClick={onClear}>Temizle</button>
+          <button type="button" className="cart-close-btn" onClick={onClose} aria-label="Sepet penceresini kapat">×</button>
+        </div>
       </div>
 
       <div className="cart-checkout-list" aria-label="Sepetteki ürünler">

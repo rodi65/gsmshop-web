@@ -6934,8 +6934,8 @@ const isSameSalesListDay = (item, dateKey) => {
                 {cartPaymentModalOpen && (
                   <div className="cart-flow-modal-backdrop" role="dialog" aria-modal="true" aria-label="Satış ödeme ekranı">
                     <div className="cart-flow-modal-window">
-                      <button type="button" className="sale-ready-modal-close" onClick={() => setCartPaymentModalOpen(false)} aria-label="Sepet penceresini kapat">×</button>
                       <CartPanel
+                        onClose={() => setCartPaymentModalOpen(false)}
                         items={cartItems.map(rebuildCartItem)}
                         summary={cartSummary}
                         payments={cartEffectivePayments}
