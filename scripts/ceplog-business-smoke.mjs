@@ -114,6 +114,7 @@ assert(cartPanel.includes("cart-payment-status-only") && style.includes("Merge c
 assert(style.includes("width: min(620px") && style.includes(".cart-final-payment-grid label:first-child"), "Sepet popup dar ve ödeme alanları iki satırlı okunur düzene alınmalı.");
 assert(!app.includes("Düzeni Düzenle") && !app.includes("ceplog_dashboard_layout_v1"), "Dashboard düzenleme modu kaldırılmış olmalı.");
 assert(app.includes("quick-action-cart-btn") && style.includes("quick-action-cart-btn"), "Sepeti Aç butonu KASA KAPATMA ile aynı hızlı işlem satırına taşınmalı.");
+assert(style.includes("Kasa dashboard final yerleşim") && style.includes("grid-template-rows: 252px minmax(240px, auto)") && style.includes("repeat(5, minmax(0, 1fr))"), "Ana Kasa dashboard özet kartları yukarı alınmış ve beşli üst işlem satırı korunmalı.");
 assert(app.includes("cartEffectivePayments"), "Sepet tamamlamada etkin ödeme toplamları kullanılmalı.");
 assert(app.includes("total_amount: cartTotalAmount") && app.includes("line_total: Number(item.lineTotal || 0)"), "Sepet satış payload'u RPC uyumlu snake_case toplam ve satır tutarı taşımalı.");
 assert(app.includes("cash_amount: cartCashAmount") && app.includes("card_amount: cartCardAmount") && app.includes("cari_amount: cartCariAmount"), "Sepet ödeme payload'u RPC uyumlu snake_case ödeme alanları taşımalı.");
