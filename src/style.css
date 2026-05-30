@@ -18570,6 +18570,79 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   }
 }
 
+
+
+/* Kasa yatay butonlar ve uzun Kart/Cari kartı: yazılar kesilmeden okunur. */
+@media (min-width: 921px) {
+  .premium-dashboard .ceplog-kasa-ref .quick-action-tabs,
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head .quick-action-tabs {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    overflow: visible !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-btn,
+  .premium-dashboard .ceplog-kasa-ref .quick-action-cart-btn {
+    flex: 1 1 0 !important;
+    min-width: 132px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+    padding: 0 10px !important;
+    font-size: clamp(10px, .72vw, 12px) !important;
+    line-height: 1.08 !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-cart-btn {
+    min-width: 126px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-mid {
+    grid-template-rows: 188px minmax(330px, auto) !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick {
+    min-height: 188px !important;
+    height: 188px !important;
+    max-height: 188px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-grid {
+    grid-template-rows: repeat(2, 48px) !important;
+    grid-auto-rows: 48px !important;
+    max-height: 102px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-lower-band,
+  .premium-dashboard .ceplog-kasa-ref .kasa-day {
+    min-height: 330px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-day-grid {
+    min-height: 300px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-day-grid > .summary-col,
+  .premium-dashboard .ceplog-kasa-ref .kasa-day-grid > .summary-col:nth-child(2) {
+    min-height: 300px !important;
+    padding-bottom: 18px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .summary-col .srow {
+    min-height: 33px !important;
+    padding: 5px 10px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .summary-col .srow.total {
+    min-height: 38px !important;
+  }
+}
+
 /* Cart product-to-payment gap final fix: product list uses content height, not reserved flex/grid space. */
 .cart-flow-modal-window .cart-panel {
   display: grid !important;
