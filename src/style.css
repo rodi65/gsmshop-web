@@ -18316,3 +18316,29 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
 .cart-flow-modal-window .cart-checkout-btn {
   min-height: 40px !important;
 }
+
+/* Zero cart section gap: totals attach immediately after the product list; popup size and logic stay unchanged. */
+.cart-flow-modal-window .cart-panel {
+  row-gap: 0 !important;
+  gap: 0 !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list {
+  margin: 0 !important;
+  border-bottom: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  padding-bottom: 2px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary {
+  margin: 0 !important;
+  transform: translateY(-1px) !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-box {
+  margin-top: 0 !important;
+  transform: translateY(-2px) !important;
+}

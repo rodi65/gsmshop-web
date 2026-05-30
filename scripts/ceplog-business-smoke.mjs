@@ -101,6 +101,7 @@ assert(style.includes("Payment visibility fix") && style.includes("visibility: v
 assert(cartPanel.includes("cart-header-actions") && cartPanel.includes("cart-close-btn"), "Sepet başlığı temizle ve kapat aksiyonlarını tek satırda taşımalı.");
 assert(style.includes("Cart popup header/flow pass") && style.includes(".cart-header-actions") && style.includes(".cart-close-btn"), "Sepet popup başlık ve ödeme akışı kompakt final stile sahip olmalı.");
 assert(style.includes("Cart list gap fix") && style.includes("grid-template-rows: auto auto auto auto auto") && style.includes(":has(.cart-checkout-item-card:nth-of-type(2))"), "Sepet ürün listesi altında gereksiz boşluk bırakmamalı.");
+assert(style.includes("Zero cart section gap") && style.includes("row-gap: 0 !important") && style.includes("transform: translateY(-1px)"), "Sepet ürün listesi ve toplamlar arasındaki boşluk sıfırlanmalı.");
 assert(cartPanel.includes("cart-payment-status-only") && style.includes("Merge cart sections") && style.includes("cart-payment-status-only"), "Sepet ödeme başlığı kaldırılıp durum rozeti kompakt kalmalı.");
 assert(style.includes("width: min(620px") && style.includes(".cart-final-payment-grid label:first-child"), "Sepet popup dar ve ödeme alanları iki satırlı okunur düzene alınmalı.");
 assert(app.includes("cartEffectivePayments"), "Sepet tamamlamada etkin ödeme toplamları kullanılmalı.");
