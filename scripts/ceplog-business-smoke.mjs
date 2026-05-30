@@ -55,6 +55,7 @@ const rpcSql = [
 const foundationSql = read("supabase/ceplog_business_ledger_foundation_20260529.sql");
 const dataService = read("src/services/dataService.js");
 const app = read("src/App.jsx");
+const cartPanel = read("src/components/sales/CartPanel.jsx");
 const transactionEngine = read("src/lib/business/transactionEngine.ts");
 const reconciliation = read("src/lib/business/reconciliation.ts");
 
@@ -84,7 +85,11 @@ assert(app.includes("cariPerson: cartCustomerName"), "Sepet satış payload cari
 assert(app.includes("cartPaymentContext"), "Sepet ödeme oturumu context state ile korunmalı.");
 assert(app.includes("sessionCustomerLocked"), "SOR SAT devam ürünlerinde müşteri alanı kilitlenmeli.");
 assert(app.includes("sessionBankLocked"), "SOR SAT devam ürünlerinde banka alanı kilitlenmeli.");
-assert(read("src/components/sales/CartPanel.jsx").includes("cart-line-payment-split"), "Sepet özeti satır bazlı ödeme dağılımını göstermeli.");
+assert(cartPanel.includes("cart-line-payment-split"), "Sepet özeti satır bazlı ödeme dağılımını göstermeli.");
+assert(app.includes("applyCartPaymentTemplate"), "Devam ürünlerinde ilk satış ödeme oranı otomatik uygulanmalı.");
+assert(app.includes("Nakit • otomatik"), "Devam ürünlerinde nakit alanı otomatik/readonly görünmeli.");
+assert(cartPanel.includes("cart-payment-session-note"), "Sepet oturumu başladıktan sonra Nakit/Kart/Cari hızlı ödeme butonları gizlenmeli.");
+assert(cartPanel.includes("readOnly={hasSessionPayment}"), "Sepet ödeme toplamları oturum başladığında readonly olmalı.");
 assert(dataService.includes("ceplog_apply_sale_transaction"), "Satış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_stock_purchase_transaction"), "Alış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_expense_transaction"), "Gider transaction RPC bağlantısı eksik.");

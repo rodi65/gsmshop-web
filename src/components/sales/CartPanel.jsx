@@ -82,29 +82,35 @@ export function CartPaymentBox({
   const hasCardPayment = paymentNumber(payments.cardAmount) + paymentNumber(payments.bankAmount) > 0;
   const hasCariPayment = paymentNumber(payments.cariAmount) > 0;
   const hasSessionPayment = hasCashPayment || hasCardPayment || hasCariPayment;
-  const sessionPaymentTitle = hasSessionPayment ? "Sepet oturumu başladı; ödeme tipi satır bazında korunuyor." : "Tüm sepeti bu ödeme tipine ayarla";
   const gapTone = paymentGap > 0 ? "remaining" : "overpaid";
 
   return (
     <div className="cart-payment-box">
-      <div className="cart-payment-actions">
-        <button type="button" onClick={() => onSetFullPayment("cash")} disabled={hasSessionPayment} title={sessionPaymentTitle}>Nakit</button>
-        <button type="button" onClick={() => onSetFullPayment("card")} disabled={hasSessionPayment} title={sessionPaymentTitle}>Kart</button>
-        <button type="button" onClick={() => onSetFullPayment("cari")} disabled={hasSessionPayment} title={sessionPaymentTitle}>Cari</button>
-      </div>
+      {hasSessionPayment ? (
+        <div className="cart-payment-session-note" role="status">
+          <strong>Ödeme oturumu aktif</strong>
+          <span>Nakit, kart, cari ve banka dağılımı ilk satıştan gelen sepet oturumuna göre korunur.</span>
+        </div>
+      ) : (
+        <div className="cart-payment-actions">
+          <button type="button" onClick={() => onSetFullPayment("cash")}>Nakit</button>
+          <button type="button" onClick={() => onSetFullPayment("card")}>Kart</button>
+          <button type="button" onClick={() => onSetFullPayment("cari")}>Cari</button>
+        </div>
+      )}
 
       <div className="payment-box">
-        <label>
-          <span>Nakit</span>
-          <input inputMode="numeric" value={payments.cashAmount} onChange={(event) => onPaymentChange("cashAmount", event.target.value)} />
+        <label className={hasSessionPayment ? "session-locked-field" : ""}>
+          <span>{hasSessionPayment ? "Toplam Nakit • oturum" : "Nakit"}</span>
+          <input inputMode="numeric" value={payments.cashAmount} readOnly={hasSessionPayment} aria-readonly={hasSessionPayment} onChange={(event) => { if (!hasSessionPayment) onPaymentChange("cashAmount", event.target.value); }} />
         </label>
-        <label>
-          <span>Kart</span>
-          <input inputMode="numeric" value={payments.cardAmount} onChange={(event) => onPaymentChange("cardAmount", event.target.value)} />
+        <label className={hasSessionPayment ? "session-locked-field" : ""}>
+          <span>{hasSessionPayment ? "Toplam Kart • oturum" : "Kart"}</span>
+          <input inputMode="numeric" value={payments.cardAmount} readOnly={hasSessionPayment} aria-readonly={hasSessionPayment} onChange={(event) => { if (!hasSessionPayment) onPaymentChange("cardAmount", event.target.value); }} />
         </label>
-        <label>
-          <span>Cari</span>
-          <input inputMode="numeric" value={payments.cariAmount} onChange={(event) => onPaymentChange("cariAmount", event.target.value)} />
+        <label className={hasSessionPayment ? "session-locked-field" : ""}>
+          <span>{hasSessionPayment ? "Toplam Cari • oturum" : "Cari"}</span>
+          <input inputMode="numeric" value={payments.cariAmount} readOnly={hasSessionPayment} aria-readonly={hasSessionPayment} onChange={(event) => { if (!hasSessionPayment) onPaymentChange("cariAmount", event.target.value); }} />
         </label>
       </div>
 
@@ -126,7 +132,7 @@ export function CartPaymentBox({
         <div className={`cart-payment-gap ${gapTone}`}>
           <span>{paymentGap > 0 ? "Cariye aktarılacak kalan" : "Fazla ödeme"}</span>
           <b>{money(Math.abs(paymentGap))}</b>
-          {paymentGap > 0 ? (
+          {!hasSessionPayment && (paymentGap > 0 ? (
             <button type="button" onClick={() => onPaymentChange("cariAmount", String(paymentNumber(payments.cariAmount) + paymentGap))}>
               Kalanı cariye yaz
             </button>
@@ -134,7 +140,7 @@ export function CartPaymentBox({
             <button type="button" onClick={() => onPaymentChange("cariAmount", String(Math.max(paymentNumber(payments.cariAmount) - Math.abs(paymentGap), 0)))}>
               Fazlayı düzelt
             </button>
-          )}
+          ))}
         </div>
       )}
     </div>

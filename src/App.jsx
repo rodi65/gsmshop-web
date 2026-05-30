@@ -2523,7 +2523,7 @@ const isSameSalesListDay = (item, dateKey) => {
   const [cartProcessing, setCartProcessing] = useState(false);
   const [cartPaymentModalOpen, setCartPaymentModalOpen] = useState(false);
   const [saleLineModalOpen, setSaleLineModalOpen] = useState(false);
-  const [cartPaymentContext, setCartPaymentContext] = useState({ hasCash: false, hasCard: false, hasCari: false });
+  const [cartPaymentContext, setCartPaymentContext] = useState({ hasCash: false, hasCard: false, hasCari: false, cashRatio: 0, cardRatio: 0, cariRatio: 0 });
   const [expandedSaleModalItemId, setExpandedSaleModalItemId] = useState("");
   const [saleReadyModalDismissedKey, setSaleReadyModalDismissedKey] = useState("");
   const bankList = useMemo(() => getBankList(banks), [banks]);
@@ -2677,14 +2677,39 @@ const isSameSalesListDay = (item, dateKey) => {
 
   const selectedProduct = inStockItems.find((product) => String(product.id) === String(saleForm.productId));
   const saleTotal = parseMoneyInput(saleForm.total || 0);
-  const saleCash = parseMoneyInput(saleForm.cash || 0);
-  const saleCard = parseMoneyInput(saleForm.card || 0);
-  const saleRemaining = Math.max(saleTotal - saleCash - saleCard, 0);
-  const saleReadyRemaining = Math.max(saleTotal - saleCash - saleCard, 0);
+  const cartSessionStarted = cartItems.length > 0 || Boolean(cartPaymentContext.hasCash || cartPaymentContext.hasCard || cartPaymentContext.hasCari);
+  const applyCartPaymentTemplate = (amount) => {
+    const total = Math.max(Number(amount || 0), 0);
+    if (!cartSessionStarted || total <= 0) return null;
+    const cashRatio = Number(cartPaymentContext.cashRatio || 0);
+    const cardRatio = Number(cartPaymentContext.cardRatio || 0);
+    const normalizedCashRatio = cartPaymentContext.hasCash ? Math.max(cashRatio, 0) : 0;
+    const normalizedCardRatio = cartPaymentContext.hasCard ? Math.max(cardRatio, 0) : 0;
+    let cash = Math.min(Math.round(total * normalizedCashRatio), total);
+    let card = Math.min(Math.round(total * normalizedCardRatio), Math.max(total - cash, 0));
+    let cari = Math.max(total - cash - card, 0);
+
+    if (!cartPaymentContext.hasCari && cari > 0) {
+      if (cartPaymentContext.hasCard) {
+        card = Math.max(total - cash, 0);
+      } else if (cartPaymentContext.hasCash) {
+        cash = total;
+      }
+      cari = 0;
+    }
+
+    return { cash, card, cari };
+  };
+  const salePaymentTemplate = applyCartPaymentTemplate(saleTotal);
+  const rawSaleCash = parseMoneyInput(saleForm.cash || 0);
+  const rawSaleCard = parseMoneyInput(saleForm.card || 0);
+  const saleCash = salePaymentTemplate ? salePaymentTemplate.cash : rawSaleCash;
+  const saleCard = salePaymentTemplate ? salePaymentTemplate.card : rawSaleCard;
+  const saleRemaining = salePaymentTemplate ? salePaymentTemplate.cari : Math.max(saleTotal - saleCash - saleCard, 0);
+  const saleReadyRemaining = saleRemaining;
   const saleFormHasProduct = isProgramSale ? Boolean(saleForm.search.trim()) : Boolean(selectedProduct);
   const saleFormNeedsBank = saleCard > 0;
   const saleFormNeedsCari = saleReadyRemaining > 0;
-  const cartSessionStarted = cartItems.length > 0 || Boolean(cartPaymentContext.hasCash || cartPaymentContext.hasCard || cartPaymentContext.hasCari);
   const hasActiveCartSession = cartSessionStarted || Boolean(cartItems.length && (cartCustomer.customerName || cartBankName));
   const sessionCustomerLocked = cartSessionStarted && Boolean(cartCustomer.customerName);
   const sessionBankLocked = cartSessionStarted && Boolean(cartBankName);
@@ -2870,7 +2895,7 @@ const isSameSalesListDay = (item, dateKey) => {
       total: salePrice ? formatMoneyInput(salePrice) : "",
       cash: "",
       card: "",
-      bank: cartBankName || "",
+      bank: cartBankName || saleForm.bank || "",
     });
     setKasaTab("yeniSatis");
     setActive("kasa");
@@ -3079,11 +3104,20 @@ const isSameSalesListDay = (item, dateKey) => {
 
     if (resolvedCustomerName) setCartCustomer({ customerId: findCartCustomer(resolvedCustomerName)?.id || cartCustomer.customerId || "", customerName: resolvedCustomerName });
     if (saleForm.bank || cartBankName) setCartBankName(saleForm.bank || cartBankName);
-    setCartPaymentContext((current) => ({
-      hasCash: current.hasCash || saleCash > 0,
-      hasCard: current.hasCard || saleCard > 0,
-      hasCari: current.hasCari || saleRemaining > 0,
-    }));
+    setCartPaymentContext((current) => {
+      const baseTotal = saleTotal > 0 ? saleTotal : 1;
+      const nextHasCash = current.hasCash || saleCash > 0;
+      const nextHasCard = current.hasCard || saleCard > 0;
+      const nextHasCari = current.hasCari || saleRemaining > 0;
+      return {
+        hasCash: nextHasCash,
+        hasCard: nextHasCard,
+        hasCari: nextHasCari,
+        cashRatio: current.cashRatio || (saleCash > 0 ? saleCash / baseTotal : 0),
+        cardRatio: current.cardRatio || (saleCard > 0 ? saleCard / baseTotal : 0),
+        cariRatio: current.cariRatio || (saleRemaining > 0 ? saleRemaining / baseTotal : 0),
+      };
+    });
     setCartPayments((current) => reconcileCartPaymentRemainder({
       cashAmount: addMoneyText(current.cashAmount, saleCash),
       cardAmount: addMoneyText(current.cardAmount, saleCard),
@@ -3120,7 +3154,7 @@ const isSameSalesListDay = (item, dateKey) => {
     setCartPayments({ cashAmount: "", cardAmount: "", bankAmount: "", cariAmount: "" });
     setCartCustomer({ customerId: "", customerName: "" });
     setCartBankName("");
-    setCartPaymentContext({ hasCash: false, hasCard: false, hasCari: false });
+    setCartPaymentContext({ hasCash: false, hasCard: false, hasCari: false, cashRatio: 0, cardRatio: 0, cariRatio: 0 });
     setCartNote("");
   }
 
@@ -3244,7 +3278,7 @@ const isSameSalesListDay = (item, dateKey) => {
       setCartPayments({ cashAmount: "", cardAmount: "", bankAmount: "", cariAmount: "" });
       setCartCustomer({ customerId: "", customerName: "" });
       setCartBankName("");
-      setCartPaymentContext({ hasCash: false, hasCard: false, hasCari: false });
+      setCartPaymentContext({ hasCash: false, hasCard: false, hasCari: false, cashRatio: 0, cardRatio: 0, cariRatio: 0 });
       setCartNote("");
       setCartPaymentModalOpen(false);
       setSyncMessage("Satış başarıyla tamamlandı.");
@@ -6918,13 +6952,31 @@ const isSameSalesListDay = (item, dateKey) => {
                           <span>Satış Fiyatı</span>
                           <input inputMode="numeric" value={saleForm.total} onFocus={() => setSaleForm({ ...saleForm, total: stripMoneyForEdit(saleForm.total) })} onChange={(event) => setSaleForm({ ...saleForm, total: cleanMoneyTyping(event.target.value) })} onBlur={() => setSaleForm({ ...saleForm, total: formatMoneyInput(saleForm.total) })} />
                         </label>
-                        <label>
-                          <span>Nakit</span>
-                          <input inputMode="numeric" value={saleForm.cash} onFocus={() => setSaleForm({ ...saleForm, cash: stripMoneyForEdit(saleForm.cash) })} onChange={(event) => setSaleForm({ ...saleForm, cash: cleanMoneyTyping(event.target.value) })} onBlur={() => setSaleForm({ ...saleForm, cash: formatMoneyInput(saleForm.cash) })} />
+                        <label className={cartSessionStarted ? "session-locked-field" : ""}>
+                          <span>{cartSessionStarted ? "Nakit • otomatik" : "Nakit"}</span>
+                          <input
+                            inputMode="numeric"
+                            value={cartSessionStarted ? formatMoneyInput(saleCash) : saleForm.cash}
+                            readOnly={cartSessionStarted}
+                            aria-readonly={cartSessionStarted}
+                            onFocus={() => { if (!cartSessionStarted) setSaleForm({ ...saleForm, cash: stripMoneyForEdit(saleForm.cash) }); }}
+                            onChange={(event) => { if (!cartSessionStarted) setSaleForm({ ...saleForm, cash: cleanMoneyTyping(event.target.value) }); }}
+                            onBlur={() => { if (!cartSessionStarted) setSaleForm({ ...saleForm, cash: formatMoneyInput(saleForm.cash) }); }}
+                          />
+                          {cartSessionStarted && <em>İlk ürün ödeme oranına göre hesaplandı</em>}
                         </label>
-                        <label>
-                          <span>Kart / POS</span>
-                          <input inputMode="numeric" value={saleForm.card} onFocus={() => setSaleForm({ ...saleForm, card: stripMoneyForEdit(saleForm.card) })} onChange={(event) => setSaleForm({ ...saleForm, card: cleanMoneyTyping(event.target.value) })} onBlur={() => setSaleForm({ ...saleForm, card: formatMoneyInput(saleForm.card) })} />
+                        <label className={cartSessionStarted ? "session-locked-field" : ""}>
+                          <span>{cartSessionStarted ? "Kart / POS • otomatik" : "Kart / POS"}</span>
+                          <input
+                            inputMode="numeric"
+                            value={cartSessionStarted ? formatMoneyInput(saleCard) : saleForm.card}
+                            readOnly={cartSessionStarted}
+                            aria-readonly={cartSessionStarted}
+                            onFocus={() => { if (!cartSessionStarted) setSaleForm({ ...saleForm, card: stripMoneyForEdit(saleForm.card) }); }}
+                            onChange={(event) => { if (!cartSessionStarted) setSaleForm({ ...saleForm, card: cleanMoneyTyping(event.target.value) }); }}
+                            onBlur={() => { if (!cartSessionStarted) setSaleForm({ ...saleForm, card: formatMoneyInput(saleForm.card) }); }}
+                          />
+                          {cartSessionStarted && <em>Aktif banka/ödeme session’ı kullanılır</em>}
                         </label>
                         <label className={sessionBankLocked ? "session-locked-field" : ""}>
                           <span>{sessionBankLocked ? "Banka • oturum" : "Banka"}</span>
