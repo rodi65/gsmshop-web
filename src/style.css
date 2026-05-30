@@ -16970,3 +16970,211 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
+
+/* Sale-line modal final compact action layout: removes dead whitespace and makes the next actions obvious. */
+.sale-ready-modal-window {
+  width: min(760px, calc(100vw - 32px)) !important;
+  max-height: min(720px, calc(100vh - 28px)) !important;
+  min-height: 0 !important;
+  padding: 14px !important;
+  gap: 8px !important;
+  overflow: auto !important;
+  align-content: start !important;
+}
+
+.sale-ready-modal-close {
+  width: 42px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  top: 14px !important;
+  right: 14px !important;
+  border-radius: 14px !important;
+}
+
+.sale-ready-modal-window .sale-line-only-head {
+  min-height: 0 !important;
+  padding: 7px 52px 7px 8px !important;
+  gap: 8px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.sale-ready-modal-window .sale-line-only-head > span {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  font-size: 22px !important;
+  border-radius: 12px !important;
+}
+
+.sale-ready-modal-window .sale-line-only-head b {
+  font-size: 21px !important;
+  line-height: 1.05 !important;
+}
+
+.sale-ready-modal-window .sale-line-only-head small {
+  margin-top: 2px !important;
+  font-size: 12.5px !important;
+  line-height: 1.2 !important;
+}
+
+.sale-ready-modal-window .sale-line-product-card {
+  grid-template-columns: 54px minmax(0, 1fr) !important;
+  gap: 10px !important;
+  padding: 10px !important;
+  border-radius: 18px !important;
+}
+
+.sale-ready-modal-window .sale-line-product-visual {
+  width: 54px !important;
+  height: 54px !important;
+  border-radius: 16px !important;
+  font-size: 26px !important;
+}
+
+.sale-ready-modal-window .sale-line-product-card strong {
+  font-size: 22px !important;
+  line-height: 1.12 !important;
+}
+
+.sale-ready-modal-window .sale-line-product-card span {
+  margin-top: 2px !important;
+  font-size: 12.5px !important;
+}
+
+.sale-ready-modal-window .sale-line-cart-mini {
+  padding: 7px 10px !important;
+  border-radius: 12px !important;
+  gap: 8px !important;
+}
+
+.sale-ready-modal-window .sale-line-cart-mini strong,
+.sale-ready-modal-window .sale-line-cart-mini span {
+  font-size: 12.5px !important;
+  line-height: 1.15 !important;
+}
+
+.sale-ready-modal-window .sale-line-only-grid {
+  grid-template-columns: minmax(0, 1.35fr) 120px 150px 150px !important;
+  gap: 8px !important;
+}
+
+.sale-ready-modal-window .sale-line-only-grid label {
+  min-height: 58px !important;
+  padding: 8px 10px !important;
+  border-radius: 14px !important;
+  gap: 5px !important;
+}
+
+.sale-ready-modal-window .sale-line-only-grid label span {
+  font-size: 12.5px !important;
+  line-height: 1.1 !important;
+}
+
+.sale-ready-modal-window .sale-line-only-grid input {
+  min-height: 34px !important;
+  height: 34px !important;
+  font-size: 17px !important;
+  border-radius: 10px !important;
+}
+
+.sale-ready-modal-window .sale-line-note-field {
+  min-height: 54px !important;
+}
+
+.sale-ready-modal-window .sale-line-quantity-control {
+  grid-template-columns: 34px minmax(42px, 1fr) 34px !important;
+  gap: 5px !important;
+}
+
+.sale-ready-modal-window .sale-line-quantity-control button,
+.sale-ready-modal-window .sale-line-quantity-control input {
+  min-height: 34px !important;
+  height: 34px !important;
+  border-radius: 10px !important;
+}
+
+.sale-ready-modal-window .sale-line-only-summary {
+  grid-template-columns: minmax(0, 1.35fr) 80px 130px 140px !important;
+  gap: 8px !important;
+}
+
+.sale-ready-modal-window .sale-line-only-summary div {
+  min-height: 50px !important;
+  padding: 8px 10px !important;
+  border-radius: 14px !important;
+}
+
+.sale-ready-modal-window .sale-line-only-summary span {
+  font-size: 12px !important;
+}
+
+.sale-ready-modal-window .sale-line-only-summary b {
+  font-size: 15px !important;
+}
+
+.sale-line-action-panel {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 8px !important;
+  margin-top: 0 !important;
+}
+
+.sale-line-primary-actions,
+.sale-line-secondary-actions {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.sale-line-action-panel button {
+  width: 100% !important;
+  min-height: 42px !important;
+  border-radius: 14px !important;
+  font-size: 15px !important;
+  font-weight: 950 !important;
+  white-space: nowrap !important;
+}
+
+.sale-line-primary-actions .primary {
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%) !important;
+  box-shadow: 0 12px 26px rgba(37, 99, 235, .20) !important;
+}
+
+.sale-line-primary-actions .primary.finish {
+  background: linear-gradient(135deg, #16a34a 0%, #2563eb 100%) !important;
+}
+
+.sale-line-secondary-actions .choice {
+  min-height: 38px !important;
+  background: #ffffff !important;
+  color: #1d4ed8 !important;
+  border: 1px solid rgba(37, 99, 235, .22) !important;
+  box-shadow: none !important;
+}
+
+.sale-line-secondary-actions .choice.search-return {
+  background: #eff6ff !important;
+}
+
+.sale-line-secondary-actions .choice.danger-lite {
+  color: #dc2626 !important;
+  border-color: rgba(239, 68, 68, .25) !important;
+  background: #fff7f7 !important;
+}
+
+@media (max-width: 980px) {
+  .sale-ready-modal-window {
+    width: min(620px, calc(100vw - 20px)) !important;
+    max-height: calc(100vh - 20px) !important;
+    padding: 12px !important;
+  }
+
+  .sale-ready-modal-window .sale-line-only-grid,
+  .sale-ready-modal-window .sale-line-only-summary,
+  .sale-line-primary-actions,
+  .sale-line-secondary-actions {
+    grid-template-columns: 1fr !important;
+  }
+}

@@ -6905,13 +6905,27 @@ const isSameSalesListDay = (item, dateKey) => {
                         <div><span>Satır Toplamı</span><b>{money(saleLineSubtotal)}</b></div>
                       </div>
 
-                      <div className="kasa-sale-ready-actions sale-ready-modal-actions sale-ready-modal-actions-bottom">
-                        <button type="button" className="choice" onClick={closeSaleReadyModal}>
-                          <Calculator size={16} />
-                          Vazgeç
-                        </button>
-                        <button className="primary" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("continue")}>Sepete Yolla ve Devam Et</button>
-                        <button className="primary finish" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("finish")}>Sepete Yolla ve Bitir</button>
+                      <div className="kasa-sale-ready-actions sale-ready-modal-actions sale-line-action-panel">
+                        <div className="sale-line-primary-actions">
+                          <button className="primary" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("continue")}>Sepete Yolla ve Devam Et</button>
+                          <button className="primary finish" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("finish")}>Sepete Yolla ve Bitir</button>
+                        </div>
+                        <div className="sale-line-secondary-actions">
+                          <button
+                            type="button"
+                            className="choice search-return"
+                            onClick={() => {
+                              closeSaleReadyModal();
+                              openKasaSearchModal();
+                            }}
+                          >
+                            SOR SAT’a Geri Dön
+                          </button>
+                          <button type="button" className="choice danger-lite" onClick={closeSaleReadyModal}>
+                            <Calculator size={16} />
+                            Vazgeç
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

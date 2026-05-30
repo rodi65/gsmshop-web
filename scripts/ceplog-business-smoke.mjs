@@ -83,6 +83,8 @@ assert(app.includes("customerId: cartCustomerId || cartCustomerName || null"), "
 assert(app.includes("customerName: cartCustomerName"), "Sepet satış payload müşteri adını camelCase taşımalı.");
 assert(app.includes("cariPerson: cartCustomerName"), "Sepet satış payload cari kişiyi camelCase taşımalı.");
 assert(app.includes("Ürün Satırını Tamamla"), "SOR SAT sonrası ürün satırı tamamlama penceresi bulunmalı.");
+assert(app.includes("sale-line-primary-actions"), "Ürün satırı birincil aksiyonları yan yana ayrılmalı.");
+assert(app.includes("SOR SAT’a Geri Dön"), "Ürün satırı modalında SOR SAT’a geri dönüş aksiyonu bulunmalı.");
 assert(app.includes("Bu adımda sadece ürün, adet ve satış fiyatı hazırlanır"), "Ürün satırı popup ödeme bilgisinden ayrılmalı.");
 assert(app.includes("saleLineQuantity") && app.includes("saleLineSubtotal"), "Ürün satırı popup adet ve satır toplamı hesaplamalı.");
 assert(cartPanel.includes("Müşteri / Cari") && cartPanel.includes("Kalan / Cari") && cartPanel.includes("Banka"), "Müşteri/banka/nakit/kart/cari girişleri final ödeme ekranında olmalı.");
