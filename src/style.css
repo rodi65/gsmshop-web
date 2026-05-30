@@ -18477,6 +18477,99 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   }
 }
 
+
+
+/* Kasa özet kartları görünürlük düzeltmesi: Kart/Cari satırları kesilmeden görünür. */
+@media (min-width: 921px) {
+  .premium-dashboard .ceplog-kasa-ref .kasa-mid {
+    grid-template-rows: 196px minmax(300px, auto) !important;
+    gap: 10px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-quick {
+    min-height: 196px !important;
+    height: 196px !important;
+    max-height: 196px !important;
+    padding: 8px 10px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-head {
+    height: 38px !important;
+    min-height: 38px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-action-btn,
+  .premium-dashboard .ceplog-kasa-ref .quick-action-cart-btn {
+    height: 38px !important;
+    min-height: 38px !important;
+    max-height: 38px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .quick-grid {
+    grid-template-rows: repeat(2, 50px) !important;
+    grid-auto-rows: 50px !important;
+    max-height: 106px !important;
+    overflow-y: auto !important;
+    padding-bottom: 2px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .qitem {
+    height: 50px !important;
+    min-height: 50px !important;
+    max-height: 50px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-lower-band {
+    min-height: 300px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-day {
+    min-height: 300px !important;
+    padding: 12px 14px 18px !important;
+    overflow: visible !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-day-grid {
+    min-height: 270px !important;
+    height: auto !important;
+    align-items: stretch !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .kasa-day-grid > .summary-col {
+    min-height: 270px !important;
+    padding: 10px 12px 14px !important;
+    gap: 7px !important;
+    overflow: visible !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .summary-col h3 {
+    font-size: 15px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .summary-col .srow {
+    min-height: 30px !important;
+    padding: 5px 8px !important;
+    overflow: visible !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .summary-col .srow span,
+  .premium-dashboard .ceplog-kasa-ref .summary-col .srow b {
+    font-size: 13px !important;
+    line-height: 1.05 !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .summary-col .srow.total {
+    min-height: 34px !important;
+  }
+
+  .premium-dashboard .ceplog-kasa-ref .summary-col .srow.total span,
+  .premium-dashboard .ceplog-kasa-ref .summary-col .srow.total b {
+    font-size: 15px !important;
+  }
+}
+
 /* Cart product-to-payment gap final fix: product list uses content height, not reserved flex/grid space. */
 .cart-flow-modal-window .cart-panel {
   display: grid !important;
