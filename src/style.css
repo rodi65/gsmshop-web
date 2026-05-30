@@ -18708,3 +18708,17 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
   font-size: 12.5px !important;
   font-weight: 1000 !important;
 }
+
+/* Cart popup lower extension: give the blue checkout button breathing room below the cart content. */
+.cart-flow-modal-window {
+  max-height: min(620px, calc(100vh - 24px)) !important;
+  padding-bottom: 14px !important;
+}
+
+.cart-flow-modal-window .cart-panel {
+  padding-bottom: 12px !important;
+}
+
+.cart-flow-modal-window .cart-footer-actions {
+  padding-bottom: 4px !important;
+}
