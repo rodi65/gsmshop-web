@@ -18564,3 +18564,56 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     grid-template-columns: 1fr;
   }
 }
+
+/* Cart product-to-payment gap final fix: product list uses content height, not reserved flex/grid space. */
+.cart-flow-modal-window .cart-panel {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, max-content) auto auto auto !important;
+  align-content: start !important;
+  gap: 6px !important;
+  row-gap: 6px !important;
+  overflow: hidden !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list {
+  display: grid !important;
+  align-content: start !important;
+  align-items: start !important;
+  grid-auto-rows: max-content !important;
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: min(132px, 23vh) !important;
+  margin: 0 0 0 !important;
+  padding: 3px !important;
+  padding-bottom: 3px !important;
+  gap: 3px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list:has(.cart-checkout-item-card:nth-of-type(1)) {
+  max-height: 42px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list:has(.cart-checkout-item-card:nth-of-type(2)) {
+  max-height: 84px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list:has(.cart-checkout-item-card:nth-of-type(3)) {
+  max-height: 126px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-card {
+  min-height: 0 !important;
+  height: auto !important;
+  margin: 0 !important;
+}
+
+.cart-flow-modal-window .cart-final-summary {
+  margin-top: 0 !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-box {
+  margin-top: 0 !important;
+}
