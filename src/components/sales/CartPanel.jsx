@@ -2,6 +2,9 @@ import React from "react";
 import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 
 export function CartItemRow({ item, money, onUpdate, onRemove }) {
+  const cashAmount = Number(item.cashAmountAtAdd || 0);
+  const cardAmount = Number(item.cardAmountAtAdd || 0);
+  const cariAmount = Number(item.cariAmountAtAdd || 0);
   const maxQuantity = Number.isFinite(Number(item.stockAvailable)) ? Number(item.stockAvailable) : 999999;
   const canDecrease = Number(item.quantity || 0) > 1;
   const canIncrease = item.productType === "service" || Number(item.quantity || 0) < maxQuantity;
@@ -34,6 +37,11 @@ export function CartItemRow({ item, money, onUpdate, onRemove }) {
             </div>
           </div>
           <small>{item.productTypeLabel}{item.imei ? ` • IMEI: ${item.imei}` : ""}</small>
+          <div className="cart-line-payment-split" aria-label="Satır ödeme dağılımı">
+            <span>Nakit <b>{money(cashAmount)}</b></span>
+            <span>Kart <b>{money(cardAmount)}</b></span>
+            <span>Cari <b>{money(cariAmount)}</b></span>
+          </div>
         </div>
       </td>
       <td>
@@ -70,16 +78,18 @@ export function CartPaymentBox({
   onSetFullPayment,
 }) {
   const paymentNumber = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, "")) || 0;
+  const hasCashPayment = paymentNumber(payments.cashAmount) > 0;
   const hasCardPayment = paymentNumber(payments.cardAmount) + paymentNumber(payments.bankAmount) > 0;
   const hasCariPayment = paymentNumber(payments.cariAmount) > 0;
+  const hasSessionPayment = hasCashPayment || hasCardPayment || hasCariPayment;
   const gapTone = paymentGap > 0 ? "remaining" : "overpaid";
 
   return (
     <div className="cart-payment-box">
       <div className="cart-payment-actions">
-        <button type="button" onClick={() => onSetFullPayment("cash")}>Nakit</button>
-        <button type="button" onClick={() => onSetFullPayment("card")}>Kart</button>
-        <button type="button" onClick={() => onSetFullPayment("cari")}>Cari</button>
+        <button type="button" onClick={() => onSetFullPayment("cash")} disabled={hasSessionPayment}>Nakit</button>
+        <button type="button" onClick={() => onSetFullPayment("card")} disabled={hasSessionPayment}>Kart</button>
+        <button type="button" onClick={() => onSetFullPayment("cari")} disabled={hasSessionPayment}>Cari</button>
       </div>
 
       <div className="payment-box">
@@ -98,20 +108,17 @@ export function CartPaymentBox({
       </div>
 
       {hasCardPayment && (
-        <select value={bankName} onChange={(event) => onBankChange(event.target.value)}>
-          <option value="">Banka / POS seç</option>
-          {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
-          <option value="__add_bank__">+ Banka Ekle</option>
-        </select>
+        <div className="cart-session-readonly">
+          <span>Aktif banka</span>
+          <b>{bankName || "Banka / POS seçilmedi"}</b>
+        </div>
       )}
 
       {hasCariPayment && (
-        <input
-          list="cart-customer-list"
-          placeholder="Müşteri / cari kişi"
-          value={customer.customerName}
-          onChange={(event) => onCustomerChange(event.target.value)}
-        />
+        <div className="cart-session-readonly">
+          <span>Aktif cari</span>
+          <b>{customer.customerName || "Müşteri / cari kişi seçilmedi"}</b>
+        </div>
       )}
 
       {paymentGap !== 0 && (
@@ -196,6 +203,14 @@ export default function CartPanel({
       <div className="cart-total">
         <span>Genel Toplam</span>
         <b>{money(summary.netTotal)}</b>
+      </div>
+
+      <div className="cart-session-total-grid" aria-label="Sepet ödeme toplamları">
+        <div><span>Toplam Nakit</span><b>{money(payments.cashAmount)}</b></div>
+        <div><span>Toplam Kart</span><b>{money(payments.cardAmount)}</b></div>
+        <div><span>Toplam Cari</span><b>{money(payments.cariAmount)}</b></div>
+        <div><span>Aktif Müşteri</span><b>{customer.customerName || "-"}</b></div>
+        <div><span>Aktif Banka</span><b>{bankName || "-"}</b></div>
       </div>
 
       <CartPaymentBox

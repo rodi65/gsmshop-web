@@ -81,6 +81,10 @@ assert(/customerText\s*=\s*String\([\s\S]*customerName[\s\S]*cariPerson/.test(re
 assert(app.includes("customerId: cartCustomerId || cartCustomerName || null"), "Sepet cari tamamlamada müşteri adı customerId fallback olarak iletilmeli.");
 assert(app.includes("customerName: cartCustomerName"), "Sepet satış payload müşteri adını camelCase taşımalı.");
 assert(app.includes("cariPerson: cartCustomerName"), "Sepet satış payload cari kişiyi camelCase taşımalı.");
+assert(app.includes("cartPaymentContext"), "Sepet ödeme oturumu context state ile korunmalı.");
+assert(app.includes("sessionCustomerLocked"), "SOR SAT devam ürünlerinde müşteri alanı kilitlenmeli.");
+assert(app.includes("sessionBankLocked"), "SOR SAT devam ürünlerinde banka alanı kilitlenmeli.");
+assert(read("src/components/sales/CartPanel.jsx").includes("cart-line-payment-split"), "Sepet özeti satır bazlı ödeme dağılımını göstermeli.");
 assert(dataService.includes("ceplog_apply_sale_transaction"), "Satış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_stock_purchase_transaction"), "Alış transaction RPC bağlantısı eksik.");
 assert(dataService.includes("ceplog_record_expense_transaction"), "Gider transaction RPC bağlantısı eksik.");

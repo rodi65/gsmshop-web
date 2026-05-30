@@ -2523,6 +2523,7 @@ const isSameSalesListDay = (item, dateKey) => {
   const [cartProcessing, setCartProcessing] = useState(false);
   const [cartPaymentModalOpen, setCartPaymentModalOpen] = useState(false);
   const [saleLineModalOpen, setSaleLineModalOpen] = useState(false);
+  const [cartPaymentContext, setCartPaymentContext] = useState({ hasCash: false, hasCard: false, hasCari: false });
   const [expandedSaleModalItemId, setExpandedSaleModalItemId] = useState("");
   const [saleReadyModalDismissedKey, setSaleReadyModalDismissedKey] = useState("");
   const bankList = useMemo(() => getBankList(banks), [banks]);
@@ -2630,7 +2631,7 @@ const isSameSalesListDay = (item, dateKey) => {
       total: amount ? money(amount) : "",
       cash: "",
       card: "",
-      bank: cartBankName || "",
+      bank: cartBankName || saleForm.bank || "",
     });
     setKasaTab("yeniSatis");
     setActive("kasa");
@@ -2683,6 +2684,9 @@ const isSameSalesListDay = (item, dateKey) => {
   const saleFormHasProduct = isProgramSale ? Boolean(saleForm.search.trim()) : Boolean(selectedProduct);
   const saleFormNeedsBank = saleCard > 0;
   const saleFormNeedsCari = saleReadyRemaining > 0;
+  const hasActiveCartSession = cartItems.length > 0 || Boolean(cartCustomer.customerName || cartBankName || cartPaymentContext.hasCash || cartPaymentContext.hasCard || cartPaymentContext.hasCari);
+  const sessionCustomerLocked = Boolean(cartCustomer.customerName);
+  const sessionBankLocked = Boolean(cartBankName);
   const saleFormCariText = String(saleForm.cariPerson || saleForm.customer || cartCustomer.customerName || "");
   const saleCustomerRequired = !isAccessorySale || saleReadyRemaining > 0;
   const saleFormCustomerReady = !saleCustomerRequired || Boolean(saleFormCariText.trim());
@@ -2858,8 +2862,8 @@ const isSameSalesListDay = (item, dateKey) => {
     setSaleForm({
       ...saleForm,
       type: target.saleType,
-      customer: saleForm.customer || cartCustomer.customerName || "",
-      cariPerson: saleForm.cariPerson || cartCustomer.customerName || "",
+      customer: cartCustomer.customerName || saleForm.customer || "",
+      cariPerson: cartCustomer.customerName || saleForm.cariPerson || saleForm.customer || "",
       search: product.barcode || product.imei || productTitle(product) || "",
       productId: String(product.id || ""),
       total: salePrice ? formatMoneyInput(salePrice) : "",
@@ -3072,8 +3076,13 @@ const isSameSalesListDay = (item, dateKey) => {
       if (!addProductToCart(selectedProduct, { unitPriceAtSale: saleForm.total, quantity: 1, ...linePaymentMeta })) return false;
     }
 
-    if (resolvedCustomerName) setCartCustomer({ customerId: findCartCustomer(resolvedCustomerName)?.id || "", customerName: resolvedCustomerName });
-    if (saleForm.bank) setCartBankName(saleForm.bank);
+    if (resolvedCustomerName) setCartCustomer({ customerId: findCartCustomer(resolvedCustomerName)?.id || cartCustomer.customerId || "", customerName: resolvedCustomerName });
+    if (saleForm.bank || cartBankName) setCartBankName(saleForm.bank || cartBankName);
+    setCartPaymentContext((current) => ({
+      hasCash: current.hasCash || saleCash > 0,
+      hasCard: current.hasCard || saleCard > 0,
+      hasCari: current.hasCari || saleRemaining > 0,
+    }));
     setCartPayments((current) => reconcileCartPaymentRemainder({
       cashAmount: addMoneyText(current.cashAmount, saleCash),
       cardAmount: addMoneyText(current.cardAmount, saleCard),
@@ -3110,6 +3119,7 @@ const isSameSalesListDay = (item, dateKey) => {
     setCartPayments({ cashAmount: "", cardAmount: "", bankAmount: "", cariAmount: "" });
     setCartCustomer({ customerId: "", customerName: "" });
     setCartBankName("");
+    setCartPaymentContext({ hasCash: false, hasCard: false, hasCari: false });
     setCartNote("");
   }
 
@@ -3233,6 +3243,7 @@ const isSameSalesListDay = (item, dateKey) => {
       setCartPayments({ cashAmount: "", cardAmount: "", bankAmount: "", cariAmount: "" });
       setCartCustomer({ customerId: "", customerName: "" });
       setCartBankName("");
+      setCartPaymentContext({ hasCash: false, hasCard: false, hasCari: false });
       setCartNote("");
       setCartPaymentModalOpen(false);
       setSyncMessage("Satış başarıyla tamamlandı.");
@@ -6826,6 +6837,14 @@ const isSameSalesListDay = (item, dateKey) => {
                           <small>Fiyat, ödeme ve cari bilgisini netleştir; sonra sepete gönder.</small>
                         </div>
                       </div>
+                      {hasActiveCartSession && (
+                        <div className="sale-session-lock-summary" aria-label="Aktif sepet oturumu">
+                          <strong>Sepet oturumu aktif</strong>
+                          <span>Müşteri: <b>{cartCustomer.customerName || "-"}</b></span>
+                          <span>Banka: <b>{cartBankName || "-"}</b></span>
+                          <span>Ödeme: <b>{[cartPaymentContext.hasCash ? "Nakit" : "", cartPaymentContext.hasCard ? "Kart" : "", cartPaymentContext.hasCari ? "Cari" : ""].filter(Boolean).join(" + ") || "Satır bazlı"}</b></span>
+                        </div>
+                      )}
                       {modalCartItems.length > 0 && (
                         <div className="sale-modal-cart-stack" aria-label="Sepetteki ürünler">
                           <div className="sale-modal-cart-head">
@@ -6877,12 +6896,21 @@ const isSameSalesListDay = (item, dateKey) => {
                           <input value={saleProductDisplayName} onChange={(event) => setSaleForm({ ...saleForm, search: event.target.value })} disabled={!isProgramSale} />
                         </label>
                         {!isAccessorySale && (
-                          <label>
-                            <span>Müşteri</span>
-                            <input list="cart-customer-list" value={saleForm.customer || cartCustomer.customerName} onChange={(event) => {
-                              const customerName = event.target.value;
-                              changeCartCustomer(customerName);
-                            }} placeholder="Müşteri adı soyadı / telefon" />
+                          <label className={sessionCustomerLocked ? "session-locked-field" : ""}>
+                            <span>{sessionCustomerLocked ? "Müşteri • oturum" : "Müşteri"}</span>
+                            <input
+                              list="cart-customer-list"
+                              value={cartCustomer.customerName || saleForm.customer}
+                              readOnly={sessionCustomerLocked}
+                              aria-readonly={sessionCustomerLocked}
+                              onChange={(event) => {
+                                if (sessionCustomerLocked) return;
+                                const customerName = event.target.value;
+                                changeCartCustomer(customerName);
+                              }}
+                              placeholder="Müşteri adı soyadı / telefon"
+                            />
+                            {sessionCustomerLocked && <em>Aktif sepet carisi kullanılıyor</em>}
                           </label>
                         )}
                         <label>
@@ -6897,22 +6925,37 @@ const isSameSalesListDay = (item, dateKey) => {
                           <span>Kart / POS</span>
                           <input inputMode="numeric" value={saleForm.card} onFocus={() => setSaleForm({ ...saleForm, card: stripMoneyForEdit(saleForm.card) })} onChange={(event) => setSaleForm({ ...saleForm, card: cleanMoneyTyping(event.target.value) })} onBlur={() => setSaleForm({ ...saleForm, card: formatMoneyInput(saleForm.card) })} />
                         </label>
-                        <label>
-                          <span>Banka</span>
-                          <select value={saleForm.bank} onChange={(event) => handleBankSelect(event.target.value, (bank) => {
-                            setSaleForm({ ...saleForm, bank });
-                            setCartBankName(bank);
-                          })}>
+                        <label className={sessionBankLocked ? "session-locked-field" : ""}>
+                          <span>{sessionBankLocked ? "Banka • oturum" : "Banka"}</span>
+                          <select
+                            value={cartBankName || saleForm.bank}
+                            disabled={sessionBankLocked}
+                            aria-disabled={sessionBankLocked}
+                            onChange={(event) => handleBankSelect(event.target.value, (bank) => {
+                              setSaleForm({ ...saleForm, bank });
+                              setCartBankName(bank);
+                            })}
+                          >
                             <option value="">Banka seç</option>
                             {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
                             <option value="__add_bank__">+ Banka Ekle</option>
                           </select>
+                          {sessionBankLocked && <em>Kart/POS için aktif banka kullanılacak</em>}
                         </label>
-                        <label className="sale-line-cari-field">
-                          <span>Kalan / Cari</span>
-                          <input list="cart-customer-list" value={saleFormCariText} onChange={(event) => {
-                            changeCartCustomer(event.target.value);
-                          }} placeholder={saleReadyRemaining > 0 ? "Cari kişi" : "Kalan yok"} />
+                        <label className={sessionCustomerLocked ? "sale-line-cari-field session-locked-field" : "sale-line-cari-field"}>
+                          <span>{sessionCustomerLocked ? "Kalan / Cari • oturum" : "Kalan / Cari"}</span>
+                          <input
+                            list="cart-customer-list"
+                            value={saleFormCariText}
+                            readOnly={sessionCustomerLocked}
+                            aria-readonly={sessionCustomerLocked}
+                            onChange={(event) => {
+                              if (sessionCustomerLocked) return;
+                              changeCartCustomer(event.target.value);
+                            }}
+                            placeholder={saleReadyRemaining > 0 ? "Cari kişi" : "Kalan yok"}
+                          />
+                          {sessionCustomerLocked && <em>Kalan tutar aktif cariye yazılır</em>}
                         </label>
                         <div className="sale-line-profit-peek" tabIndex={0}>
                           <span>Kâr</span>
