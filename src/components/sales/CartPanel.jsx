@@ -14,11 +14,13 @@ export function CartItemRow({ item, money, onUpdate, onRemove }) {
       <div className="cart-checkout-item-main">
         <strong>{item.productName}</strong>
         <small>{item.productTypeLabel}{item.imei ? ` • IMEI: ${item.imei}` : ""}</small>
-        <div className="cart-line-payment-split" aria-label="Satır ödeme dağılımı">
-          <span>Nakit <b>{money(cashAmount)}</b></span>
-          <span>Kart <b>{money(cardAmount)}</b></span>
-          <span>Cari <b>{money(cariAmount)}</b></span>
-        </div>
+        {(cashAmount > 0 || cardAmount > 0 || cariAmount > 0) && (
+          <div className="cart-line-payment-split" aria-label="Satır ödeme dağılımı">
+            <span>Nakit <b>{money(cashAmount)}</b></span>
+            <span>Kart <b>{money(cardAmount)}</b></span>
+            <span>Cari <b>{money(cariAmount)}</b></span>
+          </div>
+        )}
       </div>
 
       <div className="cart-checkout-item-side">
@@ -75,61 +77,49 @@ export function CartPaymentBox({
   onSetFullPayment,
 }) {
   const paymentNumber = (value) => Number(String(value || "0").replace(/\./g, "").replace(/,/g, "").replace(/TL/g, "").replace(/₺/g, "").replace(/\s/g, "")) || 0;
-  const hasCashPayment = paymentNumber(payments.cashAmount) > 0;
   const hasCardPayment = paymentNumber(payments.cardAmount) + paymentNumber(payments.bankAmount) > 0;
-  const hasCariPayment = paymentNumber(payments.cariAmount) > 0;
-  const hasSessionPayment = hasCashPayment || hasCardPayment || hasCariPayment;
   const gapTone = paymentGap > 0 ? "remaining" : "overpaid";
 
   return (
-    <div className="cart-payment-box">
-      {hasSessionPayment ? (
-        <div className="cart-payment-session-note" role="status">
-          <strong>Ödeme oturumu aktif</strong>
-          <span>Nakit, kart, cari ve banka dağılımı ilk satıştan gelen sepet oturumuna göre korunur.</span>
-        </div>
-      ) : (
-        <div className="cart-payment-actions">
-          <button type="button" onClick={() => onSetFullPayment("cash")}>Nakit</button>
-          <button type="button" onClick={() => onSetFullPayment("card")}>Kart</button>
-          <button type="button" onClick={() => onSetFullPayment("cari")}>Cari</button>
-        </div>
-      )}
+    <div className="cart-payment-box cart-final-payment-box">
+      <div className="cart-payment-actions">
+        <button type="button" onClick={() => onSetFullPayment("cash")}>Tamamı Nakit</button>
+        <button type="button" onClick={() => onSetFullPayment("card")}>Tamamı Kart</button>
+        <button type="button" onClick={() => onSetFullPayment("cari")}>Tamamı Cari</button>
+      </div>
 
-      <div className="payment-box">
-        <label className={hasSessionPayment ? "session-locked-field" : ""}>
-          <span>{hasSessionPayment ? "Toplam Nakit • oturum" : "Nakit"}</span>
-          <input inputMode="numeric" value={payments.cashAmount} readOnly={hasSessionPayment} aria-readonly={hasSessionPayment} onChange={(event) => { if (!hasSessionPayment) onPaymentChange("cashAmount", event.target.value); }} />
+      <div className="payment-box cart-final-payment-grid">
+        <label>
+          <span>Müşteri / Cari</span>
+          <input list="cart-customer-list" value={customer.customerName || ""} onChange={(event) => onCustomerChange(event.target.value)} placeholder="Müşteri adı veya cari kişi" />
         </label>
-        <label className={hasSessionPayment ? "session-locked-field" : ""}>
-          <span>{hasSessionPayment ? "Toplam Kart • oturum" : "Kart"}</span>
-          <input inputMode="numeric" value={payments.cardAmount} readOnly={hasSessionPayment} aria-readonly={hasSessionPayment} onChange={(event) => { if (!hasSessionPayment) onPaymentChange("cardAmount", event.target.value); }} />
+        <label>
+          <span>Nakit</span>
+          <input inputMode="numeric" value={payments.cashAmount} onChange={(event) => onPaymentChange("cashAmount", event.target.value)} placeholder="0" />
         </label>
-        <label className={hasSessionPayment ? "session-locked-field" : ""}>
-          <span>{hasSessionPayment ? "Toplam Cari • oturum" : "Cari"}</span>
-          <input inputMode="numeric" value={payments.cariAmount} readOnly={hasSessionPayment} aria-readonly={hasSessionPayment} onChange={(event) => { if (!hasSessionPayment) onPaymentChange("cariAmount", event.target.value); }} />
+        <label>
+          <span>Kart / POS</span>
+          <input inputMode="numeric" value={payments.cardAmount} onChange={(event) => onPaymentChange("cardAmount", event.target.value)} placeholder="0" />
+        </label>
+        <label>
+          <span>Banka</span>
+          <select value={bankName || ""} disabled={!hasCardPayment} onChange={(event) => onBankChange(event.target.value)}>
+            <option value="">{hasCardPayment ? "Banka seç" : "Kart yok"}</option>
+            {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+            <option value="__add_bank__">+ Banka Ekle</option>
+          </select>
+        </label>
+        <label>
+          <span>Kalan / Cari</span>
+          <input inputMode="numeric" value={payments.cariAmount} onChange={(event) => onPaymentChange("cariAmount", event.target.value)} placeholder="0" />
         </label>
       </div>
 
-      {hasCardPayment && (
-        <div className="cart-session-readonly">
-          <span>Aktif banka</span>
-          <b>{bankName || "Banka / POS seçilmedi"}</b>
-        </div>
-      )}
-
-      {hasCariPayment && (
-        <div className="cart-session-readonly">
-          <span>Aktif cari</span>
-          <b>{customer.customerName || "Müşteri / cari kişi seçilmedi"}</b>
-        </div>
-      )}
-
       {paymentGap !== 0 && (
         <div className={`cart-payment-gap ${gapTone}`}>
-          <span>{paymentGap > 0 ? "Cariye aktarılacak kalan" : "Fazla ödeme"}</span>
+          <span>{paymentGap > 0 ? "Eksik / cariye aktarılacak kalan" : "Fazla ödeme"}</span>
           <b>{money(Math.abs(paymentGap))}</b>
-          {!hasSessionPayment && (paymentGap > 0 ? (
+          {paymentGap > 0 ? (
             <button type="button" onClick={() => onPaymentChange("cariAmount", String(paymentNumber(payments.cariAmount) + paymentGap))}>
               Kalanı cariye yaz
             </button>
@@ -137,7 +127,7 @@ export function CartPaymentBox({
             <button type="button" onClick={() => onPaymentChange("cariAmount", String(Math.max(paymentNumber(payments.cariAmount) - Math.abs(paymentGap), 0)))}>
               Fazlayı düzelt
             </button>
-          ))}
+          )}
         </div>
       )}
     </div>
@@ -169,7 +159,6 @@ export default function CartPanel({
   const cardTotal = paymentNumber(payments.cardAmount) + paymentNumber(payments.bankAmount);
   const cariTotal = paymentNumber(payments.cariAmount);
   const cashTotal = paymentNumber(payments.cashAmount);
-  const hasSessionPayment = cashTotal > 0 || cardTotal > 0 || cariTotal > 0;
 
   return (
     <aside className="card pad kasa-cart cart-panel">
@@ -203,33 +192,26 @@ export default function CartPanel({
         <div className="cart-final-summary-row total"><span>Sepet Toplam Tutarı</span><b>{money(summary.netTotal)}</b></div>
       </div>
 
+      <CartPaymentBox
+        payments={payments}
+        customer={customer}
+        bankName={bankName}
+        bankOptions={bankOptions}
+        paymentGap={paymentGap}
+        money={money}
+        onPaymentChange={onPaymentChange}
+        onCustomerChange={onCustomerChange}
+        onBankChange={onBankChange}
+        onSetFullPayment={onSetFullPayment}
+      />
+
+      <textarea className="cart-note" placeholder="Satış notu" value={note} onChange={(event) => onNoteChange(event.target.value)} />
+
       <div className="cart-footer-actions">
         <button type="button" className="primary cart-checkout-btn" disabled={!items.length || processing} onClick={onCheckout}>
           {processing ? "İşleniyor..." : "Satış işlemini bitir"}
         </button>
       </div>
-
-      <div className="cart-session-total-grid" aria-label="Sepet müşteri ve banka özeti">
-        <div><span>Aktif Müşteri</span><b>{customer.customerName || "-"}</b></div>
-        <div><span>Aktif Banka</span><b>{bankName || "-"}</b></div>
-      </div>
-
-      {!hasSessionPayment && (
-        <CartPaymentBox
-          payments={payments}
-          customer={customer}
-          bankName={bankName}
-          bankOptions={bankOptions}
-          paymentGap={paymentGap}
-          money={money}
-          onPaymentChange={onPaymentChange}
-          onCustomerChange={onCustomerChange}
-          onBankChange={onBankChange}
-          onSetFullPayment={onSetFullPayment}
-        />
-      )}
-
-      <textarea className="cart-note" placeholder="Satış notu" value={note} onChange={(event) => onNoteChange(event.target.value)} />
     </aside>
   );
 }

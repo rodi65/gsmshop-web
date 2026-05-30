@@ -16143,3 +16143,176 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     font-size: 23px !important;
   }
 }
+
+/* SOR SAT yeni akış: önce ürün satırı, ödeme bilgileri sadece final sepet ekranında. */
+.sale-ready-modal-window .sale-line-only-head small {
+  color: #475569 !important;
+  font-weight: 850 !important;
+}
+
+.sale-line-product-card {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid rgba(203, 213, 225, .95);
+  border-radius: 20px;
+  background: linear-gradient(135deg, #ffffff, #f8fbff);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, .08);
+}
+
+.sale-line-product-visual {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0f172a, #2563eb);
+  font-size: 28px;
+  font-weight: 1000;
+}
+
+.sale-line-product-card strong {
+  display: block;
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.sale-line-product-card span {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.sale-line-cart-mini {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(37, 99, 235, .18);
+  border-radius: 16px;
+  background: #eff6ff;
+}
+
+.sale-line-cart-mini strong,
+.sale-line-cart-mini span {
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.sale-line-only-grid {
+  grid-template-columns: minmax(0, 1.2fr) minmax(140px, .55fr) minmax(170px, .75fr) minmax(170px, .75fr) !important;
+  align-items: end !important;
+}
+
+.sale-line-note-field {
+  grid-column: 1 / -1;
+}
+
+.sale-line-total-field input[readonly] {
+  color: #1d4ed8 !important;
+  background: #eff6ff !important;
+  border-color: rgba(37, 99, 235, .24) !important;
+  font-weight: 1000 !important;
+}
+
+.sale-line-quantity-control {
+  display: grid;
+  grid-template-columns: 42px minmax(56px, 1fr) 42px;
+  gap: 8px;
+  align-items: center;
+}
+
+.sale-line-quantity-control button,
+.sale-line-quantity-control input {
+  min-height: 44px;
+  border: 1px solid #dbe5f3;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 950;
+  text-align: center;
+}
+
+.sale-line-quantity-control button {
+  cursor: pointer;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.sale-line-only-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.sale-line-only-summary div:last-child {
+  border-color: rgba(37, 99, 235, .25) !important;
+  background: #eff6ff !important;
+}
+
+.sale-ready-modal-actions-bottom {
+  grid-template-columns: minmax(120px, .65fr) minmax(0, 1fr) minmax(0, 1fr) !important;
+}
+
+.cart-final-payment-box {
+  padding: 12px !important;
+  border: 2px solid rgba(37, 99, 235, .16) !important;
+  border-radius: 18px !important;
+  background: #f8fbff !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid {
+  grid-template-columns: minmax(190px, 1.15fr) repeat(4, minmax(135px, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid label {
+  min-height: 74px !important;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  align-content: center !important;
+  gap: 5px !important;
+  padding: 9px 10px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid label span {
+  font-size: 14px !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-grid input,
+.cart-flow-modal-window .cart-final-payment-grid select {
+  min-height: 42px !important;
+  height: 42px !important;
+  font-size: 18px !important;
+  font-weight: 950 !important;
+}
+
+.cart-flow-modal-window .cart-payment-actions button {
+  background: #ffffff !important;
+  color: #1d4ed8 !important;
+  border: 1px solid rgba(37, 99, 235, .22) !important;
+}
+
+.cart-flow-modal-window .cart-checkout-btn {
+  min-height: 76px !important;
+  font-size: 28px !important;
+}
+
+@media (max-width: 980px) {
+  .sale-line-only-grid,
+  .sale-line-only-summary,
+  .sale-ready-modal-actions-bottom,
+  .cart-flow-modal-window .cart-final-payment-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sale-line-cart-mini {
+    display: grid;
+  }
+}

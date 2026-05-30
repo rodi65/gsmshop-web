@@ -2523,6 +2523,8 @@ const isSameSalesListDay = (item, dateKey) => {
   const [cartProcessing, setCartProcessing] = useState(false);
   const [cartPaymentModalOpen, setCartPaymentModalOpen] = useState(false);
   const [saleLineModalOpen, setSaleLineModalOpen] = useState(false);
+  const [saleLineQuantity, setSaleLineQuantity] = useState(1);
+  const [saleLineNote, setSaleLineNote] = useState("");
   const [cartPaymentContext, setCartPaymentContext] = useState({ hasCash: false, hasCard: false, hasCari: false, cashRatio: 0, cardRatio: 0, cariRatio: 0 });
   const [expandedSaleModalItemId, setExpandedSaleModalItemId] = useState("");
   const [saleReadyModalDismissedKey, setSaleReadyModalDismissedKey] = useState("");
@@ -2717,22 +2719,16 @@ const isSameSalesListDay = (item, dateKey) => {
   const saleCustomerRequired = !isAccessorySale || saleReadyRemaining > 0;
   const saleFormCustomerReady = !saleCustomerRequired || Boolean(saleFormCariText.trim());
   const saleProductDisplayName = isProgramSale ? (saleForm.search || "Program / Hizmet") : (productTitle(selectedProduct) || "Ürün seçilmedi");
-  const saleFormReadyForCart =
-    saleTotal > 0 &&
-    saleFormHasProduct &&
-    saleCash + saleCard <= saleTotal &&
-    (!saleFormNeedsBank || Boolean(saleForm.bank || cartBankName)) &&
-    (!saleFormNeedsCari || Boolean(saleFormCariText.trim())) &&
-    saleFormCustomerReady;
+  const saleLineQuantityValue = Math.max(Number(saleLineQuantity || 1), 1);
+  const saleLineSubtotal = saleTotal * saleLineQuantityValue;
+  const saleFormReadyForCart = saleTotal > 0 && saleFormHasProduct && saleLineQuantityValue > 0;
   const saleReadyModalKey = [
     saleForm.type,
     saleForm.productId,
     saleForm.search,
     saleForm.total,
-    saleForm.cash,
-    saleForm.card,
-    saleForm.bank || cartBankName,
-    saleFormCariText,
+    saleLineQuantityValue,
+    saleLineNote,
   ].map((value) => String(value || "").trim()).join("|");
   const saleLineUnitCost = isProgramSale ? 0 : parseMoneyInput(selectedProduct?.buy || selectedProduct?.buyPrice || selectedProduct?.buy_price || 0);
   const saleLineProfit = saleTotal - saleLineUnitCost;
@@ -2743,6 +2739,8 @@ const isSameSalesListDay = (item, dateKey) => {
     setSaleReadyModalDismissedKey(saleReadyModalKey);
     setSaleLineModalOpen(false);
     setExpandedSaleModalItemId("");
+    setSaleLineQuantity(1);
+    setSaleLineNote("");
   };
   const confirmSaleReadyToCart = (mode = "continue") => {
     setSaleReadyModalDismissedKey(saleReadyModalKey);
@@ -2923,6 +2921,8 @@ const isSameSalesListDay = (item, dateKey) => {
       card: "",
       bank: cartBankName || saleForm.bank || "",
     });
+    setSaleLineQuantity(1);
+    setSaleLineNote("");
     setKasaTab("yeniSatis");
     setActive("kasa");
     setKasaSearchModalOpen(false);
@@ -2983,7 +2983,7 @@ const isSameSalesListDay = (item, dateKey) => {
       imei: "",
       barcode: "",
       category,
-      quantity: 1,
+      quantity: Number(overrides.quantity || 1),
       unitCostAtSale: 0,
       unitPriceAtSale: unitPrice,
       unitPriceText: formatMoneyInput(unitPrice),
@@ -3079,78 +3079,35 @@ const isSameSalesListDay = (item, dateKey) => {
       alert("Kısayol için satış fiyatı yok.");
       return false;
     }
-    const added = addCartItem(makeServiceCartItem({ name: label, amount: price, note: "Kısayol satış kalemi", category: shortcut.saleGroup || shortcut.group || "Kısayol" }));
-    if (!added) return false;
-    setCartPayments((current) => ({ ...current, cashAmount: current.cashAmount || formatMoneyInput(price) }));
-    return true;
+    return addCartItem(makeServiceCartItem({ name: label, amount: price, note: "Kısayol satış kalemi", category: shortcut.saleGroup || shortcut.group || "Kısayol" }));
   }
 
   function addCurrentSaleFormToCart() {
-    const resolvedCustomerName = saleFormCariText.trim() || String(cartCustomer.customerName || "").trim();
-    const linePaymentMeta = {
-      cashAmountAtAdd: saleCash,
-      cardAmountAtAdd: saleCard,
-      cariAmountAtAdd: saleRemaining,
-      bankNameAtAdd: saleForm.bank || cartBankName || "",
-      customerNameAtAdd: resolvedCustomerName,
-    };
+    const quantity = Math.max(Number(saleLineQuantity || 1), 1);
+    const lineNote = String(saleLineNote || "").trim();
 
     if (!String(saleForm.total || "").trim() || parseMoneyInput(saleForm.total) <= 0) {
       alert(isProgramSale ? "Ne kadar olduğunu yaz" : "Satış fiyatını yaz");
       return false;
     }
-    if (saleCustomerRequired && !resolvedCustomerName) {
-      alert(isAccessorySale ? "Cari/kalan varsa aktif sepet müşterisi veya cari kişi zorunludur." : "Müşteri adı soyadı / telefon yaz");
-      return false;
-    }
-    if (saleCard + parseMoneyInput(cartPayments.cardAmount) > 0 && !saleForm.bank && !cartBankName) {
-      alert("Kart ödeme varsa banka seç");
-      return false;
-    }
-    if (!alertFinancialValidation(validatePaymentDistribution({
-      totalAmount: saleTotal,
-      cashAmount: saleCash,
-      cardAmount: saleCard,
-      messages: { overpaid: "Nakit + kart toplamı satış fiyatını aşamaz." },
-    }))) return false;
 
     if (isProgramSale) {
       if (!saleForm.search.trim()) {
         alert("Ne programı olduğunu yaz");
         return false;
       }
-      if (!addCartItem(makeServiceCartItem({ name: saleForm.search.trim(), amount: saleForm.total, category: "Program / Hizmet", ...linePaymentMeta }))) return false;
+      if (!addCartItem(makeServiceCartItem({ name: saleForm.search.trim(), amount: saleForm.total, category: "Program / Hizmet", quantity, note: lineNote }))) return false;
     } else {
       if (!selectedProduct) {
         alert("Ürün seç");
         return false;
       }
-      if (!addProductToCart(selectedProduct, { unitPriceAtSale: saleForm.total, quantity: 1, ...linePaymentMeta })) return false;
+      if (!addProductToCart(selectedProduct, { unitPriceAtSale: saleForm.total, quantity, note: lineNote })) return false;
     }
 
-    if (resolvedCustomerName) setCartCustomer({ customerId: findCartCustomer(resolvedCustomerName)?.id || cartCustomer.customerId || "", customerName: resolvedCustomerName });
-    if (saleForm.bank || cartBankName) setCartBankName(saleForm.bank || cartBankName);
-    setCartPaymentContext((current) => {
-      const baseTotal = saleTotal > 0 ? saleTotal : 1;
-      const nextHasCash = current.hasCash || saleCash > 0;
-      const nextHasCard = current.hasCard || saleCard > 0;
-      const nextHasCari = current.hasCari || saleRemaining > 0;
-      return {
-        hasCash: nextHasCash,
-        hasCard: nextHasCard,
-        hasCari: nextHasCari,
-        cashRatio: current.cashRatio || (saleCash > 0 ? saleCash / baseTotal : 0),
-        cardRatio: current.cardRatio || (saleCard > 0 ? saleCard / baseTotal : 0),
-        cariRatio: current.cariRatio || (saleRemaining > 0 ? saleRemaining / baseTotal : 0),
-      };
-    });
-    setCartPayments((current) => reconcileCartPaymentRemainder({
-      cashAmount: addMoneyText(current.cashAmount, saleCash),
-      cardAmount: addMoneyText(current.cardAmount, saleCard),
-      bankAmount: current.bankAmount,
-      cariAmount: addMoneyText(current.cariAmount, saleRemaining),
-    }, cartSummary.netTotal + saleTotal, { allowCreateCari: Boolean(resolvedCustomerName) || saleRemaining > 0 }));
-    setSaleForm({ ...saleForm, customer: resolvedCustomerName || saleForm.customer, cariPerson: resolvedCustomerName || saleForm.cariPerson, search: "", productId: "", total: "", cash: "", card: "" });
+    setSaleForm({ ...saleForm, search: "", productId: "", total: "", cash: "", card: "", bank: "" });
+    setSaleLineQuantity(1);
+    setSaleLineNote("");
     return true;
   }
 
@@ -6891,166 +6848,70 @@ const isSameSalesListDay = (item, dateKey) => {
                   <div className="sale-ready-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="sale-ready-modal-title">
                     <div className="sale-ready-modal-window">
                       <button type="button" className="sale-ready-modal-close" onClick={closeSaleReadyModal} aria-label="Pencereyi kapat">×</button>
-                      <div className="kasa-sale-ready-head sale-ready-modal-head">
+                      <div className="kasa-sale-ready-head sale-ready-modal-head sale-line-only-head">
                         <span>✓</span>
                         <div>
                           <b id="sale-ready-modal-title">Ürün Satırını Tamamla</b>
-                          <small>Fiyat, ödeme ve cari bilgisini netleştir; sonra sepete gönder.</small>
+                          <small>Bu adımda sadece ürün, adet ve satış fiyatı hazırlanır. Ödeme bilgileri bitir ekranında girilir.</small>
                         </div>
                       </div>
-                      {hasActiveCartSession && (
-                        <div className="sale-session-lock-summary" aria-label="Aktif sepet oturumu">
-                          <strong>Sepet oturumu aktif</strong>
-                          <span>Müşteri: <b>{cartCustomer.customerName || "-"}</b></span>
-                          <span>Banka: <b>{cartBankName || "-"}</b></span>
-                          <span>Ödeme: <b>{[cartPaymentContext.hasCash ? "Nakit" : "", cartPaymentContext.hasCard ? "Kart" : "", cartPaymentContext.hasCari ? "Cari" : ""].filter(Boolean).join(" + ") || "Satır bazlı"}</b></span>
+
+                      <div className="sale-line-product-card">
+                        <div className="sale-line-product-visual">{String(saleProductDisplayName || "Ü").slice(0, 1).toLocaleUpperCase("tr-TR")}</div>
+                        <div>
+                          <strong>{saleProductDisplayName}</strong>
+                          <span>{selectedProduct?.imei ? `IMEI: ${selectedProduct.imei}` : selectedProduct?.barcode ? `Barkod: ${selectedProduct.barcode}` : isProgramSale ? "Program / hizmet satırı" : "Stok ürünü"}</span>
                         </div>
-                      )}
+                      </div>
+
                       {modalCartItems.length > 0 && (
-                        <div className="sale-modal-cart-stack" aria-label="Sepetteki ürünler">
-                          <div className="sale-modal-cart-head">
-                            <strong>Sepetteki Ürünler</strong>
-                            <span>{modalCartItems.length} satır</span>
-                          </div>
-                          <div className="sale-modal-cart-chips">
-                            {modalCartItems.map((item) => {
-                              const isOpen = expandedSaleModalItemId === item.cartItemId;
-                              return (
-                                <button
-                                  key={item.cartItemId}
-                                  type="button"
-                                  className={isOpen ? "sale-modal-cart-chip active" : "sale-modal-cart-chip"}
-                                  onClick={() => setExpandedSaleModalItemId(isOpen ? "" : item.cartItemId)}
-                                  title="Detay göster"
-                                >
-                                  {item.productName}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {expandedSaleModalItem && (
-                            <div className="sale-modal-cart-detail">
-                              <div><span>Ürün</span><b>{expandedSaleModalItem.productName}</b></div>
-                              <div><span>IMEI</span><b>{expandedSaleModalItem.imei || "-"}</b></div>
-                              <div><span>Barkod</span><b>{expandedSaleModalItem.barcode || "-"}</b></div>
-                              <div><span>Satış</span><b>{money(expandedSaleModalItem.lineTotal)}</b></div>
-                              <div><span>Nakit</span><b>{money(expandedSaleModalItem.cashAmountAtAdd || 0)}</b></div>
-                              <div><span>Kart/POS</span><b>{money(expandedSaleModalItem.cardAmountAtAdd || 0)}</b></div>
-                              <div><span>Banka</span><b>{expandedSaleModalItem.bankNameAtAdd || "-"}</b></div>
-                              <div><span>Kalan/Cari</span><b>{money(expandedSaleModalItem.cariAmountAtAdd || 0)}</b></div>
-                              <div><span>Kâr</span><b className={Number(expandedSaleModalItem.lineProfit || 0) < 0 ? "negative" : ""}>{money(expandedSaleModalItem.lineProfit)}</b></div>
-                            </div>
-                          )}
+                        <div className="sale-line-cart-mini" aria-label="Sepetteki ürün sayısı">
+                          <strong>Sepette {modalCartItems.length} ürün var</strong>
+                          <span>Yeni satırı ekleyip devam edebilir veya bitirip ödeme ekranına geçebilirsin.</span>
                         </div>
                       )}
-                      <div className="kasa-sale-ready-actions sale-ready-modal-actions sale-ready-modal-actions-top">
-                        <button type="button" className="choice" onClick={closeSaleReadyModal}>
-                          <Calculator size={16} />
-                          Düzenle
-                        </button>
-                        <button className="primary" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("continue")}>Sepete Yolla + Devam Et</button>
-                        <button className="primary finish" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("finish")}>Sepete Yolla + Bitir</button>
-                      </div>
-                      <div className="sale-line-editor-grid">
+
+                      <div className="sale-line-editor-grid sale-line-only-grid">
                         <label>
                           <span>Ürün</span>
                           <input value={saleProductDisplayName} onChange={(event) => setSaleForm({ ...saleForm, search: event.target.value })} disabled={!isProgramSale} />
                         </label>
-                        {!isAccessorySale && (
-                          <label className={sessionCustomerLocked ? "session-locked-field" : ""}>
-                            <span>{sessionCustomerLocked ? "Müşteri • oturum" : "Müşteri"}</span>
-                            <input
-                              list="cart-customer-list"
-                              value={saleForm.customer || cartCustomer.customerName}
-                              readOnly={sessionCustomerLocked}
-                              aria-readonly={sessionCustomerLocked}
-                              onChange={(event) => {
-                                if (sessionCustomerLocked) return;
-                                const customerName = event.target.value;
-                                changeCartCustomer(customerName);
-                              }}
-                              placeholder="Müşteri adı soyadı / telefon"
-                            />
-                            {sessionCustomerLocked && <em>Aktif sepet carisi kullanılıyor</em>}
-                          </label>
-                        )}
+                        <label>
+                          <span>Adet</span>
+                          <div className="sale-line-quantity-control">
+                            <button type="button" onClick={() => setSaleLineQuantity(Math.max(Number(saleLineQuantity || 1) - 1, 1))}>−</button>
+                            <input inputMode="numeric" value={saleLineQuantity} onChange={(event) => setSaleLineQuantity(Math.max(Number(event.target.value || 1), 1))} />
+                            <button type="button" onClick={() => setSaleLineQuantity(Number(saleLineQuantity || 1) + 1)}>+</button>
+                          </div>
+                        </label>
                         <label>
                           <span>Satış Fiyatı</span>
                           <input inputMode="numeric" value={saleForm.total} onFocus={() => setSaleForm({ ...saleForm, total: stripMoneyForEdit(saleForm.total) })} onChange={(event) => setSaleForm({ ...saleForm, total: cleanMoneyTyping(event.target.value) })} onBlur={() => setSaleForm({ ...saleForm, total: formatMoneyInput(saleForm.total) })} />
                         </label>
-                        <label className={cartSessionStarted ? "session-locked-field" : ""}>
-                          <span>{cartSessionStarted ? "Nakit • otomatik" : "Nakit"}</span>
-                          <input
-                            inputMode="numeric"
-                            value={cartSessionStarted ? formatMoneyInput(saleCash) : saleForm.cash}
-                            readOnly={cartSessionStarted}
-                            aria-readonly={cartSessionStarted}
-                            onFocus={() => { if (!cartSessionStarted) setSaleForm({ ...saleForm, cash: stripMoneyForEdit(saleForm.cash) }); }}
-                            onChange={(event) => { if (!cartSessionStarted) setSaleForm({ ...saleForm, cash: cleanMoneyTyping(event.target.value) }); }}
-                            onBlur={() => { if (!cartSessionStarted) setSaleForm({ ...saleForm, cash: formatMoneyInput(saleForm.cash) }); }}
-                          />
-                          {cartSessionStarted && <em>İlk ürün ödeme oranına göre hesaplandı</em>}
+                        <label className="sale-line-total-field">
+                          <span>Satır Toplamı</span>
+                          <input value={money(saleLineSubtotal)} readOnly aria-readonly="true" />
                         </label>
-                        <label className={cartSessionStarted ? "session-locked-field" : ""}>
-                          <span>{cartSessionStarted ? "Kart / POS • otomatik" : "Kart / POS"}</span>
-                          <input
-                            inputMode="numeric"
-                            value={cartSessionStarted ? formatMoneyInput(saleCard) : saleForm.card}
-                            readOnly={cartSessionStarted}
-                            aria-readonly={cartSessionStarted}
-                            onFocus={() => { if (!cartSessionStarted) setSaleForm({ ...saleForm, card: stripMoneyForEdit(saleForm.card) }); }}
-                            onChange={(event) => { if (!cartSessionStarted) setSaleForm({ ...saleForm, card: cleanMoneyTyping(event.target.value) }); }}
-                            onBlur={() => { if (!cartSessionStarted) setSaleForm({ ...saleForm, card: formatMoneyInput(saleForm.card) }); }}
-                          />
-                          {cartSessionStarted && <em>Aktif banka/ödeme session’ı kullanılır</em>}
+                        <label className="sale-line-note-field">
+                          <span>Not (opsiyonel)</span>
+                          <input value={saleLineNote} onChange={(event) => setSaleLineNote(event.target.value)} placeholder="Bu ürün satırı için kısa not" />
                         </label>
-                        <label className={sessionBankLocked ? "session-locked-field" : ""}>
-                          <span>{sessionBankLocked ? "Banka • oturum" : "Banka"}</span>
-                          <select
-                            value={cartBankName || saleForm.bank}
-                            disabled={sessionBankLocked}
-                            aria-disabled={sessionBankLocked}
-                            onChange={(event) => handleBankSelect(event.target.value, (bank) => {
-                              setSaleForm({ ...saleForm, bank });
-                              setCartBankName(bank);
-                            })}
-                          >
-                            <option value="">Banka seç</option>
-                            {bankOptions.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
-                            <option value="__add_bank__">+ Banka Ekle</option>
-                          </select>
-                          {sessionBankLocked && <em>Kart/POS için aktif banka kullanılacak</em>}
-                        </label>
-                        <label className={sessionCustomerLocked ? "sale-line-cari-field session-locked-field" : "sale-line-cari-field"}>
-                          <span>{sessionCustomerLocked ? "Kalan / Cari • oturum" : "Kalan / Cari"}</span>
-                          <input
-                            list="cart-customer-list"
-                            value={sessionCustomerLocked ? cartCustomer.customerName : saleFormCariText}
-                            readOnly={sessionCustomerLocked}
-                            aria-readonly={sessionCustomerLocked}
-                            onChange={(event) => {
-                              if (sessionCustomerLocked) return;
-                              changeCartCustomer(event.target.value);
-                            }}
-                            placeholder={saleReadyRemaining > 0 ? "Cari kişi" : "Kalan yok"}
-                          />
-                          {sessionCustomerLocked && <em>Kalan tutar aktif cariye yazılır</em>}
-                        </label>
-                        <div className="sale-line-profit-peek" tabIndex={0}>
-                          <span>Kâr</span>
-                          <b>Kârı göster</b>
-                          <strong className={saleLineProfit < 0 ? "negative" : ""}>{money(saleLineProfit)}</strong>
-                        </div>
                       </div>
-                      <div className="kasa-sale-ready-lines sale-ready-modal-lines">
-                        <div><span>Ürün</span><b>{isProgramSale ? saleForm.search : productTitle(selectedProduct)}</b></div>
-                        <div><span>Fiyat</span><b>{money(saleTotal)}</b></div>
-                        <div><span>Nakit</span><b>{money(saleCash)}</b></div>
-                        <div><span>Kart</span><b>{money(saleCard)}</b></div>
-                        <div><span>Banka</span><b>{saleForm.bank || cartBankName || "-"}</b></div>
-                        <div><span>Cari</span><b>{money(saleReadyRemaining)}</b></div>
-                        <div><span>Kâr</span><b className={saleLineProfit < 0 ? "negative" : ""}>{money(saleLineProfit)}</b></div>
-                        {saleReadyRemaining > 0 && <div><span>Cari Kişi</span><b>{saleFormCariText || "-"}</b></div>}
+
+                      <div className="kasa-sale-ready-lines sale-ready-modal-lines sale-line-only-summary">
+                        <div><span>Ürün</span><b>{saleProductDisplayName}</b></div>
+                        <div><span>Adet</span><b>{saleLineQuantityValue}</b></div>
+                        <div><span>Satış Fiyatı</span><b>{money(saleTotal)}</b></div>
+                        <div><span>Satır Toplamı</span><b>{money(saleLineSubtotal)}</b></div>
+                      </div>
+
+                      <div className="kasa-sale-ready-actions sale-ready-modal-actions sale-ready-modal-actions-bottom">
+                        <button type="button" className="choice" onClick={closeSaleReadyModal}>
+                          <Calculator size={16} />
+                          Vazgeç
+                        </button>
+                        <button className="primary" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("continue")}>Sepete Yolla ve Devam Et</button>
+                        <button className="primary finish" type="button" disabled={!saleFormReadyForCart} onClick={() => confirmSaleReadyToCart("finish")}>Sepete Yolla ve Bitir</button>
                       </div>
                     </div>
                   </div>
