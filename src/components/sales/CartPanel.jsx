@@ -160,14 +160,13 @@ export function CartPaymentBox({
 
       {paymentGap !== 0 && (
         <div className={`cart-payment-gap ${gapTone}`}>
-          <span>{paymentGap > 0 ? "Eksik / cariye aktarılacak kalan" : "Fazla ödeme"}</span>
           <b>{money(Math.abs(paymentGap))}</b>
           {paymentGap > 0 ? (
-            <button type="button" onClick={() => onPaymentChange("cariAmount", String(paymentNumber(payments.cariAmount) + paymentGap))}>
+            <button type="button" className="cart-gap-primary-action" onClick={() => onPaymentChange("cariAmount", String(paymentNumber(payments.cariAmount) + paymentGap))}>
               Kalanı cariye yaz
             </button>
           ) : (
-            <button type="button" onClick={() => onPaymentChange("cariAmount", String(Math.max(paymentNumber(payments.cariAmount) - Math.abs(paymentGap), 0)))}>
+            <button type="button" className="cart-gap-primary-action" onClick={() => onPaymentChange("cariAmount", String(Math.max(paymentNumber(payments.cariAmount) - Math.abs(paymentGap), 0)))}>
               Fazlayı düzelt
             </button>
           )}
