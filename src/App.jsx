@@ -2684,10 +2684,11 @@ const isSameSalesListDay = (item, dateKey) => {
   const saleFormHasProduct = isProgramSale ? Boolean(saleForm.search.trim()) : Boolean(selectedProduct);
   const saleFormNeedsBank = saleCard > 0;
   const saleFormNeedsCari = saleReadyRemaining > 0;
-  const hasActiveCartSession = cartItems.length > 0 || Boolean(cartCustomer.customerName || cartBankName || cartPaymentContext.hasCash || cartPaymentContext.hasCard || cartPaymentContext.hasCari);
-  const sessionCustomerLocked = Boolean(cartCustomer.customerName);
-  const sessionBankLocked = Boolean(cartBankName);
-  const saleFormCariText = String(saleForm.cariPerson || saleForm.customer || cartCustomer.customerName || "");
+  const cartSessionStarted = cartItems.length > 0 || Boolean(cartPaymentContext.hasCash || cartPaymentContext.hasCard || cartPaymentContext.hasCari);
+  const hasActiveCartSession = cartSessionStarted || Boolean(cartItems.length && (cartCustomer.customerName || cartBankName));
+  const sessionCustomerLocked = cartSessionStarted && Boolean(cartCustomer.customerName);
+  const sessionBankLocked = cartSessionStarted && Boolean(cartBankName);
+  const saleFormCariText = String(cartCustomer.customerName || saleForm.cariPerson || saleForm.customer || "");
   const saleCustomerRequired = !isAccessorySale || saleReadyRemaining > 0;
   const saleFormCustomerReady = !saleCustomerRequired || Boolean(saleFormCariText.trim());
   const saleProductDisplayName = isProgramSale ? (saleForm.search || "Program / Hizmet") : (productTitle(selectedProduct) || "Ürün seçilmedi");
@@ -6900,7 +6901,7 @@ const isSameSalesListDay = (item, dateKey) => {
                             <span>{sessionCustomerLocked ? "Müşteri • oturum" : "Müşteri"}</span>
                             <input
                               list="cart-customer-list"
-                              value={cartCustomer.customerName || saleForm.customer}
+                              value={saleForm.customer || cartCustomer.customerName}
                               readOnly={sessionCustomerLocked}
                               aria-readonly={sessionCustomerLocked}
                               onChange={(event) => {
@@ -6946,7 +6947,7 @@ const isSameSalesListDay = (item, dateKey) => {
                           <span>{sessionCustomerLocked ? "Kalan / Cari • oturum" : "Kalan / Cari"}</span>
                           <input
                             list="cart-customer-list"
-                            value={saleFormCariText}
+                            value={sessionCustomerLocked ? cartCustomer.customerName : saleFormCariText}
                             readOnly={sessionCustomerLocked}
                             aria-readonly={sessionCustomerLocked}
                             onChange={(event) => {

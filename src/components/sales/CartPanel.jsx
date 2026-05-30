@@ -82,14 +82,15 @@ export function CartPaymentBox({
   const hasCardPayment = paymentNumber(payments.cardAmount) + paymentNumber(payments.bankAmount) > 0;
   const hasCariPayment = paymentNumber(payments.cariAmount) > 0;
   const hasSessionPayment = hasCashPayment || hasCardPayment || hasCariPayment;
+  const sessionPaymentTitle = hasSessionPayment ? "Sepet oturumu başladı; ödeme tipi satır bazında korunuyor." : "Tüm sepeti bu ödeme tipine ayarla";
   const gapTone = paymentGap > 0 ? "remaining" : "overpaid";
 
   return (
     <div className="cart-payment-box">
       <div className="cart-payment-actions">
-        <button type="button" onClick={() => onSetFullPayment("cash")} disabled={hasSessionPayment}>Nakit</button>
-        <button type="button" onClick={() => onSetFullPayment("card")} disabled={hasSessionPayment}>Kart</button>
-        <button type="button" onClick={() => onSetFullPayment("cari")} disabled={hasSessionPayment}>Cari</button>
+        <button type="button" onClick={() => onSetFullPayment("cash")} disabled={hasSessionPayment} title={sessionPaymentTitle}>Nakit</button>
+        <button type="button" onClick={() => onSetFullPayment("card")} disabled={hasSessionPayment} title={sessionPaymentTitle}>Kart</button>
+        <button type="button" onClick={() => onSetFullPayment("cari")} disabled={hasSessionPayment} title={sessionPaymentTitle}>Cari</button>
       </div>
 
       <div className="payment-box">
