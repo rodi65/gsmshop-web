@@ -100,6 +100,7 @@ assert(cartPanel.includes("Kart Toplamı") && cartPanel.includes("Cari Toplamı"
 assert(style.includes("Payment visibility fix") && style.includes("visibility: visible !important") && style.includes(".cart-note") && style.includes("display: none !important"), "Sepet ödeme inputları küçük popup içinde görünür kalmalı.");
 assert(cartPanel.includes("cart-header-actions") && cartPanel.includes("cart-close-btn"), "Sepet başlığı temizle ve kapat aksiyonlarını tek satırda taşımalı.");
 assert(style.includes("Cart popup header/flow pass") && style.includes(".cart-header-actions") && style.includes(".cart-close-btn"), "Sepet popup başlık ve ödeme akışı kompakt final stile sahip olmalı.");
+assert(style.includes("Cart list gap fix") && style.includes("grid-template-rows: auto auto auto auto auto") && style.includes(":has(.cart-checkout-item-card:nth-of-type(2))"), "Sepet ürün listesi altında gereksiz boşluk bırakmamalı.");
 assert(style.includes("width: min(620px") && style.includes(".cart-final-payment-grid label:first-child"), "Sepet popup dar ve ödeme alanları iki satırlı okunur düzene alınmalı.");
 assert(app.includes("cartEffectivePayments"), "Sepet tamamlamada etkin ödeme toplamları kullanılmalı.");
 assert(dataService.includes("ceplog_apply_sale_transaction"), "Satış transaction RPC bağlantısı eksik.");

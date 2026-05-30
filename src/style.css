@@ -18121,3 +18121,42 @@ html.ceplog-zoomed-in .premium-dashboard .app-shell > .section {
     width: 100% !important;
   }
 }
+
+/* Cart list gap fix: remove the reserved whitespace between products and totals without growing the popup. */
+.cart-flow-modal-window .cart-panel {
+  grid-template-rows: auto auto auto auto auto !important;
+  gap: 4px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list {
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: 112px !important;
+  align-self: start !important;
+  margin-bottom: 0 !important;
+  padding-bottom: 4px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list:has(.cart-checkout-item-card:nth-of-type(1)) {
+  max-height: 48px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list:has(.cart-checkout-item-card:nth-of-type(2)) {
+  max-height: 88px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-list:has(.cart-checkout-item-card:nth-of-type(3)) {
+  max-height: 112px !important;
+}
+
+.cart-flow-modal-window .cart-checkout-item-card {
+  min-height: 38px !important;
+}
+
+.cart-flow-modal-window .cart-final-summary {
+  margin-top: 0 !important;
+}
+
+.cart-flow-modal-window .cart-final-payment-box {
+  margin-top: 0 !important;
+}
